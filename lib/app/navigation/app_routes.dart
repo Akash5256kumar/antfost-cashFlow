@@ -1,0 +1,30 @@
+abstract final class AppRoutes {
+  static const String splash = '/';
+  static const String onboarding = '/onboarding';
+  static const String getStarted = '/get-started';
+  static const String signIn = '/auth/sign-in';
+  static const String createAccount = '/auth/create-account';
+  static const String forgotPasscode = '/auth/forgot-passcode';
+  static const String verifyAccount = '/auth/verify-account';
+  static const String kycVerification = '/kyc/verification';
+  static const String kycPending = '/kyc/pending';
+  static const String newCashOrder         = '/orders/new-cash-order';
+  static const String newCashOrderMixCode  = '/orders/new-cash-order/mix-code';
+  static const String newCashOrderQuantity = '/orders/new-cash-order/quantity';
+  static const String newCashOrderSchedule = '/orders/new-cash-order/schedule';
+  static const String newCashOrderOther    = '/orders/new-cash-order/other';
+  static const String newCashOrderReview   = '/orders/new-cash-order/review';
+  static const String payment              = '/payment';
+  static const String paymentSuccess       = '/payment/success';
+  static const String addNewProject        = '/orders/add-new-project';
+  static const String myOrders             = '/orders';
+  static const String orderDetails         = '/orders/details';
+  static const String wallet               = '/wallet';
+  static const String transactionHistory   = '/wallet/transactions';
+  static const String invoices             = '/invoices';
+  static const String invoiceDetails       = '/invoices/details';
+  static const String qcCheckpoint         = '/invoices/qc';
+  static const String profile              = '/profile';
+  static const String notifications        = '/notifications';
+  static const String home = '/home';
+}
