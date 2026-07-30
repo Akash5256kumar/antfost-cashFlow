@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../app/navigation/app_route_args.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
+import '../../core/utils/route_feedback.dart';
 import '../../core/widgets/app_gradient_button.dart';
 import '../../core/widgets/app_outline_button.dart';
+import 'presentation/bloc/auth_bloc.dart';
+import 'presentation/bloc/auth_event.dart';
+import 'presentation/bloc/auth_state.dart';
 
 class VerifyAccountScreen extends StatefulWidget {
   final String contact;
@@ -37,6 +43,9 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
     (_) => FocusNode(),
   );
 
+  /// Returns the current OTP value by joining all controller texts.
+  String get _otpValue => _controllers.map((c) => c.text).join();
+
   @override
   void dispose() {
     for (final c in _controllers) {
@@ -56,146 +65,235 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
     }
   }
 
+  /// Dispatches [VerifyOtpEvent] with the entered OTP.
   void _handleContinue() {
-    switch (widget.flow) {
-      case VerifyAccountFlow.signUp:
-        Navigator.of(context).pushReplacementNamed(AppRoutes.kycVerification);
-        return;
-      case VerifyAccountFlow.passwordRecovery:
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRoutes.signIn,
-          (route) => route.settings.name == AppRoutes.getStarted,
-        );
-        return;
-    }
+    context.read<AuthBloc>().add(
+      VerifyOtpEvent(
+        contact: widget.contact,
+        otp: _otpValue,
+        isEmail: widget.isEmail,
+      ),
+    );
+  }
+
+  /// Dispatches [ForgotPasscodeEvent] to resend the OTP.
+  void _handleResend() {
+    context.read<AuthBloc>().add(
+      ForgotPasscodeEvent(contact: widget.contact, isEmail: widget.isEmail),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: const BackButton(color: AppColors.textPrimary),
-        title: const Text(
-          'Verify Your Account',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // ── Top content ──────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: AppSpacing.authBodyTop),
+    return BlocConsumer<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (!context.mounted || !isCurrentRoute(context)) {
+          return;
+        }
 
-                // ── Subtitle ───────────────────────────────────────────────
-                Text.rich(
-                  TextSpan(
-                    text: widget.isEmail
-                        ? "Verify Your Email We've sent a 6-digit code to\n"
-                        : "Verify Your Phone We've sent a 6-digit code to\n",
-                    style: AppTextStyles.authScreenSubtitle,
-                    children: [
-                      TextSpan(
-                        text: widget.contact,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.link,
-                          decoration: TextDecoration.underline,
-                          decorationColor: AppColors.link,
-                        ),
-                      ),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+        if (state is AuthOtpVerified) {
+          // Navigate based on which flow triggered this verification screen.
+          switch (widget.flow) {
+            case VerifyAccountFlow.signUp:
+              // Proceed to KYC after account OTP is verified.
+              Navigator.of(
+                context,
+              ).pushReplacementNamed(AppRoutes.kycVerification);
+              break;
+            case VerifyAccountFlow.passwordRecovery:
+              // Return to sign-in after password-recovery OTP is verified.
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRoutes.signIn,
+                (route) => route.settings.name == AppRoutes.getStarted,
+              );
+              break;
+          }
+        } else if (state is AuthOtpSent) {
+          // OTP was resent; inform the user.
+          showSingleSnackBar(
+            context,
+            const SnackBar(content: Text('OTP resent successfully.')),
+          );
+        } else if (state is AuthError) {
+          showSingleSnackBar(context, SnackBar(content: Text(state.message)));
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
 
-                const SizedBox(height: AppSpacing.xxxl),
-
-                // ── OTP boxes ──────────────────────────────────────────────
-                _OtpRow(
-                  controllers: _controllers,
-                  focusNodes: _focusNodes,
-                  onChanged: _onOtpChanged,
-                ),
-
-                const SizedBox(height: AppSpacing.xl),
-
-                // ── Validity note ──────────────────────────────────────────
-                const Text(
-                  'OTP valid for 5 minutes. Maximum 3 attempts allowed.',
-                  style: AppTextStyles.authNote,
-                  textAlign: TextAlign.center,
-                ),
-              ],
+        return Scaffold(
+          backgroundColor: AppColors.white,
+          appBar: AppBar(
+            backgroundColor: AppColors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: const BackButton(color: AppColors.textPrimary),
+            title: const Text(
+              'Verify Your Account',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
             ),
+            centerTitle: true,
           ),
-
-          const Spacer(),
-
-          // ── Bottom actions ───────────────────────────────────────────────
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.xxl,
-              0,
-              AppSpacing.xxl,
-              bottomInset > 0 ? bottomInset + AppSpacing.sm : AppSpacing.xxl,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppGradientButton(
-                  label: 'Verify & Continue',
-                  onPressed: _handleContinue,
-                ),
-
-                const SizedBox(height: AppSpacing.md),
-
-                AppOutlineButton(
-                  label: widget.isEmail ? 'Change Email' : 'Change Phone',
-                  onPressed: () => Navigator.pop(context),
-                ),
-
-                const SizedBox(height: AppSpacing.xl),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // ── Top content ──────────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text(
-                      "Didn't Receive Code? ",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
+                    const SizedBox(height: AppSpacing.authBodyTop),
+
+                    // ── Subtitle ───────────────────────────────────────────────
+                    Text.rich(
+                      TextSpan(
+                        text: widget.isEmail
+                            ? "Verify Your Email We've sent a 6-digit code to\n"
+                            : "Verify Your Phone We've sent a 6-digit code to\n",
+                        style: AppTextStyles.authScreenSubtitle,
+                        children: [
+                          TextSpan(
+                            text: widget.contact,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.link,
+                              decoration: TextDecoration.underline,
+                              decorationColor: AppColors.link,
+                            ),
+                          ),
+                        ],
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                    GestureDetector(
-                      onTap: () {},
-                      child: const Text(
-                        'Resend',
-                        style: AppTextStyles.authLink,
-                      ),
+
+                    const SizedBox(height: AppSpacing.xxxl),
+
+                    // ── OTP boxes ──────────────────────────────────────────────
+                    _OtpRow(
+                      controllers: _controllers,
+                      focusNodes: _focusNodes,
+                      onChanged: _onOtpChanged,
+                    ),
+
+                    const SizedBox(height: AppSpacing.xl),
+
+                    // ── Validity note ──────────────────────────────────────────
+                    const Text(
+                      'OTP valid for 5 minutes. Maximum 3 attempts allowed.',
+                      style: AppTextStyles.authNote,
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
-              ],
+              ),
+
+              const Spacer(),
+
+              // ── Bottom actions ───────────────────────────────────────────────
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.xxl,
+                  0,
+                  AppSpacing.xxl,
+                  bottomInset > 0
+                      ? bottomInset + AppSpacing.sm
+                      : AppSpacing.xxl,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Show a loading container while verifying, otherwise the
+                    // active "Verify & Continue" button.
+                    if (isLoading)
+                      _LoadingButton()
+                    else
+                      AppGradientButton(
+                        label: 'Verify & Continue',
+                        onPressed: _handleContinue,
+                      ),
+
+                    const SizedBox(height: AppSpacing.md),
+
+                    AppOutlineButton(
+                      label: widget.isEmail ? 'Change Email' : 'Change Phone',
+                      onPressed: () => Navigator.pop(context),
+                    ),
+
+                    const SizedBox(height: AppSpacing.xl),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "Didn't Receive Code? ",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        GestureDetector(
+                          // Resend OTP through the BLoC.
+                          onTap: isLoading ? null : _handleResend,
+                          child: const Text(
+                            'Resend',
+                            style: AppTextStyles.authLink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Loading button placeholder ────────────────────────────────────────────────
+//
+// Renders a gradient container matching [AppGradientButton] visually but
+// displays a [CircularProgressIndicator] while an OTP request is in-flight.
+class _LoadingButton extends StatelessWidget {
+  const _LoadingButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            AppColors.primaryGradientStart,
+            AppColors.primaryGradientEnd,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.button),
+      ),
+      child: const SizedBox(
+        width: double.infinity,
+        height: AppSpacing.buttonHeight,
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2,
             ),
           ),
-        ],
+        ),
       ),
     );
   }

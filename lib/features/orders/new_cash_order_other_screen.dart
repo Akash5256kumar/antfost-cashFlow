@@ -101,6 +101,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -111,7 +112,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
               child: ColoredBox(
                 color: kOrderBodyBg,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -360,18 +361,15 @@ class _TempSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Row(
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: _temperatures
               .map(
-                (t) => Padding(
-                  padding: EdgeInsets.only(
-                    right: t == _temperatures.last ? 0 : 10,
-                  ),
-                  child: _TempChip(
-                    value: t,
-                    isSelected: t == selected,
-                    onTap: () => onSelect(t),
-                  ),
+                (t) => _TempChip(
+                  value: t,
+                  isSelected: t == selected,
+                  onTap: () => onSelect(t),
                 ),
               )
               .toList(),
@@ -410,8 +408,8 @@ class _TempChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        constraints: const BoxConstraints(minWidth: 72, minHeight: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.white,
@@ -421,7 +419,7 @@ class _TempChip extends StatelessWidget {
           ),
         ),
         child: Text(
-          '+ ${value}°C',
+          '+ $value°C',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,

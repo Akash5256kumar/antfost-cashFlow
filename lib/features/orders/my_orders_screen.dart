@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shimmer/shimmer.dart';
 
+import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
+import 'domain/entities/order.dart' as order_entity;
 import 'order_details_screen.dart';
+import 'presentation/bloc/orders_bloc.dart';
+import 'presentation/bloc/orders_event.dart';
+import 'presentation/bloc/orders_state.dart';
 
 // ── Colours ───────────────────────────────────────────────────────────────────
 const Color _pageBg = Color(0xFFF5F5F8);
@@ -20,73 +27,6 @@ const Color _progressTrack = Color(0xFFE5E7EB);
 const Color _progressGreen = Color(0xFF22C55E);
 const Color _progressBlue = Color(0xFF6366F1);
 
-// ── Status enum ───────────────────────────────────────────────────────────────
-
-enum OrderStatusType { inProgress, scheduled, completed }
-
-// ── Data model ────────────────────────────────────────────────────────────────
-
-class MyOrderItem {
-  const MyOrderItem({
-    required this.orderId,
-    required this.status,
-    required this.grade,
-    required this.location,
-    required this.timeSlot,
-    required this.volume,
-    required this.date,
-    required this.amount,
-    this.delivered,
-    this.total,
-  });
-
-  final String orderId;
-  final OrderStatusType status;
-  final String grade;
-  final String location;
-  final String timeSlot;
-  final String volume;
-  final String date;
-  final String amount;
-  final int? delivered;
-  final int? total;
-}
-
-const _allOrders = [
-  MyOrderItem(
-    orderId: 'AF-2024-02-000001',
-    status: OrderStatusType.inProgress,
-    grade: 'C25/30',
-    location: 'Marina Tower - Ground Floor',
-    timeSlot: '6 AM - 10 AM (±4 hrs)',
-    volume: '50 m³ • 5 trips',
-    date: '7 Feb, 10:06 AM',
-    amount: 'AED 17,400',
-    delivered: 20,
-    total: 50,
-  ),
-  MyOrderItem(
-    orderId: 'AF-2024-02-000002',
-    status: OrderStatusType.scheduled,
-    grade: 'C30/37',
-    location: 'Palm Villa Site A',
-    timeSlot: '6 AM - 12 PM (±6 hrs)',
-    volume: '25 m³ • 3 trips',
-    date: '6 Feb, 12:06 PM',
-    amount: 'AED 9,450',
-  ),
-  MyOrderItem(
-    orderId: 'AF-2024-02-000002',
-    status: OrderStatusType.completed,
-    grade: 'C30/37',
-    location: 'Palm Villa Site A',
-    timeSlot: '',
-    volume: '',
-    date: '6 Feb, 12:06 PM',
-    amount: 'AED 9,450',
-  ),
-];
-
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class MyOrdersScreen extends StatefulWidget {
@@ -97,41 +37,15 @@ class MyOrdersScreen extends StatefulWidget {
 }
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
-  int _filterIndex = 0; // 0=All, 1=Active, 2=Scheduled, 3=Completed
   final _searchCtrl = TextEditingController();
 
   static const _filters = ['All', 'Active', 'Scheduled', 'Completed'];
 
-  List<MyOrderItem> get _filtered {
-    var items = _allOrders.toList();
-    final q = _searchCtrl.text.trim().toLowerCase();
-    if (q.isNotEmpty) {
-      items = items
-          .where(
-            (o) =>
-                o.orderId.toLowerCase().contains(q) ||
-                o.grade.toLowerCase().contains(q),
-          )
-          .toList();
-    }
-    switch (_filterIndex) {
-      case 1:
-        items = items
-            .where((o) => o.status == OrderStatusType.inProgress)
-            .toList();
-        break;
-      case 2:
-        items = items
-            .where((o) => o.status == OrderStatusType.scheduled)
-            .toList();
-        break;
-      case 3:
-        items = items
-            .where((o) => o.status == OrderStatusType.completed)
-            .toList();
-        break;
-    }
-    return items;
+  @override
+  void initState() {
+    super.initState();
+    // Trigger initial fetch when the screen is first created.
+    context.read<OrdersBloc>().add(const FetchOrdersEvent());
   }
 
   @override
@@ -144,70 +58,197 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _pageBg,
+      bottomNavigationBar: const AppTabBottomNavBar(currentTab: AppTab.orders),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 20),
+        child: BlocConsumer<OrdersBloc, OrdersState>(
+          listener: (context, state) {
+            // Show snackbar on error state with a retry action.
+            if (state is OrdersError) {
+              ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(SnackBar(
+                  content: Text(state.message),
+                  action: SnackBarAction(
+                    label: 'Retry',
+                    onPressed: () {
+                      context
+                          .read<OrdersBloc>()
+                          .add(const RetryOrdersEvent());
+                    },
+                  ),
+                ));
+            }
+          },
+          builder: (context, state) {
+            // Derive active filter index and search query from BLoC state.
+            final filterIndex =
+                state is OrdersSuccess ? state.filterIndex : 0;
 
-                    // Title
-                    const Text(
-                      'My Orders',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: _textDark,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Track and manage your orders',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: _textGrey,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 20),
 
-                    // Search bar
-                    _SearchBar(controller: _searchCtrl),
-                    const SizedBox(height: 14),
-
-                    // Filter chips
-                    _FilterRow(
-                      filters: _filters,
-                      selected: _filterIndex,
-                      onSelect: (i) => setState(() => _filterIndex = i),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Order cards
-                    ..._filtered.map(
-                      (o) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _OrderCard(
-                          item: o,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const OrderDetailsScreen(),
-                            ),
+                        // Title
+                        const Text(
+                          'My Orders',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: _textDark,
+                            height: 1.2,
                           ),
                         ),
-                      ),
-                    ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Track and manage your orders',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: _textGrey,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
 
-                    const SizedBox(height: 20),
-                  ],
+                        // Search bar — dispatches SearchOrdersEvent on change.
+                        _SearchBar(
+                          controller: _searchCtrl,
+                          onChanged: (query) {
+                            context
+                                .read<OrdersBloc>()
+                                .add(SearchOrdersEvent(query));
+                          },
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Filter chips — dispatch FilterOrdersEvent on select.
+                        _FilterRow(
+                          filters: _filters,
+                          selected: filterIndex,
+                          onSelect: (i) {
+                            context
+                                .read<OrdersBloc>()
+                                .add(FilterOrdersEvent(i));
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Body: loading / success / error / initial states.
+                        if (state is OrdersLoading) ...[
+                          // Shimmer placeholders while loading.
+                          const _ShimmerOrderCard(),
+                          const SizedBox(height: 12),
+                          const _ShimmerOrderCard(),
+                          const SizedBox(height: 12),
+                          const _ShimmerOrderCard(),
+                        ] else if (state is OrdersSuccess) ...[
+                          // Real order cards from BLoC filtered list.
+                          ...state.filteredOrders.map(
+                            (o) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _OrderCard(
+                                item: o,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const OrderDetailsScreen(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (state.filteredOrders.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 40),
+                              child: Center(
+                                child: Text(
+                                  'No orders found.',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: _textGrey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ] else if (state is OrdersError) ...[
+                          // Inline retry widget shown alongside the snackbar.
+                          _OrdersErrorWidget(message: state.message),
+                        ] else if (state is OrdersInitial) ...[
+                          // Optionally show a brief placeholder before fetch completes.
+                          const SizedBox(height: 40),
+                        ],
+
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shimmer order card placeholder ────────────────────────────────────────────
+
+class _ShimmerOrderCard extends StatelessWidget {
+  const _ShimmerOrderCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE0E0E0),
+      highlightColor: const Color(0xFFF5F5F5),
+      child: Container(
+        height: 160,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Orders error widget ───────────────────────────────────────────────────────
+
+class _OrdersErrorWidget extends StatelessWidget {
+  final String message;
+  const _OrdersErrorWidget({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: _textGrey,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: _textGrey),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                context.read<OrdersBloc>().add(const RetryOrdersEvent());
+              },
+              child: const Text('Retry'),
             ),
           ],
         ),
@@ -219,8 +260,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 // ── Search bar ────────────────────────────────────────────────────────────────
 
 class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.controller});
+  const _SearchBar({required this.controller, required this.onChanged});
+
   final TextEditingController controller;
+
+  /// Callback invoked with the current query text on every change.
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +273,7 @@ class _SearchBar extends StatelessWidget {
       height: 52,
       child: TextField(
         controller: controller,
+        onChanged: onChanged,
         style: const TextStyle(fontSize: 15, color: _textDark),
         decoration: InputDecoration(
           hintText: 'Search By Order ID..',
@@ -337,18 +383,24 @@ class _FilterChip extends StatelessWidget {
 
 // ── Order card ────────────────────────────────────────────────────────────────
 
+/// Displays a domain [order_entity.Order] as a visual card.
 class _OrderCard extends StatelessWidget {
   const _OrderCard({required this.item, required this.onTap});
-  final MyOrderItem item;
+
+  final order_entity.Order item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final hasProgress =
-        item.status == OrderStatusType.inProgress &&
+        item.status == order_entity.OrderStatusType.inProgress &&
         item.delivered != null &&
         item.total != null;
     final progress = hasProgress ? item.delivered! / item.total! : 0.0;
+
+    // Format the amount as a currency string with comma separators.
+    final amountText =
+        'AED ${item.amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
 
     return GestureDetector(
       onTap: onTap,
@@ -362,7 +414,7 @@ class _OrderCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Order ID + status
+            // Order ID + status badge.
             Row(
               children: [
                 Text(
@@ -379,7 +431,7 @@ class _OrderCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
 
-            // Grade
+            // Grade.
             Text(
               item.grade,
               style: const TextStyle(
@@ -399,7 +451,10 @@ class _OrderCard extends StatelessWidget {
             ],
             if (item.volume.isNotEmpty) ...[
               const SizedBox(height: 6),
-              _InfoRow(icon: Icons.local_shipping_outlined, text: item.volume),
+              _InfoRow(
+                icon: Icons.local_shipping_outlined,
+                text: item.volume,
+              ),
             ],
 
             const SizedBox(height: 12),
@@ -414,7 +469,7 @@ class _OrderCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  item.amount,
+                  amountText,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -449,6 +504,8 @@ class _OrderCard extends StatelessWidget {
   }
 }
 
+// ── Info row ──────────────────────────────────────────────────────────────────
+
 class _InfoRow extends StatelessWidget {
   const _InfoRow({required this.icon, required this.text});
   final IconData icon;
@@ -471,9 +528,11 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+// ── Status badge ──────────────────────────────────────────────────────────────
+
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
-  final OrderStatusType status;
+  final order_entity.OrderStatusType status;
 
   @override
   Widget build(BuildContext context) {
@@ -481,17 +540,17 @@ class _StatusBadge extends StatelessWidget {
     Color text;
     String label;
     switch (status) {
-      case OrderStatusType.inProgress:
+      case order_entity.OrderStatusType.inProgress:
         bg = _inProgressBg;
         text = _inProgressText;
         label = 'in Progress';
         break;
-      case OrderStatusType.scheduled:
+      case order_entity.OrderStatusType.scheduled:
         bg = _scheduledBg;
         text = _scheduledText;
         label = 'Scheduled';
         break;
-      case OrderStatusType.completed:
+      case order_entity.OrderStatusType.completed:
         bg = _completedBg;
         text = _completedText;
         label = 'Completed';
@@ -514,6 +573,8 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 }
+
+// ── Gradient progress bar ─────────────────────────────────────────────────────
 
 class _GradientProgressBar extends StatelessWidget {
   const _GradientProgressBar({required this.progress});

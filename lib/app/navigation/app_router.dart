@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/invoices/domain/entities/invoice.dart';
 import '../../features/invoices/invoice_details_screen.dart';
 import '../../features/invoices/invoices_screen.dart';
 import '../../features/invoices/qc_checkpoint_screen.dart';
@@ -23,7 +24,7 @@ import '../../features/orders/order_details_screen.dart';
 import '../../features/orders/order_project_summary.dart';
 import '../../features/payment/payment_screen.dart';
 import '../../features/payment/payment_success_screen.dart';
-import '../../features/splash/splash_screen.dart';
+import '../../features/splash/presentation/pages/splash_screen.dart';
 import '../../features/wallet/transaction_history_screen.dart';
 import '../config/app_durations.dart';
 import 'app_route_args.dart';
@@ -38,7 +39,7 @@ class AppRouter {
       case AppRoutes.splash:
         return _materialRoute(
           settings: settings,
-          builder: (_) => const SplashScreen(),
+          builder: (_) => const SplashPage(),
         );
       case AppRoutes.onboarding:
         return PageRouteBuilder<void>(
@@ -223,9 +224,10 @@ class AppRouter {
           builder: (_) => const InvoicesScreen(),
         );
       case AppRoutes.invoiceDetails:
-        final invoice = settings.arguments is InvoiceItem
-            ? settings.arguments as InvoiceItem
-            : const InvoiceItem(
+        // Use the domain Invoice entity instead of the former local InvoiceItem.
+        final invoice = settings.arguments is Invoice
+            ? settings.arguments as Invoice
+            : const Invoice(
                 id: 'INV-2026-02-00001',
                 orderId: 'ord-001',
                 totalAmount: 22785.00,
@@ -248,7 +250,7 @@ class AppRouter {
       default:
         return _materialRoute(
           settings: settings,
-          builder: (_) => const SplashScreen(),
+          builder: (_) => const SplashPage(),
         );
     }
   }

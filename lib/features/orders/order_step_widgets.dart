@@ -111,14 +111,20 @@ class OrderStepBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Respect both the system bottom inset (nav bar / gesture area) and
+    // the software keyboard height so the button is never obscured.
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomPadding = bottomInset > 0
+        ? bottomInset + 12
+        : MediaQuery.paddingOf(context).bottom + 20;
+
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: kOrderBorderSect, width: 1)),
       ),
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding),
         child: PrimaryButton(label: label, onPressed: onContinue),
       ),
     );

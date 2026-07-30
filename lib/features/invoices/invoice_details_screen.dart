@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
-import 'invoices_screen.dart';
+import 'domain/entities/invoice.dart';
 import 'qc_checkpoint_screen.dart';
 
 // ── Local palette ─────────────────────────────────────────────────────────────
@@ -13,7 +13,9 @@ const Color _bodyBg      = Color(0xFFF2F2F7);
 // ── Screen ────────────────────────────────────────────────────────────────────
 class InvoiceDetailsScreen extends StatelessWidget {
   const InvoiceDetailsScreen({super.key, required this.invoice});
-  final InvoiceItem invoice;
+
+  /// Domain entity — replaces former local InvoiceItem reference.
+  final Invoice invoice;
 
   @override
   Widget build(BuildContext context) {
@@ -237,7 +239,9 @@ class _DetailsAppBar extends StatelessWidget {
 // ── Invoice header card ───────────────────────────────────────────────────────
 class _InvoiceHeaderCard extends StatelessWidget {
   const _InvoiceHeaderCard({required this.invoice});
-  final InvoiceItem invoice;
+
+  /// Domain entity — replaces former local InvoiceItem reference.
+  final Invoice invoice;
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +456,9 @@ class _LineRow extends StatelessWidget {
 // ── Amount breakdown card ─────────────────────────────────────────────────────
 class _AmountBreakdownCard extends StatelessWidget {
   const _AmountBreakdownCard({required this.invoice});
-  final InvoiceItem invoice;
+
+  /// Domain entity — replaces former local InvoiceItem reference.
+  final Invoice invoice;
 
   @override
   Widget build(BuildContext context) {

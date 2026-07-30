@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/config/app_breakpoints.dart';
@@ -13,6 +14,9 @@ import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_gradient_button.dart';
 import '../../core/widgets/app_page_indicator.dart';
 import 'onboarding_constants.dart';
+import 'presentation/bloc/onboarding_bloc.dart';
+import 'presentation/bloc/onboarding_event.dart';
+import 'presentation/bloc/onboarding_state.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -23,16 +27,21 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
-  int _currentPage = 0;
 
-  void _nextPage() {
-    if (_currentPage < OnboardingConstants.pages.length - 1) {
-      _pageController.nextPage(
-        duration: AppDurations.pageScroll,
-        curve: Curves.easeInOut,
-      );
+  @override
+  void initState() {
+    super.initState();
+    // Load onboarding data through the BLoC on screen init.
+    context.read<OnboardingBloc>().add(const LoadOnboardingEvent());
+  }
+
+  /// Dispatches [NextPageEvent] when not on the last page, or
+  /// [CompleteOnboardingEvent] when on the last page.
+  void _nextPage(int currentIndex) {
+    if (currentIndex < OnboardingConstants.pages.length - 1) {
+      context.read<OnboardingBloc>().add(const NextPageEvent());
     } else {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.getStarted);
+      context.read<OnboardingBloc>().add(const CompleteOnboardingEvent());
     }
   }
 
@@ -46,52 +55,91 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isTablet = constraints.maxWidth > AppBreakpoints.tablet;
+    return BlocListener<OnboardingBloc, OnboardingState>(
+      listener: (context, state) {
+        if (state is OnboardingComplete) {
+          // Navigate to the Get Started screen once onboarding is completed.
+          Navigator.of(context).pushReplacementNamed(AppRoutes.getStarted);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.white,
+        body: SafeArea(
+          child: BlocBuilder<OnboardingBloc, OnboardingState>(
+            builder: (context, state) {
+              // Derive the current page index from the BLoC state.
+              // Fall back to 0 while the bloc is still initialising / loading.
+              final currentIndex =
+                  state is OnboardingLoaded ? state.currentIndex : 0;
 
-            return Column(
-              children: [
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: OnboardingConstants.pages.length,
-                    onPageChanged: (index) {
-                      setState(() => _currentPage = index);
-                    },
-                    itemBuilder: (context, index) => _OnboardingPage(
-                      data: OnboardingConstants.pages[index],
-                      isTablet: isTablet,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                  child: AppPageIndicator(
-                    itemCount: OnboardingConstants.pages.length,
-                    currentIndex: _currentPage,
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    0,
-                    AppSpacing.lg,
-                    bottomInset > 0 ? AppSpacing.sm : AppSpacing.md,
-                  ),
-                  child: AppGradientButton(
-                    onPressed: _nextPage,
-                    label: _currentPage < OnboardingConstants.pages.length - 1
-                        ? OnboardingConstants.continueLabel
-                        : OnboardingConstants.getStartedLabel,
-                  ),
-                ),
-              ],
-            );
-          },
+              // Keep the PageController in sync with the BLoC index so that
+              // programmatic page changes (e.g. from NextPageEvent) animate
+              // the underlying PageView correctly.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_pageController.hasClients &&
+                    _pageController.page?.round() != currentIndex) {
+                  _pageController.animateToPage(
+                    currentIndex,
+                    duration: AppDurations.pageScroll,
+                    curve: Curves.easeInOut,
+                  );
+                }
+              });
+
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isTablet =
+                      constraints.maxWidth > AppBreakpoints.tablet;
+
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: PageView.builder(
+                          controller: _pageController,
+                          itemCount: OnboardingConstants.pages.length,
+                          // When the user swipes manually, keep the BLoC in
+                          // sync by dispatching the appropriate page event.
+                          onPageChanged: (index) {
+                            context
+                                .read<OnboardingBloc>()
+                                .add(GoToPageEvent(index));
+                          },
+                          itemBuilder: (context, index) => _OnboardingPage(
+                            data: OnboardingConstants.pages[index],
+                            isTablet: isTablet,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                        child: AppPageIndicator(
+                          itemCount: OnboardingConstants.pages.length,
+                          currentIndex: currentIndex,
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          0,
+                          AppSpacing.lg,
+                          bottomInset > 0
+                              ? AppSpacing.sm
+                              : AppSpacing.md,
+                        ),
+                        child: AppGradientButton(
+                          onPressed: () => _nextPage(currentIndex),
+                          label: currentIndex <
+                                  OnboardingConstants.pages.length - 1
+                              ? OnboardingConstants.continueLabel
+                              : OnboardingConstants.getStartedLabel,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

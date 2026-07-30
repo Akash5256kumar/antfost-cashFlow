@@ -95,6 +95,7 @@ class _NewCashOrderScheduleScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -106,7 +107,7 @@ class _NewCashOrderScheduleScreenState
               child: ColoredBox(
                 color: kOrderBodyBg,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

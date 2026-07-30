@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
+import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import 'domain/entities/home_data.dart';
+import 'presentation/bloc/home_bloc.dart';
+import 'presentation/bloc/home_event.dart';
+import 'presentation/bloc/home_state.dart';
 
 // ── Local palette ─────────────────────────────────────────────────────────────
 const Color _cardBg = Colors.white;
@@ -22,59 +29,6 @@ const Color _orderIdColor = Color(0xFF7A6BFF);
 // ── Status enum ───────────────────────────────────────────────────────────────
 enum OrderStatus { inProgress, scheduled }
 
-// ── Data model ────────────────────────────────────────────────────────────────
-class OrderData {
-  final String orderId;
-  final OrderStatus status;
-  final String grade;
-  final String location;
-  final String timeSlot;
-  final String volume;
-  final String date;
-  final String amount;
-  final int? delivered;
-  final int? total;
-
-  const OrderData({
-    required this.orderId,
-    required this.status,
-    required this.grade,
-    required this.location,
-    required this.timeSlot,
-    required this.volume,
-    required this.date,
-    required this.amount,
-    this.delivered,
-    this.total,
-  });
-}
-
-// ── Static sample data ────────────────────────────────────────────────────────
-const _orders = [
-  OrderData(
-    orderId: 'AF-2024-02-000001',
-    status: OrderStatus.inProgress,
-    grade: 'C25/30',
-    location: 'Marina Tower - Ground Floor',
-    timeSlot: '6 AM - 10 AM (±4 hrs)',
-    volume: '50 m³ • 5 trips',
-    date: '7 Feb, 10:06 AM',
-    amount: 'AED 17,400',
-    delivered: 20,
-    total: 50,
-  ),
-  OrderData(
-    orderId: 'AF-2024-02-000002',
-    status: OrderStatus.scheduled,
-    grade: 'C30/37',
-    location: 'Palm Villa Site A',
-    timeSlot: '6 AM - 12 PM (±6 hrs)',
-    volume: '25 m³ • 3 trips',
-    date: '6 Feb, 12:06 PM',
-    amount: 'AED 9,450',
-  ),
-];
-
 // ── Screen ────────────────────────────────────────────────────────────────────
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -83,57 +37,148 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _pageBg,
+      bottomNavigationBar: const AppTabBottomNavBar(currentTab: AppTab.home),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppSpacing.lg),
+        child: BlocConsumer<HomeBloc, HomeState>(
+          listener: (context, state) {
+            // No side-effect listeners needed here; errors are shown inline.
+          },
+          builder: (context, state) {
+            // Trigger initial data fetch when BLoC is in initial state.
+            if (state is HomeInitial) {
+              context.read<HomeBloc>().add(const FetchHomeDataEvent());
+            }
 
-                    // ── Header ─────────────────────────────────────────────
-                    const _HomeHeader(userName: 'Omar'),
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // ── Order Concrete banner ──────────────────────────────
-                    const _OrderConcreteBanner(),
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // ── Active Order section ───────────────────────────────
-                    _SectionHeader(
-                      title: 'Active Order',
-                      actionLabel: 'View Details',
-                      onAction: () {},
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
                     ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: AppSpacing.lg),
 
-                    const SizedBox(height: AppSpacing.md),
+                        // ── Header ─────────────────────────────────────────
+                        if (state is HomeSuccess)
+                          _HomeHeader(userName: state.data.userName)
+                        else
+                          const _HomeHeader(userName: ''),
 
-                    // ── Order cards ────────────────────────────────────────
-                    ..._orders.map(
-                      (o) => Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                        child: _OrderCard(data: o),
-                      ),
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // ── Order Concrete banner ──────────────────────────
+                        const _OrderConcreteBanner(),
+
+                        const SizedBox(height: AppSpacing.xl),
+
+                        // ── Active Order section ───────────────────────────
+                        _SectionHeader(
+                          title: 'Active Order',
+                          actionLabel: 'View Details',
+                          onAction: () {},
+                        ),
+
+                        const SizedBox(height: AppSpacing.md),
+
+                        // ── Body: loading / success / error ────────────────
+                        if (state is HomeLoading) ...[
+                          // Shimmer placeholders while loading
+                          _ShimmerOrderCard(),
+                          const SizedBox(height: AppSpacing.md),
+                          _ShimmerOrderCard(),
+                        ] else if (state is HomeSuccess) ...[
+                          // Real order cards from BLoC data
+                          ...state.data.activeOrders.map(
+                            (o) => Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.md,
+                              ),
+                              child: _OrderCard(data: o),
+                            ),
+                          ),
+                        ] else if (state is HomeError) ...[
+                          // Error state with retry button
+                          _HomeErrorWidget(message: state.message),
+                        ],
+
+                        // ── Note card ──────────────────────────────────────
+                        if (state is HomeSuccess || state is HomeInitial) ...[
+                          const _NoteCard(
+                            text:
+                                'Note: Orders above 100m³ require coordinator review and approval before scheduling.',
+                          ),
+                        ],
+
+                        const SizedBox(height: AppSpacing.xxl),
+                      ],
                     ),
-
-                    // ── Note card ──────────────────────────────────────────
-                    const _NoteCard(
-                      text:
-                          'Note: Orders above 100m³ require coordinator review and approval before scheduling.',
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxl),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
+      ),
+    );
+  }
+}
+
+// ── Shimmer order card placeholder ────────────────────────────────────────────
+class _ShimmerOrderCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE0E0E0),
+      highlightColor: const Color(0xFFF5F5F5),
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Home error widget ─────────────────────────────────────────────────────────
+class _HomeErrorWidget extends StatelessWidget {
+  final String message;
+  const _HomeErrorWidget({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: AppSpacing.lg),
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 48,
+            color: AppColors.textSecondary,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ElevatedButton(
+            onPressed: () {
+              context.read<HomeBloc>().add(const FetchHomeDataEvent());
+            },
+            child: const Text('Retry'),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+        ],
       ),
     );
   }
@@ -322,14 +367,22 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ── Order card ────────────────────────────────────────────────────────────────
+/// Displays an [ActiveOrder] entity as a visual card.
 class _OrderCard extends StatelessWidget {
-  final OrderData data;
+  final ActiveOrder data;
   const _OrderCard({required this.data});
 
   @override
   Widget build(BuildContext context) {
     final hasProgress = data.delivered != null && data.total != null;
     final progress = hasProgress ? data.delivered! / data.total! : 0.0;
+
+    // Determine status badge from the string status value.
+    final isInProgress = data.status == 'inProgress';
+
+    // Format the amount as a currency string.
+    final amountText =
+        'AED ${data.amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -353,7 +406,7 @@ class _OrderCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              _StatusBadge(status: data.status),
+              _StatusBadge(isInProgress: isInProgress),
             ],
           ),
 
@@ -394,7 +447,7 @@ class _OrderCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                data.amount,
+                amountText,
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -463,12 +516,11 @@ class _InfoRow extends StatelessWidget {
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 class _StatusBadge extends StatelessWidget {
-  final OrderStatus status;
-  const _StatusBadge({required this.status});
+  final bool isInProgress;
+  const _StatusBadge({required this.isInProgress});
 
   @override
   Widget build(BuildContext context) {
-    final isInProgress = status == OrderStatus.inProgress;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(

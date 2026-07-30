@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shimmer/shimmer.dart';
 
+import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
+import 'domain/entities/transaction.dart';
+import 'domain/entities/wallet_balance.dart';
+import 'presentation/bloc/wallet_bloc.dart';
+import 'presentation/bloc/wallet_event.dart';
+import 'presentation/bloc/wallet_state.dart';
 import 'transaction_history_screen.dart';
 
 // ── Colours ───────────────────────────────────────────────────────────────────
@@ -10,144 +18,240 @@ const Color _fieldBorder = Color(0xFFE8E8E8);
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-class WalletScreen extends StatelessWidget {
+class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
+
+  @override
+  State<WalletScreen> createState() => _WalletScreenState();
+}
+
+class _WalletScreenState extends State<WalletScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Trigger the initial wallet data fetch via BLoC.
+    context.read<WalletBloc>().add(const FetchWalletDataEvent());
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      bottomNavigationBar: const AppTabBottomNavBar(currentTab: AppTab.wallet),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 20),
+        child: BlocConsumer<WalletBloc, WalletState>(
+          listener: (context, state) {
+            if (state is WalletFundsAdded) {
+              ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(
+                  const SnackBar(content: Text('Funds added successfully!')),
+                );
+            } else if (state is WalletError) {
+              ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(SnackBar(
+                  content: Text(state.message),
+                  action: SnackBarAction(
+                    label: 'Retry',
+                    onPressed: () {
+                      context
+                          .read<WalletBloc>()
+                          .add(const RetryWalletEvent());
+                    },
+                  ),
+                ));
+            }
+          },
+          builder: (context, state) {
+            final isAddingFunds = state is WalletAddingFunds;
 
-                    // Title
-                    const Text(
-                      'Wallet',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: _textDark,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Token m³ balance and transactions',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _textGrey,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Balance card
-                    _BalanceCard(),
-                    const SizedBox(height: 14),
-
-                    // Hint text
-                    const Text(
-                      'Use wallet balance to pay for orders instantly.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _textGrey,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Add Funds button
-                    _AddFundsButton(),
-                    const SizedBox(height: 8),
-
-                    const Text(
-                      'Add funds via Card or Payment Link (Bank Transfer).',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _textGrey,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Quick tiles
-                    Row(
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: _QuickTile(
-                            icon: Icons.arrow_forward_rounded,
-                            label: 'Transaction\nHistory',
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const TransactionHistoryScreen(),
+                        const SizedBox(height: 20),
+
+                        // Title
+                        const Text(
+                          'Wallet',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: _textDark,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Token m³ balance and transactions',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _textGrey,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Balance card / shimmer
+                        if (state is WalletLoading)
+                          _buildBalanceShimmer()
+                        else if (state is WalletSuccess)
+                          _BalanceCard(balance: state.balance)
+                        else if (state is WalletAddingFunds)
+                          _buildBalanceShimmer()
+                        else
+                          _buildBalanceShimmer(),
+
+                        const SizedBox(height: 14),
+
+                        // Hint text
+                        const Text(
+                          'Use wallet balance to pay for orders instantly.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _textGrey,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Add Funds button
+                        _AddFundsButton(
+                          isLoading: isAddingFunds,
+                          onTap: () {
+                            context
+                                .read<WalletBloc>()
+                                .add(const AddFundsEvent(0));
+                          },
+                        ),
+                        const SizedBox(height: 8),
+
+                        const Text(
+                          'Add funds via Card or Payment Link (Bank Transfer).',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _textGrey,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Quick tiles
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _QuickTile(
+                                icon: Icons.arrow_forward_rounded,
+                                label: 'Transaction\nHistory',
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const TransactionHistoryScreen(),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _QuickTile(
+                                icon: Icons.lock_outline_rounded,
+                                label: 'Reserved Balance\nInfo',
+                                onTap: () {},
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _QuickTile(
-                            icon: Icons.lock_outline_rounded,
-                            label: 'Reserved Balance\nInfo',
-                            onTap: () {},
-                          ),
+                        const SizedBox(height: 20),
+
+                        // Recent Transactions header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Recent Transactions',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: _textDark,
+                                height: 1.3,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const TransactionHistoryScreen(),
+                                ),
+                              ),
+                              child: const Text(
+                                'See all',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.primary,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 12),
+
+                        // Transaction list / shimmer
+                        if (state is WalletLoading || state is WalletAddingFunds)
+                          _buildTransactionShimmer()
+                        else if (state is WalletSuccess)
+                          _TransactionList(transactions: state.transactions)
+                        else
+                          _buildTransactionShimmer(),
+
+                        const SizedBox(height: 20),
                       ],
                     ),
-                    const SizedBox(height: 20),
-
-                    // Recent Transactions
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Recent Transactions',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: _textDark,
-                            height: 1.3,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const TransactionHistoryScreen(),
-                            ),
-                          ),
-                          child: const Text(
-                            'See all',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primary,
-                              height: 1.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    _TransactionList(),
-
-                    const SizedBox(height: 20),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Shimmer placeholder for the balance card while data is loading.
+  Widget _buildBalanceShimmer() {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE0E0E0),
+      highlightColor: const Color(0xFFF5F5F5),
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+
+  /// Shimmer placeholder for the transaction list while data is loading.
+  Widget _buildTransactionShimmer() {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE0E0E0),
+      highlightColor: const Color(0xFFF5F5F5),
+      child: Container(
+        width: double.infinity,
+        height: 180,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
     );
@@ -157,6 +261,11 @@ class WalletScreen extends StatelessWidget {
 // ── Balance card ──────────────────────────────────────────────────────────────
 
 class _BalanceCard extends StatelessWidget {
+  const _BalanceCard({required this.balance});
+
+  /// Domain entity carrying the live wallet balance figures.
+  final WalletBalance balance;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -201,15 +310,15 @@ class _BalanceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text.rich(
-                  const TextSpan(
-                    text: '854.5',
-                    style: TextStyle(
+                  TextSpan(
+                    text: balance.availableTokenM3.toStringAsFixed(1),
+                    style: const TextStyle(
                       fontSize: 48,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
                       height: 1.1,
                     ),
-                    children: [
+                    children: const [
                       TextSpan(
                         text: ' m³',
                         style: TextStyle(
@@ -222,9 +331,10 @@ class _BalanceCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Estimated value: AED 153,450',
-                  style: TextStyle(fontSize: 14, color: _textGrey, height: 1.3),
+                Text(
+                  'Estimated value: AED ${_formatAmount(balance.estimatedValueAed)}',
+                  style: const TextStyle(
+                      fontSize: 14, color: _textGrey, height: 1.3),
                 ),
                 const SizedBox(height: 16),
                 const Divider(color: _fieldBorder, height: 1),
@@ -234,8 +344,8 @@ class _BalanceCard extends StatelessWidget {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
+                        children: [
+                          const Text(
                             'Reserved Token m³',
                             style: TextStyle(
                               fontSize: 12,
@@ -243,10 +353,10 @@ class _BalanceCard extends StatelessWidget {
                               height: 1.33,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            '75.5 m³',
-                            style: TextStyle(
+                            '${balance.reservedTokenM3.toStringAsFixed(1)} m³',
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: _textDark,
@@ -259,8 +369,8 @@ class _BalanceCard extends StatelessWidget {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
+                        children: [
+                          const Text(
                             'Total Token m³',
                             style: TextStyle(
                               fontSize: 12,
@@ -268,10 +378,10 @@ class _BalanceCard extends StatelessWidget {
                               height: 1.33,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            '930.0 m³',
-                            style: TextStyle(
+                            '${balance.totalTokenM3.toStringAsFixed(1)} m³',
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: _textDark,
@@ -295,6 +405,14 @@ class _BalanceCard extends StatelessWidget {
 // ── Add funds button ──────────────────────────────────────────────────────────
 
 class _AddFundsButton extends StatelessWidget {
+  const _AddFundsButton({
+    required this.onTap,
+    required this.isLoading,
+  });
+
+  final VoidCallback onTap;
+  final bool isLoading;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -313,7 +431,7 @@ class _AddFundsButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
         ),
         child: TextButton(
-          onPressed: () {},
+          onPressed: isLoading ? null : onTap,
           style: TextButton.styleFrom(
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
@@ -321,22 +439,31 @@ class _AddFundsButton extends StatelessWidget {
             ),
             padding: EdgeInsets.zero,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.add, size: 20, color: Colors.white),
-              SizedBox(width: 8),
-              Text(
-                'Add Funds',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                  letterSpacing: 0.2,
+          child: isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.add, size: 20, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Add Funds',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -400,39 +527,20 @@ class _QuickTile extends StatelessWidget {
 // ── Recent transactions ───────────────────────────────────────────────────────
 
 class _TransactionList extends StatelessWidget {
+  const _TransactionList({required this.transactions});
+
+  /// Full list of domain transactions. Only the first 3 are displayed here.
+  final List<WalletTransaction> transactions;
+
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _TxData(
-        icon: Icons.south_west_rounded,
-        name: 'Wallet Deposit',
-        amount: '+AED 41,250',
-        status: 'Completed',
-        statusColor: Color(0xFF16A34A),
-        statusBg: Color(0xFFDCFCE7),
-        amountColor: Color(0xFF16A34A),
-      ),
-      _TxData(
-        icon: Icons.lock_outline_rounded,
-        name: 'Order Payment Reserved',
-        subtitle: 'AF-2026-02-000234',
-        amount: 'AED 12,457.5',
-        status: 'Reserved',
-        statusColor: AppColors.primary,
-        statusBg: Color(0xFFEDE9FB),
-        amountColor: _textDark,
-      ),
-      _TxData(
-        icon: Icons.north_east_rounded,
-        name: 'Order Payment',
-        subtitle: 'AF-2026-02-000233',
-        amount: '-AED 24,750',
-        status: 'Completed',
-        statusColor: Color(0xFF16A34A),
-        statusBg: Color(0xFFDCFCE7),
-        amountColor: Color(0xFFEF4444),
-      ),
-    ];
+    // Show only the first 3 recent transactions.
+    final recent = transactions.take(3).toList();
+    final items = recent.map(_toTxData).toList();
+
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -458,7 +566,82 @@ class _TransactionList extends StatelessWidget {
       ),
     );
   }
+
+  /// Maps a [WalletTransaction] domain entity to the internal [_TxData] render
+  /// model, keeping visual logic decoupled from the domain layer.
+  static _TxData _toTxData(WalletTransaction tx) {
+    // Determine display icon based on transaction type.
+    final IconData icon;
+    switch (tx.type) {
+      case TransactionType.deposit:
+      case TransactionType.refund:
+        icon = Icons.south_west_rounded;
+        break;
+      case TransactionType.orderPayment:
+      case TransactionType.reserved:
+        icon = Icons.north_east_rounded;
+        break;
+    }
+
+    // Format amount string with credit / debit sign.
+    final amountStr =
+        tx.isCredit ? '+AED ${_fmtAmount(tx.amount)}' : '-AED ${_fmtAmount(tx.amount)}';
+    final amountColor =
+        tx.isCredit ? const Color(0xFF16A34A) : const Color(0xFFEF4444);
+
+    // Determine status badge colours.
+    final (statusLabel, statusBg, statusColor) = switch (tx.status) {
+      TransactionStatus.completed => (
+        'Completed',
+        const Color(0xFFDCFCE7),
+        const Color(0xFF16A34A),
+      ),
+      TransactionStatus.reserved => (
+        'Reserved',
+        const Color(0xFFEDE9FB),
+        AppColors.primary,
+      ),
+      TransactionStatus.pending => (
+        'Pending',
+        const Color(0xFFFEF3C7),
+        const Color(0xFFD97706),
+      ),
+      TransactionStatus.failed => (
+        'Failed',
+        const Color(0xFFFFE4E4),
+        const Color(0xFFEF4444),
+      ),
+    };
+
+    return _TxData(
+      icon: icon,
+      name: tx.name,
+      subtitle: tx.subtitle,
+      amount: amountStr,
+      status: statusLabel,
+      statusColor: statusColor,
+      statusBg: statusBg,
+      amountColor: amountColor,
+    );
+  }
+
+  /// Formats a numeric amount into a comma-separated string with 2 decimal places.
+  static String _fmtAmount(double v) {
+    final i = v.truncate();
+    final f = ((v - i) * 100).round();
+    final s = i.toString();
+    final buf = StringBuffer();
+    for (var k = 0; k < s.length; k++) {
+      if (k > 0 && (s.length - k) % 3 == 0) buf.write(',');
+      buf.write(s[k]);
+    }
+    buf.write('.');
+    buf.write(f.toString().padLeft(2, '0'));
+    return buf.toString();
+  }
 }
+
+// ── Internal render model ─────────────────────────────────────────────────────
 
 class _TxData {
   const _TxData({
@@ -544,7 +727,8 @@ class _TransactionRow extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: data.statusBg,
                   borderRadius: BorderRadius.circular(12),
@@ -566,4 +750,19 @@ class _TransactionRow extends StatelessWidget {
   }
 }
 
-// ── Bottom nav bar ────────────────────────────────────────────────────────────
+// ── Helper ────────────────────────────────────────────────────────────────────
+
+/// Formats a numeric AED amount into a comma-separated string (e.g. 153,450.00).
+String _formatAmount(double v) {
+  final i = v.truncate();
+  final f = ((v - i) * 100).round();
+  final s = i.toString();
+  final buf = StringBuffer();
+  for (var k = 0; k < s.length; k++) {
+    if (k > 0 && (s.length - k) % 3 == 0) buf.write(',');
+    buf.write(s[k]);
+  }
+  buf.write('.');
+  buf.write(f.toString().padLeft(2, '0'));
+  return buf.toString();
+}

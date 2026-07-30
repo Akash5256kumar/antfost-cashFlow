@@ -39,7 +39,7 @@ class NewCashOrderReviewScreen extends StatefulWidget {
 }
 
 class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
-  bool _agreedToTerms = false;
+  bool _agreedToTerms = false;  
   final _specialRequestsController = TextEditingController();
 
   double get _subtotal => widget.mixCode.pricePerM3 * widget.quantity.toDouble();
@@ -70,6 +70,7 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
 
     return Scaffold(
       backgroundColor: kOrderBodyBg,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -80,7 +81,7 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
             // Body
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

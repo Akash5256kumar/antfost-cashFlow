@@ -18,19 +18,8 @@ import '../../features/payment/payment_success_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/wallet/transaction_history_screen.dart';
 import '../../features/wallet/wallet_screen.dart';
-import '../theme/app_colors.dart';
+import 'app_tab_navigation.dart';
 import 'app_routes.dart';
-
-enum AppTab { home, orders, wallet, profile }
-
-extension AppTabX on AppTab {
-  String get routeName => switch (this) {
-    AppTab.home => AppRoutes.home,
-    AppTab.orders => AppRoutes.myOrders,
-    AppTab.wallet => AppRoutes.wallet,
-    AppTab.profile => AppRoutes.profile,
-  };
-}
 
 class AppTabShell extends StatefulWidget {
   const AppTabShell({super.key, this.initialTab = AppTab.home});
@@ -61,22 +50,11 @@ class _AppTabShellState extends State<AppTabShell> {
   final Map<AppTab, GlobalKey<NavigatorState>> _navigatorKeys = {
     for (final tab in AppTab.values) tab: GlobalKey<NavigatorState>(),
   };
-  final Map<AppTab, ValueNotifier<String>> _currentRouteNames = {
-    for (final tab in AppTab.values) tab: ValueNotifier<String>(tab.routeName),
-  };
 
   @override
   void initState() {
     super.initState();
     _currentTab = widget.initialTab;
-  }
-
-  @override
-  void dispose() {
-    for (final notifier in _currentRouteNames.values) {
-      notifier.dispose();
-    }
-    super.dispose();
   }
 
   void _handleBackPress() {
@@ -114,32 +92,15 @@ class _AppTabShellState extends State<AppTabShell> {
 
         _handleBackPress();
       },
-      child: ValueListenableBuilder<String>(
-        valueListenable: _currentRouteNames[_currentTab]!,
-        builder: (context, currentRouteName, child) {
-          final isTabRootRoute = currentRouteName == _currentTab.routeName;
-          return Scaffold(
-            body: child,
-            bottomNavigationBar: isTabRootRoute
-                ? _AppBottomNavBar(
-                    currentIndex: _currentTab.index,
-                    onTap: _onTabSelected,
-                  )
-                : null,
-          );
-        },
+      child: AppTabControllerScope(
+        currentTab: _currentTab,
+        onSelectTab: _onTabSelected,
         child: IndexedStack(
           index: _currentTab.index,
           children: AppTab.values
               .map(
-                (tab) => _TabNavigator(
-                  tab: tab,
-                  navigatorKey: _navigatorKeys[tab]!,
-                  observer: _TabNavigatorObserver(
-                    routeName: _currentRouteNames[tab]!,
-                    rootRouteName: tab.routeName,
-                  ),
-                ),
+                (tab) =>
+                    _TabNavigator(tab: tab, navigatorKey: _navigatorKeys[tab]!),
               )
               .toList(),
         ),
@@ -149,68 +110,18 @@ class _AppTabShellState extends State<AppTabShell> {
 }
 
 class _TabNavigator extends StatelessWidget {
-  const _TabNavigator({
-    required this.tab,
-    required this.navigatorKey,
-    required this.observer,
-  });
+  const _TabNavigator({required this.tab, required this.navigatorKey});
 
   final AppTab tab;
   final GlobalKey<NavigatorState> navigatorKey;
-  final NavigatorObserver observer;
 
   @override
   Widget build(BuildContext context) {
     return Navigator(
       key: navigatorKey,
       initialRoute: tab.routeName,
-      observers: [observer],
       onGenerateRoute: (settings) => _buildRouteForTab(tab, settings),
     );
-  }
-}
-
-class _TabNavigatorObserver extends NavigatorObserver {
-  _TabNavigatorObserver({required this.routeName, required this.rootRouteName});
-
-  final ValueNotifier<String> routeName;
-  final String rootRouteName;
-
-  void _sync(Route<dynamic>? route) {
-    final nextRouteName = route?.settings.name ?? rootRouteName;
-    if (routeName.value == nextRouteName) {
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (routeName.value != nextRouteName) {
-        routeName.value = nextRouteName;
-      }
-    });
-  }
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPush(route, previousRoute);
-    _sync(route);
-  }
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPop(route, previousRoute);
-    _sync(previousRoute);
-  }
-
-  @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didRemove(route, previousRoute);
-    _sync(previousRoute);
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    _sync(newRoute);
   }
 }
 
@@ -349,96 +260,4 @@ MaterialPageRoute<T> _materialRoute<T>({
   required WidgetBuilder builder,
 }) {
   return MaterialPageRoute<T>(settings: settings, builder: builder);
-}
-
-class _AppBottomNavBar extends StatelessWidget {
-  const _AppBottomNavBar({required this.currentIndex, required this.onTap});
-
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-
-  static const _items = [
-    _NavItem(
-      activeIcon: Icons.home_rounded,
-      icon: Icons.home_outlined,
-      label: 'Home',
-    ),
-    _NavItem(
-      activeIcon: Icons.receipt_long_rounded,
-      icon: Icons.receipt_long_outlined,
-      label: 'Orders',
-    ),
-    _NavItem(
-      activeIcon: Icons.account_balance_wallet_rounded,
-      icon: Icons.account_balance_wallet_outlined,
-      label: 'Wallet',
-    ),
-    _NavItem(
-      activeIcon: Icons.person_rounded,
-      icon: Icons.person_outline_rounded,
-      label: 'Profile',
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.fieldBorder)),
-      ),
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Row(
-        children: List.generate(_items.length, (index) {
-          final item = _items[index];
-          final active = index == currentIndex;
-
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onTap(index),
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      active ? item.activeIcon : item.icon,
-                      size: 24,
-                      color: active ? AppColors.primary : AppColors.textPrimary,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: active
-                            ? AppColors.primary
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem({
-    required this.activeIcon,
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData activeIcon;
-  final IconData icon;
-  final String label;
 }

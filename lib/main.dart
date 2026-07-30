@@ -1,11 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'app/di/injection.dart';
 import 'app/navigation/app_router.dart';
 import 'app/navigation/app_routes.dart';
 import 'app/config/app_strings.dart';
 import 'app/theme/app_theme.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/home/presentation/bloc/home_bloc.dart';
+import 'features/invoices/presentation/bloc/invoice_detail_bloc.dart';
+import 'features/invoices/presentation/bloc/invoices_bloc.dart';
+import 'features/kyc/presentation/bloc/kyc_bloc.dart';
+import 'features/notifications/presentation/bloc/notifications_bloc.dart';
+import 'features/onboarding/presentation/bloc/onboarding_bloc.dart';
+import 'features/orders/presentation/bloc/new_cash_order_bloc.dart';
+import 'features/orders/presentation/bloc/orders_bloc.dart';
+import 'features/payment/presentation/bloc/payment_bloc.dart';
+import 'features/profile/presentation/bloc/profile_bloc.dart';
+import 'features/splash/presentation/bloc/splash_bloc.dart';
+import 'features/wallet/presentation/bloc/wallet_bloc.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initDependencies();
   runApp(const AntfostApp());
 }
 
@@ -14,12 +31,55 @@ class AntfostApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppStrings.appTitle,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      initialRoute: AppRoutes.splash,
-      onGenerateRoute: AppRouter.onGenerateRoute,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<SplashBloc>(
+          create: (_) => sl<SplashBloc>(),
+        ),
+        BlocProvider<AuthBloc>(
+          create: (_) => sl<AuthBloc>(),
+        ),
+        BlocProvider<OnboardingBloc>(
+          create: (_) => sl<OnboardingBloc>(),
+        ),
+        BlocProvider<HomeBloc>(
+          create: (_) => sl<HomeBloc>(),
+        ),
+        BlocProvider<OrdersBloc>(
+          create: (_) => sl<OrdersBloc>(),
+        ),
+        BlocProvider<NewCashOrderBloc>(
+          create: (_) => sl<NewCashOrderBloc>(),
+        ),
+        BlocProvider<InvoicesBloc>(
+          create: (_) => sl<InvoicesBloc>(),
+        ),
+        BlocProvider<InvoiceDetailBloc>(
+          create: (_) => sl<InvoiceDetailBloc>(),
+        ),
+        BlocProvider<WalletBloc>(
+          create: (_) => sl<WalletBloc>(),
+        ),
+        BlocProvider<PaymentBloc>(
+          create: (_) => sl<PaymentBloc>(),
+        ),
+        BlocProvider<ProfileBloc>(
+          create: (_) => sl<ProfileBloc>(),
+        ),
+        BlocProvider<NotificationsBloc>(
+          create: (_) => sl<NotificationsBloc>(),
+        ),
+        BlocProvider<KycBloc>(
+          create: (_) => sl<KycBloc>(),
+        ),
+      ],
+      child: MaterialApp(
+        title: AppStrings.appTitle,
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        initialRoute: AppRoutes.splash,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ),
     );
   }
 }
