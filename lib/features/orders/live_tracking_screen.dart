@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/widgets/app_headers.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
@@ -14,9 +14,10 @@ class LiveTrackingScreen extends StatefulWidget {
     this.driverName = 'Abdul Rahman',
     this.truckId = 'TR-4022',
     this.mixType = 'C25/30 Standard',
-    this.quantity = '50 m³',
+    this.quantity = '120 m³',
     this.etaMinutes = 12,
     this.destinationArea = 'DUBAI MARINA',
+    this.hasPump = true,
   });
 
   final String orderId;
@@ -26,6 +27,7 @@ class LiveTrackingScreen extends StatefulWidget {
   final String quantity;
   final int etaMinutes;
   final String destinationArea;
+  final bool hasPump;
 
   @override
   State<LiveTrackingScreen> createState() => _LiveTrackingScreenState();
@@ -42,15 +44,10 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8FAFC),
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary),
-        ),
-        title: SvgPicture.asset(AppAssets.antfostLogo, height: 26),
-        centerTitle: true,
+      appBar: AppBrandHeader(
+        showBack: true,
+        showChat: true,
+        onChatTap: () => Navigator.of(context).pushNamed(AppRoutes.orderChat),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -92,9 +89,13 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                           const SizedBox(height: 4),
                           const Row(
                             children: [
-                              Text(
-                                'Arrived at Site',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF4F46E5)),
+                              Expanded(
+                                child: Text(
+                                  'Arrived at Site',
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF4F46E5)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               SizedBox(width: 6),
                               Icon(Icons.check_circle, size: 16, color: Color(0xFF4F46E5)),
@@ -109,13 +110,49 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                         color: const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.local_shipping_outlined, size: 14, color: Color(0xFF4F46E5)),
-                          SizedBox(width: 6),
-                          Text('Trucks Only', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5))),
+                          Icon(widget.hasPump ? Icons.precision_manufacturing_rounded : Icons.local_shipping_outlined, size: 14, color: const Color(0xFF4F46E5)),
+                          const SizedBox(width: 6),
+                          Text(widget.hasPump ? 'Pump & Trucks' : 'Trucks Only', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5))),
                         ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Delivery Progress Card
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Delivery Progress', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B))),
+                        Text('45 / ${widget.quantity}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4F46E5))),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: const LinearProgressIndicator(
+                        value: 45 / 120, // Example hardcoded progress
+                        minHeight: 8,
+                        backgroundColor: Color(0xFFEEF2FF),
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4F46E5)),
                       ),
                     ),
                   ],
@@ -182,6 +219,47 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    
+                    // Pump Status
+                    if (widget.hasPump) ...[
+                      Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(12)),
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.precision_manufacturing_rounded, size: 24, color: Color(0xFF4F46E5)),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Concrete Pump', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1E1B4B))),
+                                SizedBox(height: 2),
+                                Text('Medium Pump 43-52m', style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(999)),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle, size: 14, color: Color(0xFF4F46E5)),
+                                SizedBox(width: 4),
+                                Text('Arrived', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5))),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Container(height: 1, color: const Color(0xFFE2E8F0)),
+                      const SizedBox(height: 20),
+                    ],
 
                     // Trucks Only header
                     Row(
@@ -194,13 +272,13 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                           child: const Icon(Icons.local_shipping_outlined, size: 24, color: Color(0xFF4F46E5)),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Trucks Only', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1E1B4B))),
-                              SizedBox(height: 2),
-                              Text('3 trucks delivering concrete', style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
+                              Text(widget.hasPump ? 'Trucks' : 'Trucks Only', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1E1B4B))),
+                              const SizedBox(height: 2),
+                              const Text('3 trucks delivering concrete', style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
                             ],
                           ),
                         ),

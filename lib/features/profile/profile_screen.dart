@@ -91,7 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final preferenceItems = [
       _MenuItem(
-        icon: Icons.notifications_outlined,
+        icon: Icons.notifications_none_rounded,
         label: 'Notifications',
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
       ),

@@ -252,9 +252,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           PrimaryButton(
-                            label: 'Continue to Price',
+                            label: 'Continue to Terms',
                             arrow: true,
-                            onPressed: _continue,
+                            onPressed: () {
+                              Navigator.of(context).pushNamed(AppRoutes.termsConditions);
+                            },
                           ),
                           SizedBox(height: context.scaledV(12)),
                           AppOutlineButton(

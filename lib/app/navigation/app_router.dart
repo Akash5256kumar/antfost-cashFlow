@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/chat/order_chat_screen.dart';
 import '../../features/invoices/domain/entities/invoice.dart';
 import '../../features/invoices/invoice_details_screen.dart';
 import '../../features/invoices/invoices_screen.dart';
@@ -398,6 +399,11 @@ class AppRouter {
         return _materialRoute(
           settings: settings,
           builder: (_) => const OrderDetailsScreen(),
+        );
+      case AppRoutes.orderChat:
+        return _materialRoute(
+          settings: settings,
+          builder: (_) => const OrderChatScreen(),
         );
       case AppRoutes.wallet:
         return _materialRoute(

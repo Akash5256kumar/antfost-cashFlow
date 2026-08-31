@@ -7,7 +7,7 @@ import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/primary_button.dart';
-import '../orders/loading_complete_screen.dart';
+import '../orders/order_confirmed_screen.dart';
 
 /// Ported from the new Figma design's `screens/PaymentConfirmed.tsx`.
 class PaymentSuccessScreen extends StatelessWidget {
@@ -196,7 +196,7 @@ class PaymentSuccessScreen extends StatelessWidget {
               label: 'View Order Status',
               onPressed: () => Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (_) => LoadingCompleteScreen(orderId: orderRef),
+                  builder: (_) => OrderConfirmedScreen(orderId: orderRef),
                 ),
               ),
             ),

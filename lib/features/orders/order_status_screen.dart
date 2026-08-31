@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../app/navigation/app_routes.dart';
+import '../../core/widgets/app_notification_bell.dart';
 import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
@@ -31,7 +33,27 @@ class OrderStatusScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const AppBrandHeader(showBack: true),
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary),
+        ),
+        title: SvgPicture.asset(AppAssets.antfostLogo, height: 26),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.of(context).pushNamed(AppRoutes.orderChat),
+            icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textPrimary),
+          ),
+          AppNotificationBell(
+            onTap: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
+            color: AppColors.textPrimary,
+            showBellDot: false,
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(

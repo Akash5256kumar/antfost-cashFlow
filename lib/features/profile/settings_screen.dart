@@ -126,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               SizedBox(height: context.scaledV(8)),
               _buildCard([
                 _buildSwitchTile(
-                  icon: Icons.notifications_active_outlined,
+                  icon: Icons.notifications_none_rounded,
                   title: 'Push Notifications',
                   subtitle: 'Live transit and batching plant status',
                   value: _pushNotifications,

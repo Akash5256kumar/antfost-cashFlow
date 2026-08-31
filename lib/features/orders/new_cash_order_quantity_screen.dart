@@ -35,6 +35,46 @@ class _NewCashOrderQuantityScreenState
     if (_quantity > 1) setState(() => _quantity--);
   }
 
+  Future<void> _enterExactQuantity() async {
+    final controller = TextEditingController(text: _quantity.toString());
+    final newQuantity = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Enter Exact Volume (m³)'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'e.g. 50',
+              suffixText: 'm³',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final val = int.tryParse(controller.text);
+                if (val != null && val > 0) {
+                  Navigator.of(context).pop(val);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newQuantity != null && mounted) {
+      setState(() => _quantity = newQuantity);
+    }
+  }
+
   Future<void> _handleViewAgreement() async {
     if (_isAgreementAccepted) {
       OperationsAgreementSheet.show(
@@ -115,6 +155,7 @@ class _NewCashOrderQuantityScreenState
                         quantity: _quantity,
                         onDecrement: _decrement,
                         onIncrement: _increment,
+                        onEnterExact: _enterExactQuantity,
                       ),
                       SizedBox(height: context.scaledV(20)),
 
@@ -161,11 +202,13 @@ class _QuantityStepperCard extends StatelessWidget {
     required this.quantity,
     required this.onDecrement,
     required this.onIncrement,
+    required this.onEnterExact,
   });
 
   final int quantity;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
+  final VoidCallback onEnterExact;
 
   @override
   Widget build(BuildContext context) {
@@ -227,24 +270,31 @@ class _QuantityStepperCard extends StatelessWidget {
           SizedBox(height: context.scaledV(20)),
 
           // Helper note inside card
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.edit_outlined,
-                size: context.scaled(16),
-                color: const Color(0xFF94A3B8),
+          GestureDetector(
+            onTap: onEnterExact,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: context.scaledV(8)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.edit_outlined,
+                    size: context.scaled(16),
+                    color: const Color(0xFF94A3B8),
+                  ),
+                  SizedBox(width: context.scaled(8)),
+                  Text(
+                    'Enter exact required volume',
+                    style: TextStyle(
+                      fontSize: context.scaled(12.5),
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: context.scaled(8)),
-              Text(
-                'Enter exact required volume',
-                style: TextStyle(
-                  fontSize: context.scaled(12.5),
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),

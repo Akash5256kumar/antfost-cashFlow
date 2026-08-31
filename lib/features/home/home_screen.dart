@@ -53,14 +53,19 @@ class HomeScreen extends StatelessWidget {
               children: [
                 SizedBox(height: context.scaledV(4)),
                 Center(
-                  child: AppStatusBadge(
-                    label: verificationUnderReview
-                        ? 'Under Review'
-                        : 'Approved',
-                    tone: verificationUnderReview
-                        ? AppStatusTone.review
-                        : AppStatusTone.active,
-                    showIcon: true,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pushNamed(AppRoutes.kycVerificationStatus);
+                    },
+                    child: AppStatusBadge(
+                      label: verificationUnderReview
+                          ? 'Under Review'
+                          : 'Approved',
+                      tone: verificationUnderReview
+                          ? AppStatusTone.review
+                          : AppStatusTone.active,
+                      showIcon: true,
+                    ),
                   ),
                 ),
                 SizedBox(height: context.scaledV(14)),

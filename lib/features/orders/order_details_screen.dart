@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/widgets/app_headers.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
@@ -11,30 +11,21 @@ class OrderDetailsScreen extends StatelessWidget {
     super.key,
     this.orderId = 'AF-2057',
     this.projectName = 'Palm Jumeirah Villa',
+    this.isDraft = false,
   });
 
   final String orderId;
   final String projectName;
+  final bool isDraft;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8FAFC),
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1E1B4B)),
-        ),
-        title: SvgPicture.asset(AppAssets.antfostLogo, height: 26),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
-            icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
-          ),
-        ],
+      appBar: AppBrandHeader(
+        showBack: true,
+        showChat: true,
+        onChatTap: () => Navigator.of(context).pushNamed(AppRoutes.orderChat),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -47,15 +38,15 @@ class OrderDetailsScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF), // Light blue
+                  color: isDraft ? const Color(0xFFF1F5F9) : const Color(0xFFEEF2FF), // Light blue
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF4F46E5)),
+                    Icon(isDraft ? Icons.edit_document : Icons.inventory_2_outlined, size: 16, color: isDraft ? AppColors.textSecondary : const Color(0xFF4F46E5)),
                     const SizedBox(width: 8),
-                    const Text('Loading started', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5))),
+                    Text(isDraft ? 'Draft Order' : 'Loading started', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDraft ? AppColors.textSecondary : const Color(0xFF4F46E5))),
                   ],
                 ),
               ),
@@ -112,101 +103,119 @@ class OrderDetailsScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  _buildTimelineItem(
-                    title: 'Loading started',
-                    subtitle: 'In progress',
-                    isCompleted: true,
-                    isLast: false,
-                    isCurrent: true,
-                  ),
-                  _buildTimelineItem(
-                    title: 'Loading completed',
-                    subtitle: "We'll notify you when loading is complete",
-                    isCompleted: false,
-                    isLast: false,
-                  ),
-                  _buildTimelineItem(
-                    title: 'On the way',
-                    subtitle: 'Tracking begins after departure',
-                    isCompleted: false,
-                    isLast: true,
-                  ),
+                  if (isDraft) ...[
+                    _buildTimelineItem(
+                      title: 'Order Saved as Draft',
+                      subtitle: 'Waiting to resume order',
+                      isCompleted: true,
+                      isLast: false,
+                      isCurrent: true,
+                    ),
+                    _buildTimelineItem(
+                      title: 'Price Breakdown & Payment',
+                      subtitle: 'Pending action',
+                      isCompleted: false,
+                      isLast: true,
+                    ),
+                  ] else ...[
+                    _buildTimelineItem(
+                      title: 'Loading started',
+                      subtitle: 'In progress',
+                      isCompleted: true,
+                      isLast: false,
+                      isCurrent: true,
+                    ),
+                    _buildTimelineItem(
+                      title: 'Loading completed',
+                      subtitle: "We'll notify you when loading is complete",
+                      isCompleted: false,
+                      isLast: false,
+                    ),
+                    _buildTimelineItem(
+                      title: 'On the way',
+                      subtitle: 'Tracking begins after departure',
+                      isCompleted: false,
+                      isLast: true,
+                    ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-
-            // Notice Box
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEEF2FF),
-                      shape: BoxShape.circle,
+            if (!isDraft) ...[
+              const SizedBox(height: 16),
+  
+              // Notice Box
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEEF2FF),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.local_shipping_outlined, size: 20, color: Color(0xFF4F46E5)),
                     ),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.local_shipping_outlined, size: 20, color: Color(0xFF4F46E5)),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Your first delivery resource is being loaded.', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B))),
-                        SizedBox(height: 6),
-                        Text(
-                          'Live tracking appears after departure and initial movement toward your site.',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Your first delivery resource is being loaded.', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B))),
+                          SizedBox(height: 6),
+                          Text(
+                            'Live tracking appears after departure and initial movement toward your site.',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // Assigned resource card
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEEF2FF),
-                      shape: BoxShape.circle,
+              const SizedBox(height: 16),
+  
+              // Assigned resource card
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEEF2FF),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.precision_manufacturing_rounded, size: 20, color: Color(0xFF4F46E5)),
                     ),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.precision_manufacturing_rounded, size: 20, color: Color(0xFF4F46E5)),
-                  ),
-                  const SizedBox(width: 14),
-                  const Text('Pump + 8 Trucks', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B))),
-                ],
+                    const SizedBox(width: 14),
+                    const Text('Pump + 8 Trucks', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B))),
+                  ],
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 24),
             
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pushNamed(AppRoutes.liveTracking),
+                onPressed: () => Navigator.of(context).pushNamed(isDraft ? AppRoutes.priceBreakdown : AppRoutes.liveTracking),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4F46E5),
                   foregroundColor: Colors.white,
@@ -215,12 +224,12 @@ class OrderDetailsScreen extends StatelessWidget {
                   elevation: 0,
                   textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('View Order Status'),
-                    SizedBox(width: 8),
-                    Icon(Icons.chevron_right_rounded, size: 18),
+                    Text(isDraft ? 'Continue Order' : 'View Order Status'),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.chevron_right_rounded, size: 18),
                   ],
                 ),
               ),

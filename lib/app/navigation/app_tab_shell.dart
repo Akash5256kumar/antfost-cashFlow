@@ -7,6 +7,7 @@ import '../../features/invoices/invoice_details_screen.dart';
 import '../../features/invoices/invoices_screen.dart';
 import '../../features/invoices/qc_checkpoint_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
+import '../../features/chat/order_chat_screen.dart';
 import '../../features/auth/forgot_passcode_screen.dart';
 import '../../features/kyc/kyc_pending_screen.dart';
 import '../../features/kyc/kyc_verification_screen.dart';
@@ -418,6 +419,11 @@ Route<dynamic> _buildRouteForTab(
       return _materialRoute(
         settings: settings,
         builder: (_) => const OrderDetailsScreen(),
+      );
+    case AppRoutes.orderChat:
+      return _materialRoute(
+        settings: settings,
+        builder: (_) => const OrderChatScreen(),
       );
     case AppRoutes.transactionHistory:
       return _materialRoute(

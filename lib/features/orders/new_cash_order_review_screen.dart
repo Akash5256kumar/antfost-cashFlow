@@ -6,6 +6,8 @@ import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import '../payment/payment_screen.dart';
+import '../payment/price_breakdown_screen.dart';
+import 'order_saved_screen.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'order_step_widgets.dart';
 
@@ -283,11 +285,23 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                 label: 'Continue',
                 arrow: true,
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PaymentScreen(totalAmount: _total),
-                    ),
-                  );
+                  if (widget.quantity > 100) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => OrderSavedScreen(
+                          quantity: widget.quantity,
+                          mixCode: widget.mixCode.code,
+                          reason: OrderSavedReason.scheduleApproval,
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PriceBreakdownScreen(totalAmount: _total),
+                      ),
+                    );
+                  }
                 },
               ),
             ),

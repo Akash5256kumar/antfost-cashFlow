@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/app_notification_bell.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/config/app_assets.dart';
@@ -40,9 +41,10 @@ class OrderCompleteScreen extends StatelessWidget {
         title: SvgPicture.asset(AppAssets.antfostLogo, height: 26),
         centerTitle: true,
         actions: [
-          IconButton(
-            onPressed: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
-            icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
+          AppNotificationBell(
+            onTap: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
+            color: AppColors.textPrimary,
+            showBellDot: false,
           ),
         ],
       ),

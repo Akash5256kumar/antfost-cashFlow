@@ -50,6 +50,7 @@ abstract final class AppRoutes {
   static const String agreementSummary = '/orders/agreement-summary';
   static const String operationsAgreement = '/orders/operations-agreement';
   static const String orderDetails = '/orders/details';
+  static const String orderChat = '/orders/chat';
   static const String wallet = '/wallet';
   static const String transactionHistory = '/wallet/transactions';
   static const String invoices = '/invoices';

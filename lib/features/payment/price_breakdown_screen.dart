@@ -7,6 +7,7 @@ import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/primary_button.dart';
+import 'payment_screen.dart';
 
 /// Ported from the new Figma design's `screens/PriceBreakdown.tsx`.
 class PriceBreakdownScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class PriceBreakdownScreen extends StatefulWidget {
     this.serviceCharge = 120.0,
     this.paymentMethodCharge = 25.0,
     this.vatRate = 0.05,
+    this.walletApplied = 10000.0,
     this.totalAmount,
   });
 
@@ -33,13 +35,15 @@ class PriceBreakdownScreen extends StatefulWidget {
   final double serviceCharge;
   final double paymentMethodCharge;
   final double vatRate;
+  final double walletApplied;
   final double? totalAmount;
 
   double get _concreteCost => quantity * pricePerM3;
   double get _subtotal =>
       _concreteCost + deliveryFee + serviceCharge + paymentMethodCharge;
   double get _vat => _subtotal * vatRate;
-  double get _total => totalAmount ?? (_subtotal + _vat);
+  double get _orderTotal => totalAmount ?? (_subtotal + _vat);
+  double get _remaining => _orderTotal - walletApplied;
 
   @override
   State<PriceBreakdownScreen> createState() => _PriceBreakdownScreenState();
@@ -209,14 +213,47 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
                     decoration: const BoxDecoration(
                       color: Color(0xFFF5F3FF),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Expanded(
-                          child: Text('Total', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1E1B4B))),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text('Order Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                            ),
+                            Text(
+                              _fmt(widget._orderTotal),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                            ),
+                          ],
                         ),
-                        Text(
-                          _fmt(widget._total),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF4F46E5)),
+                        if (widget.walletApplied > 0) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text('Wallet Applied', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
+                              ),
+                              Text(
+                                '-${_fmt(widget.walletApplied)}',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF10B981)),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text('Remaining Amount', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1E1B4B))),
+                            ),
+                            Text(
+                              _fmt(widget._remaining),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF4F46E5)),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -280,7 +317,15 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
               arrow: true,
               label: 'Accept Price',
               onPressed: _reviewed
-                  ? () => Navigator.of(context).pushNamed(AppRoutes.termsConditions)
+                  ? () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PaymentScreen(
+                            totalAmount: widget._orderTotal,
+                          ),
+                        ),
+                      );
+                    }
                   : null,
             ),
             const SizedBox(height: 10),

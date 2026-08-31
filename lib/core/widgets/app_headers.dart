@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
+import 'app_notification_bell.dart';
 
 /// Branded header — centered logo + optional back button + notification
 /// bell. Ported from the new Figma design's `AppHeader` component
@@ -15,12 +16,16 @@ class AppBrandHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onBack,
     this.onBellTap,
     this.showBellDot = true,
+    this.showChat = false,
+    this.onChatTap,
   });
 
   final bool showBack;
   final VoidCallback? onBack;
   final VoidCallback? onBellTap;
   final bool showBellDot;
+  final bool showChat;
+  final VoidCallback? onChatTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
@@ -31,10 +36,11 @@ class AppBrandHeader extends StatelessWidget implements PreferredSizeWidget {
       bottom: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-        child: Row(
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            SizedBox(
-              width: 32,
+            Align(
+              alignment: Alignment.centerLeft,
               child: showBack
                   ? _IconTapTarget(
                       onTap: onBack ?? () => Navigator.of(context).maybePop(),
@@ -43,24 +49,27 @@ class AppBrandHeader extends StatelessWidget implements PreferredSizeWidget {
                         size: 20,
                       ),
                     )
-                  : null,
+                  : const SizedBox(width: 32),
             ),
-            const Spacer(),
             SvgPicture.asset(AppAssets.antfostLogo, height: 30),
-            const Spacer(),
-            SizedBox(
-              width: 32,
-              child: _IconTapTarget(
-                onTap: onBellTap,
-                child: SvgPicture.string(
-                  '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
-                  '<path d="M12 3C8.68629 3 6 5.68629 6 9V13.2929C6 13.8233 5.78929 14.3321 5.41421 14.7071L4.29289 15.8284C3.66299 16.4583 4.10914 17.5 5 17.5H19C19.8909 17.5 20.337 16.4583 19.7071 15.8284L18.5858 14.7071C18.2107 14.3321 18 13.8233 18 13.2929V9C18 5.68629 15.3137 3 12 3Z" stroke="#4E54F5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
-                  '<path d="M9.5 17.5C9.5 18.8807 10.6193 20 12 20C13.3807 20 14.5 18.8807 14.5 17.5" stroke="#4E54F5" stroke-width="1.8" stroke-linecap="round"/>'
-                  '${showBellDot ? '<circle cx="18" cy="5" r="3.5" fill="#4E54F5" stroke="#FFFFFF" stroke-width="1.5"/>' : ''}'
-                  '</svg>',
-                  width: 24,
-                  height: 24,
-                ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showChat) ...[
+                    _IconTapTarget(
+                      onTap: onChatTap,
+                      child: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textPrimary, size: 22),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  AppNotificationBell(
+                    onTap: onBellTap,
+                    showBellDot: showBellDot,
+                    color: const Color(0xFF4E54F5),
+                  ),
+                ],
               ),
             ),
           ],
