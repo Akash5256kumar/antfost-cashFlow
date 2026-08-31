@@ -1,69 +1,57 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 import '../../core/widgets/order_stepper_widget.dart';
 import '../../core/widgets/primary_button.dart';
 
-const Color kOrderTextDark    = Color(0xFF1A1A1A);
-const Color kOrderTextGrey    = Color(0xFF9E9E9E);
-const Color kOrderBodyBg      = Color(0xFFF2F2F7);
-const Color kOrderBorderSect  = Color(0xFFEFEFEF);
-const Color kOrderFieldBorder = Color(0xFFE8E8E8);
-const Color kOrderLabelGrey   = Color(0xFF9F9DA6);
+// Aliases onto the shared design tokens — kept so the many call sites across
+// the new-order wizard screens don't all need touching individually.
+const Color kOrderTextDark = AppColors.textPrimary;
+const Color kOrderTextGrey = AppColors.textSecondary;
+const Color kOrderBodyBg = AppColors.background;
+const Color kOrderBorderSect = AppColors.cardBorder;
+const Color kOrderFieldBorder = AppColors.cardBorder;
+const Color kOrderLabelGrey = AppColors.textSecondary;
 const Color kOrderRequiredPink = Color(0xFFFF5CA8);
 
-// ── Shared app bar ────────────────────────────────────────────────────────────
-
-class OrderStepAppBar extends StatelessWidget {
-  const OrderStepAppBar({super.key, required this.subtitle});
-  final String subtitle;
+// ── Shared step heading ────────────────────────────────────────────────────
+//
+// Ported from the new Figma design's per-step body heading (`screens/
+// MixCode.tsx` etc: bold H1 + optional description, below the shared
+// `AppBrandHeader`/`StepRail` chrome each wizard screen now uses directly).
+class OrderStepHeading extends StatelessWidget {
+  const OrderStepHeading({super.key, required this.title, this.subtitle});
+  final String title;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded, size: 24),
-              color: AppColors.textPrimary,
-              padding: EdgeInsets.zero,
-              splashRadius: 22,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: context.scaled(20),
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            height: 1.2,
+          ),
+        ),
+        if (subtitle != null) ...[
+          SizedBox(height: context.scaledV(4)),
+          Text(
+            subtitle!,
+            style: TextStyle(
+              fontSize: context.scaled(13.5),
+              fontWeight: FontWeight.w400,
+              color: kOrderTextGrey,
+              height: 1.4,
             ),
           ),
-          const SizedBox(width: 4),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'New Cash Order',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.black,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: kOrderTextGrey,
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -90,7 +78,10 @@ class OrderStepperSection extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.scaled(16),
+          vertical: context.scaled(16),
+        ),
         child: OrderStepperWidget(currentStep: currentStep, labels: labels),
       ),
     );
@@ -106,7 +97,7 @@ class OrderStepBottomBar extends StatelessWidget {
     this.label = 'Continue',
   });
 
-  final VoidCallback onContinue;
+  final VoidCallback? onContinue;
   final String label;
 
   @override
@@ -115,8 +106,8 @@ class OrderStepBottomBar extends StatelessWidget {
     // the software keyboard height so the button is never obscured.
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final bottomPadding = bottomInset > 0
-        ? bottomInset + 12
-        : MediaQuery.paddingOf(context).bottom + 20;
+        ? bottomInset + context.scaled(12)
+        : MediaQuery.paddingOf(context).bottom + context.scaled(20);
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -124,7 +115,12 @@ class OrderStepBottomBar extends StatelessWidget {
         border: Border(top: BorderSide(color: kOrderBorderSect, width: 1)),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding),
+        padding: EdgeInsets.fromLTRB(
+          context.scaled(16),
+          context.scaled(12),
+          context.scaled(16),
+          bottomPadding,
+        ),
         child: PrimaryButton(label: label, onPressed: onContinue),
       ),
     );
@@ -141,14 +137,14 @@ class DashedDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (_, constraints) {
-        const dashW = 8.0;
-        const dashGap = 5.0;
+        final dashW = context.scaled(8.0);
+        final dashGap = context.scaled(5.0);
         final count = (constraints.maxWidth / (dashW + dashGap)).floor();
         return Row(
           children: List.generate(
             count,
             (_) => Padding(
-              padding: const EdgeInsets.only(right: dashGap),
+              padding: EdgeInsets.only(right: dashGap),
               child: SizedBox(
                 width: dashW,
                 height: 1,

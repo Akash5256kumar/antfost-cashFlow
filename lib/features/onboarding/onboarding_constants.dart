@@ -1,28 +1,19 @@
 import '../../app/config/app_assets.dart';
 
-enum OnboardingIllustrationType { asset, svg, svgEmbeddedPng }
+enum OnboardingIllustrationType { asset, svg, raster }
 
 class OnboardingIllustrationSpec {
   final String assetPath;
   final OnboardingIllustrationType type;
-  final double mobileWidthFactor;
-  final double tabletWidthFactor;
-  final double mobileMinWidth;
-  final double mobileMaxWidth;
-  final double tabletMinWidth;
-  final double tabletMaxWidth;
-  final double bottomFactor;
+
+  /// Whether this illustration is a full-bleed photo (no padding/tinted
+  /// backdrop) rather than a small icon shown on a tinted card.
+  final bool fullBleed;
 
   const OnboardingIllustrationSpec({
     required this.assetPath,
     required this.type,
-    required this.mobileWidthFactor,
-    required this.tabletWidthFactor,
-    required this.mobileMinWidth,
-    required this.mobileMaxWidth,
-    required this.tabletMinWidth,
-    required this.tabletMaxWidth,
-    required this.bottomFactor,
+    this.fullBleed = false,
   });
 }
 
@@ -38,80 +29,55 @@ class OnboardingPageContent {
   });
 }
 
+/// Content ported verbatim from the new Figma design's
+/// `components/Onboarding.tsx` (3 slides, copy matches exactly).
+///
+/// All three illustrations are the genuine `src/imports/*.jpg` source
+/// files from the Figma Make project (3.jpg / 4.jpg / 1.jpg) at their
+/// original resolution — not MCP-recoverable, so pulled directly from the
+/// project's own copy of the Make file's asset folder.
 abstract final class OnboardingConstants {
   static const String continueLabel = 'Continue';
   static const String getStartedLabel = 'Get Started';
 
-  static const double visualHeightTabletFactor = 0.50;
-  static const double visualHeightMobileFactor = 0.54;
-  static const double blobWidthTabletFactor = 0.68;
-  static const double blobWidthMobileFactor = 0.96;
-  static const double blobWidthMin = 320;
-  static const double blobWidthTabletMax = 544;
-  static const double blobWidthMobileMax = 396;
-  static const double blobHeightFactor = 260 / 362;
-  static const double ringSizeTabletFactor = 0.16;
-  static const double ringSizeMobileFactor = 0.25;
-  static const double ringTopFactor = 0.08;
-  static const double ringLeftFactor = 0.11;
-  static const double blobLeftFactor = 0.04;
-  static const double blobTopFactor = 0.41;
   static const OnboardingIllustrationSpec truckIllustration =
       OnboardingIllustrationSpec(
-        assetPath: AppAssets.mixtureMachine,
-        type: OnboardingIllustrationType.asset,
-        mobileWidthFactor: 0.81,
-        tabletWidthFactor: 0.58,
-        mobileMinWidth: 292,
-        mobileMaxWidth: 332,
-        tabletMinWidth: 292,
-        tabletMaxWidth: 420,
-        bottomFactor: 0.03,
+        assetPath: AppAssets.figmaTruck,
+        type: OnboardingIllustrationType.raster,
+        fullBleed: true,
       );
 
   static const OnboardingIllustrationSpec locationIllustration =
       OnboardingIllustrationSpec(
-        assetPath: AppAssets.propertyLogo,
-        type: OnboardingIllustrationType.svgEmbeddedPng,
-        mobileWidthFactor: 0.86,
-        tabletWidthFactor: 0.62,
-        mobileMinWidth: 300,
-        mobileMaxWidth: 344,
-        tabletMinWidth: 340,
-        tabletMaxWidth: 470,
-        bottomFactor: 0.04,
+        assetPath: AppAssets.onboardingLocation,
+        type: OnboardingIllustrationType.raster,
+        fullBleed: true,
       );
 
   static const OnboardingIllustrationSpec paymentIllustration =
       OnboardingIllustrationSpec(
-        assetPath: AppAssets.cardPaymentIcon,
-        type: OnboardingIllustrationType.svgEmbeddedPng,
-        mobileWidthFactor: 0.62,
-        tabletWidthFactor: 0.46,
-        mobileMinWidth: 220,
-        mobileMaxWidth: 258,
-        tabletMinWidth: 250,
-        tabletMaxWidth: 340,
-        bottomFactor: 0.02,
+        assetPath: AppAssets.onboardingPayment,
+        type: OnboardingIllustrationType.raster,
+        fullBleed: true,
       );
 
   static const List<OnboardingPageContent> pages = [
     OnboardingPageContent(
-      title: 'Busy like ants. Fast like\nANTFAST.',
+      title: 'Busy like ants.\nFast like ANTFAST.',
       subtitle:
-          'Like ants working together, we move\nfast, stay organized, and deliver\nexactly what you need-every time.',
+          'Reliable ready-mix concrete, delivered exactly when you need it.',
       illustration: truckIllustration,
     ),
     OnboardingPageContent(
       title: 'Location-Based Delivery',
       subtitle:
-          'With ANTFAST, you get faster delivery,\nbetter prices, and guaranteed quality-all\nin the palm of your hand.',
+          'Set the exact project location for accurate planning and '
+          'on-time delivery.',
       illustration: locationIllustration,
     ),
     OnboardingPageContent(
       title: 'Secure Payments',
-      subtitle:
-          'Pay securely with card or payment link.\nYour payment is protected until order\ncompletion.',
+      subtitle: 'Pay securely with multiple options and full transparency.',
       illustration: paymentIllustration,
     ),
   ];

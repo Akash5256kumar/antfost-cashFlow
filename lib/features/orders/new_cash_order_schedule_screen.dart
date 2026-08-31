@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/primary_button.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_other_screen.dart';
 import 'order_step_widgets.dart';
@@ -24,71 +28,34 @@ class NewCashOrderScheduleScreen extends StatefulWidget {
 
 class _NewCashOrderScheduleScreenState
     extends State<NewCashOrderScheduleScreen> {
-  DateTime? _deliveryDate;
-  int? _selectedTimeSlot;
-  bool _splitDelivery = true;
-  int _numTrips = 3;
-  int _gapMinutes = 30;
+  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  int _selectedTimeWindowIndex = 0;
+  int _intervalMinutes = 15;
+  final TextEditingController _notesController = TextEditingController();
 
-  static const _timeSlots = [
-    '6 AM - 10 AM (±4 hrs)',
-    '6 AM - 12 PM (±6 hrs)',
-    '6 AM - 6 PM (±12 hrs)',
-    '10 AM - 2 PM',
-    '2 PM - 6 PM',
-  ];
+  final List<DateTime> _dates = List.generate(
+      14, (i) => DateTime.now().add(Duration(days: i))); 
 
-  static const _tripOptions = [1, 2, 3, 4, 5, 6];
-  static const _gapOptions  = [15, 30, 45, 60, 90];
-
-  String get _dateLabel {
-    if (_deliveryDate == null) return 'DD-MM-YYYY';
-    final d = _deliveryDate!;
-    final dd = d.day.toString().padLeft(2, '0');
-    final mm = d.month.toString().padLeft(2, '0');
-    return '$dd-$mm-${d.year}';
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _deliveryDate ?? now.add(const Duration(days: 1)),
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: AppColors.primary,
-            onPrimary: Colors.white,
-          ),
+  void _incrementInterval() => setState(() => _intervalMinutes += 5);
+  void _decrementInterval() {
+    if (_intervalMinutes > 5) setState(() => _intervalMinutes -= 5);
+  }
+
+  void _onContinue() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NewCashOrderOtherScreen(
+          mixCode: widget.mixCode,
+          quantity: widget.quantity,
         ),
-        child: child!,
       ),
     );
-    if (picked != null && mounted) setState(() => _deliveryDate = picked);
-  }
-
-  Future<void> _pickTrips() async {
-    final val = await _showPickerSheet<int>(
-      context: context,
-      title: 'Number of Trips',
-      items: _tripOptions,
-      selected: _numTrips,
-      labelOf: (v) => '$v',
-    );
-    if (val != null && mounted) setState(() => _numTrips = val);
-  }
-
-  Future<void> _pickGap() async {
-    final val = await _showPickerSheet<int>(
-      context: context,
-      title: 'Gap Between Trips',
-      items: _gapOptions,
-      selected: _gapMinutes,
-      labelOf: (v) => '$v min',
-    );
-    if (val != null && mounted) setState(() => _gapMinutes = val);
   }
 
   @override
@@ -100,463 +67,538 @@ class _NewCashOrderScheduleScreenState
         bottom: false,
         child: Column(
           children: [
-            const OrderStepAppBar(subtitle: 'Schedule'),
+            const AppBrandHeader(showBack: true),
             const OrderStepperSection(currentStep: 3),
 
             Expanded(
-              child: ColoredBox(
-                color: kOrderBodyBg,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Section heading
-                      const Text(
-                        'Schedule Delivery',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: kOrderTextDark,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Select your preferred delivery date and time',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: kOrderTextGrey,
-                          height: 1.43,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // ── Delivery date ─────────────────────────────
-                      _DateField(
-                        label: _dateLabel,
-                        onTap: _pickDate,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // ── Select Time Slot ──────────────────────────
-                      const Text(
-                        'Select Time Slot',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: kOrderTextDark,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      Column(
-                        children: List.generate(_timeSlots.length, (i) {
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              bottom: i < _timeSlots.length - 1 ? 10 : 0,
-                            ),
-                            child: _TimeSlotTile(
-                              label: _timeSlots[i],
-                              isSelected: _selectedTimeSlot == i,
-                              onTap: () =>
-                                  setState(() => _selectedTimeSlot = i),
-                            ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // ── Split delivery ────────────────────────────
-                      _SplitDeliverySection(
-                        enabled: _splitDelivery,
-                        numTrips: _numTrips,
-                        gapMinutes: _gapMinutes,
-                        onToggle: (v) =>
-                            setState(() => _splitDelivery = v),
-                        onPickTrips: _pickTrips,
-                        onPickGap: _pickGap,
-                      ),
-                    ],
-                  ),
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  context.scaled(16),
+                  context.scaled(24),
+                  context.scaled(16),
+                  0, // We will put bottom padding inside the column
                 ),
-              ),
-            ),
-
-            OrderStepBottomBar(
-              onContinue: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => NewCashOrderOtherScreen(
-                    mixCode: widget.mixCode,
-                    quantity: widget.quantity,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Date field ────────────────────────────────────────────────────────────────
-
-class _DateField extends StatelessWidget {
-  const _DateField({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 72,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kOrderFieldBorder),
-          ),
-          child: Row(
-            children: [
-              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Delivery Date',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: kOrderLabelGrey,
-                        height: 1.33,
-                      ),
+                    const OrderStepHeading(
+                      title: 'Choose Schedule',
+                      subtitle: 'Select your preferred date and time window.',
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: context.scaledV(24)),
+
+                    // ── Date slider ─────────────────────────────
+                    _HorizontalDateSlider(
+                      dates: _dates,
+                      selectedDate: _selectedDate,
+                      onSelect: (d) => setState(() => _selectedDate = d),
+                    ),
+                    SizedBox(height: context.scaledV(32)),
+
+                    // ── Select Time Window ──────────────────────────
                     Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                      'Select Time Window',
+                      style: TextStyle(
+                        fontSize: context.scaled(15),
+                        fontWeight: FontWeight.w600,
                         color: kOrderTextDark,
-                        height: 1.25,
                       ),
                     ),
+                    SizedBox(height: context.scaledV(16)),
+                    _TimeWindowGrid(
+                      selectedIndex: _selectedTimeWindowIndex,
+                      onSelect: (i) =>
+                          setState(() => _selectedTimeWindowIndex = i),
+                    ),
+                    SizedBox(height: context.scaledV(32)),
+
+                    // ── Delivery interval ──────────────────────────
+                    Text(
+                      'Requested Supply Interval',
+                      style: TextStyle(
+                        fontSize: context.scaled(15),
+                        fontWeight: FontWeight.w600,
+                        color: kOrderTextDark,
+                      ),
+                    ),
+                    SizedBox(height: context.scaledV(16)),
+                    _IntervalStepper(
+                      minutes: _intervalMinutes,
+                      onDecrement: _decrementInterval,
+                      onIncrement: _incrementInterval,
+                    ),
+                    SizedBox(height: context.scaledV(8)),
+                    Text(
+                      'Requested interval helps ANTFAST prepare your proposal.',
+                      style: TextStyle(
+                        fontSize: context.scaled(12.5),
+                        color: kOrderTextGrey,
+                      ),
+                    ),
+                    SizedBox(height: context.scaledV(32)),
+
+                    // ── Schedule Notes ──────────────────────────────
+                    Text(
+                      'Schedule Notes (Optional)',
+                      style: TextStyle(
+                        fontSize: context.scaled(15),
+                        fontWeight: FontWeight.w600,
+                        color: kOrderTextDark,
+                      ),
+                    ),
+                    SizedBox(height: context.scaledV(16)),
+                    _NotesField(controller: _notesController),
+                    SizedBox(height: context.scaledV(32)),
+
+                    // ── Continue Button ─────────────────────────────
+                    PrimaryButton(
+                      arrow: true,
+                      label: 'Continue to Services',
+                      onPressed: _onContinue,
+                    ),
+                    
+                    SizedBox(height: context.scaledV(32)),
+
+                    // ── Footer Illustration ─────────────────────────
+                    Center(
+                      child: ShaderMask(
+                        shaderCallback: (Rect bounds) {
+                          return const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.white,
+                              Colors.white,
+                            ],
+                            stops: [0.0, 0.25, 1.0], // Fade the top 25% smoothly
+                          ).createShader(bounds);
+                        },
+                        blendMode: BlendMode.dstIn,
+                        child: Image.asset(
+                          AppAssets.artHomeHero,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    
+                    // Extra padding for bottom safe area
+                    SizedBox(height: MediaQuery.paddingOf(context).bottom + context.scaledV(20)),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.calendar_today_outlined,
-                size: 22,
-                color: kOrderTextDark,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Time slot tile ────────────────────────────────────────────────────────────
-
-class _TimeSlotTile extends StatelessWidget {
-  const _TimeSlotTile({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: AppColors.primary.withValues(alpha: 0.06),
-        child: Container(
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? AppColors.primary : kOrderFieldBorder,
-              width: isSelected ? 1.5 : 1.0,
-            ),
-          ),
-          alignment: Alignment.centerLeft,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: isSelected ? AppColors.primary : kOrderTextDark,
-              height: 1.25,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Split delivery section ────────────────────────────────────────────────────
-
-class _SplitDeliverySection extends StatelessWidget {
-  const _SplitDeliverySection({
-    required this.enabled,
-    required this.numTrips,
-    required this.gapMinutes,
-    required this.onToggle,
-    required this.onPickTrips,
-    required this.onPickGap,
-  });
-
-  final bool enabled;
-  final int numTrips;
-  final int gapMinutes;
-  final ValueChanged<bool> onToggle;
-  final VoidCallback onPickTrips;
-  final VoidCallback onPickGap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Toggle row
-        Row(
-          children: [
-            const Text(
-              'Split Delivery',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: kOrderTextDark,
-                height: 1.3,
-              ),
-            ),
-            const Spacer(),
-            Switch(
-              value: enabled,
-              onChanged: onToggle,
-              activeColor: AppColors.primary,
-              activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
 
-        if (enabled) ...[
-          const SizedBox(height: 10),
+// ── Horizontal Date Slider ───────────────────────────────────────────────────
 
-          // Info banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEDE9FB),
-              borderRadius: BorderRadius.circular(12),
+class _HorizontalDateSlider extends StatelessWidget {
+  const _HorizontalDateSlider({
+    required this.dates,
+    required this.selectedDate,
+    required this.onSelect,
+  });
+
+  final List<DateTime> dates;
+  final DateTime selectedDate;
+  final ValueChanged<DateTime> onSelect;
+
+  static const List<String> _weekdays = [
+    '',
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun'
+  ];
+  static const List<String> _months = [
+    '',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: context.scaled(32),
+          height: context.scaled(32),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.scaled(10)),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Icon(Icons.chevron_left, color: kOrderTextDark, size: context.scaled(18)),
+        ),
+        SizedBox(width: context.scaled(8)),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: dates.map((d) {
+                final isSelected = d.year == selectedDate.year &&
+                    d.month == selectedDate.month &&
+                    d.day == selectedDate.day;
+                return Padding(
+                  padding: EdgeInsets.only(right: context.scaled(8)),
+                  child: GestureDetector(
+                    onTap: () => onSelect(d),
+                    child: Container(
+                      constraints: BoxConstraints(minWidth: context.scaled(62)),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.scaled(8),
+                        vertical: context.scaledV(12),
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFFF6F8FF) : Colors.white,
+                        borderRadius: BorderRadius.circular(context.scaled(12)),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : const Color(0xFFF1F5F9),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _weekdays[d.weekday],
+                            style: TextStyle(
+                              fontSize: context.scaled(12.5),
+                              color: isSelected ? AppColors.primary : kOrderTextDark,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(height: context.scaledV(4)),
+                          Text(
+                            '${d.day} ${_months[d.month]}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: context.scaled(12.5),
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              color: isSelected ? AppColors.primary : kOrderTextDark,
+                              height: 1.1,
+                            ),
+                          ),
+                          SizedBox(height: context.scaledV(8)),
+                          if (isSelected)
+                            Container(
+                              width: context.scaled(18),
+                              height: context.scaled(18),
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.primary,
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(Icons.check, size: context.scaled(12), color: Colors.white),
+                            )
+                          else
+                            Container(
+                              width: context.scaled(18),
+                              height: context.scaled(18),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
-            child: const Text(
-              'Receive concrete in multiple trips',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: AppColors.primary,
-                height: 1.3,
-              ),
-            ),
           ),
-          const SizedBox(height: 12),
-
-          // Number of Trips
-          _DropdownField(
-            label: 'Number of Trips',
-            value: '$numTrips',
-            onTap: onPickTrips,
+        ),
+        SizedBox(width: context.scaled(8)),
+        Container(
+          width: context.scaled(32),
+          height: context.scaled(32),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.scaled(10)),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-          const SizedBox(height: 12),
-
-          // Gap Between Trips
-          _DropdownField(
-            label: 'Gap Between Trips (minutes)',
-            value: '$gapMinutes min',
-            onTap: onPickGap,
-          ),
-          const SizedBox(height: 8),
-
-          const Text(
-            'Gap between trips helps truck return/cleaning/refuel',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: kOrderTextGrey,
-              height: 1.4,
-            ),
-          ),
-        ],
+          child: Icon(Icons.chevron_right, color: kOrderTextDark, size: context.scaled(18)),
+        ),
       ],
     );
   }
 }
 
-// ── Dropdown field ────────────────────────────────────────────────────────────
+// ── Time Window Grid ─────────────────────────────────────────────────────────
 
-class _DropdownField extends StatelessWidget {
-  const _DropdownField({
-    required this.label,
-    required this.value,
-    required this.onTap,
+class _TimeWindowGrid extends StatelessWidget {
+  const _TimeWindowGrid({
+    required this.selectedIndex,
+    required this.onSelect,
   });
 
-  final String label;
-  final String value;
-  final VoidCallback onTap;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+
+  static const List<Map<String, dynamic>> _windows = [
+    {'title': 'Morning', 'time': '06:00-12:00', 'icon': Icons.wb_twilight},
+    {'title': 'Midday', 'time': '12:00-16:00', 'icon': Icons.wb_sunny_outlined},
+    {'title': 'Afternoon', 'time': '16:00-00:00', 'icon': Icons.wb_sunny_outlined},
+    {'title': 'Early Night', 'time': '00:00-06:00', 'icon': Icons.nights_stay_outlined},
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 72,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kOrderFieldBorder),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: kOrderLabelGrey,
-                        height: 1.33,
-                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = context.scaled(8);
+        final itemWidth = (constraints.maxWidth - gap * 3) / 4;
+        return Row(
+          children: List.generate(_windows.length, (i) {
+            final isSelected = selectedIndex == i;
+            return Padding(
+              padding: EdgeInsets.only(right: i == _windows.length - 1 ? 0 : gap),
+              child: GestureDetector(
+                onTap: () => onSelect(i),
+                child: Container(
+                  width: itemWidth,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.scaled(4),
+                    vertical: context.scaledV(12),
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFF6F8FF)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(context.scaled(12)),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primary
+                          : const Color(0xFFF1F5F9),
+                      width: 1.5,
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      value,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: kOrderTextDark,
-                        height: 1.25,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _windows[i]['icon'] as IconData,
+                        size: context.scaled(24),
+                        color: isSelected ? AppColors.primary : const Color(0xFF64748B),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: context.scaledV(8)),
+                      Text(
+                        _windows[i]['title'] as String,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: context.scaled(11.5),
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? AppColors.primary : kOrderTextDark,
+                        ),
+                      ),
+                      SizedBox(height: context.scaledV(2)),
+                      Text(
+                        _windows[i]['time'] as String,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: context.scaled(9.5),
+                          color: isSelected ? AppColors.primary.withValues(alpha: 0.8) : kOrderTextGrey,
+                        ),
+                      ),
+                      SizedBox(height: context.scaledV(12)),
+                      if (isSelected)
+                        Container(
+                          width: context.scaled(20),
+                          height: context.scaled(20),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.primary,
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(Icons.check, size: context.scaled(12), color: Colors.white),
+                        )
+                      else
+                        Container(
+                          width: context.scaled(20),
+                          height: context.scaled(20),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 22,
-                color: kOrderTextDark,
-              ),
-            ],
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+// ── Interval Stepper ─────────────────────────────────────────────────────────
+
+class _IntervalStepper extends StatelessWidget {
+  const _IntervalStepper({
+    required this.minutes,
+    required this.onDecrement,
+    required this.onIncrement,
+  });
+
+  final int minutes;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.scaled(16)),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.scaled(12),
+        vertical: context.scaledV(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _IntervalButton(icon: Icons.remove, onTap: onDecrement),
+          Text(
+            '$minutes min',
+            style: TextStyle(
+              fontSize: context.scaled(16),
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF0F172A),
+            ),
           ),
-        ),
+          _IntervalButton(icon: Icons.add, onTap: onIncrement),
+        ],
       ),
     );
   }
 }
 
-// ── Generic picker bottom sheet ───────────────────────────────────────────────
+class _IntervalButton extends StatelessWidget {
+  const _IntervalButton({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
 
-Future<T?> _showPickerSheet<T>({
-  required BuildContext context,
-  required String title,
-  required List<T> items,
-  required T selected,
-  required String Function(T) labelOf,
-}) {
-  return showModalBottomSheet<T>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    barrierColor: const Color(0x4D000000),
-    builder: (_) {
-      return DecoratedBox(
-        decoration: const BoxDecoration(
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: context.scaled(36),
+        height: context.scaled(36),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(context.scaled(10)),
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD6D6D6),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: kOrderTextDark,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ...items.map(
-                  (item) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      labelOf(item),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                        color: kOrderTextDark,
-                      ),
-                    ),
-                    trailing: item == selected
-                        ? const Icon(Icons.check_rounded,
-                            color: AppColors.primary)
-                        : null,
-                    onTap: () => Navigator.of(context).pop(item),
-                  ),
-                ),
-              ],
+        child: Icon(icon, size: context.scaled(18), color: const Color(0xFF64748B)),
+      ),
+    );
+  }
+}
+
+// ── Notes Field ──────────────────────────────────────────────────────────────
+
+class _NotesField extends StatefulWidget {
+  const _NotesField({required this.controller});
+  final TextEditingController controller;
+
+  @override
+  State<_NotesField> createState() => _NotesFieldState();
+}
+
+class _NotesFieldState extends State<_NotesField> {
+  int _charCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_updateCount);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_updateCount);
+    super.dispose();
+  }
+
+  void _updateCount() {
+    setState(() {
+      _charCount = widget.controller.text.length;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.scaled(12)),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+      ),
+      padding: EdgeInsets.all(context.scaled(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          TextField(
+            controller: widget.controller,
+            maxLines: 4,
+            maxLength: 200,
+            style: TextStyle(
+              fontSize: context.scaled(14),
+              color: kOrderTextDark,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Add any notes or instructions for your delivery...',
+              hintStyle: TextStyle(
+                fontSize: context.scaled(14),
+                color: const Color(0xFF94A3B8),
+              ),
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              counterText: '', // Hide default counter
+              contentPadding: EdgeInsets.zero,
             ),
           ),
-        ),
-      );
-    },
-  );
+          Text(
+            '$_charCount/200',
+            style: TextStyle(
+              fontSize: context.scaled(11),
+              color: const Color(0xFF94A3B8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

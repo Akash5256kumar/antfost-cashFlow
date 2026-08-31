@@ -1,34 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../../app/config/app_assets.dart';
+import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/primary_button.dart';
 import 'new_cash_order_mix_code_screen.dart';
-import 'new_cash_order_review_screen.dart';
+import 'new_cash_order_site_access_screen.dart';
 import 'order_step_widgets.dart';
 
-// ── Pump data model ────────────────────────────────────────────────────────────
+// ── Pump option enum ─────────────────────────────────────────────────────────
 
-class PumpItem {
-  const PumpItem({
-    required this.name,
-    required this.priceSmall,
-    required this.priceMid,
-    required this.priceLarge,
-  });
+enum _PumpSize { small, medium, big }
 
-  final String name;
-  final int priceSmall; // <20 m³
-  final int priceMid;   // 20-70 m³
-  final int priceLarge; // >70 m³
-}
-
-const _pumps = [
-  PumpItem(name: 'Small Pump',       priceSmall: 1000, priceMid: 700,  priceLarge: 500),
-  PumpItem(name: '42-52m Pump',      priceSmall: 1500, priceMid: 600,  priceLarge: 450),
-  PumpItem(name: 'Big Pump (56-63m)',priceSmall: 2000, priceMid: 1500, priceLarge: 300),
+const _structureRefs = [
+  {'title': 'Slab', 'image': AppAssets.mixThumb4},
+  {'title': 'Raft', 'image': AppAssets.mixThumb5},
+  {'title': 'Pile', 'image': AppAssets.mixThumb6},
+  {'title': 'Column', 'image': AppAssets.mixThumb7},
 ];
-
-const _structureRefs = ['Foundation', 'Column', 'Slab', 'Beam', 'Wall'];
-const _temperatures   = [18, 20, 22, 25];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -48,50 +39,54 @@ class NewCashOrderOtherScreen extends StatefulWidget {
 }
 
 class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
-  String _structureRef = 'Foundation';
+  String _structureRef = 'Slab';
 
-  bool _technician    = true;
-  bool _temperature   = false;
-  bool _pump          = false;
-  bool _cubeMould     = false;
+  bool _pump = true;
+  _PumpSize _pumpSize = _PumpSize.medium;
+  bool _pumpExpanded = true;
 
-  int  _selectedTemp  = 20;
-  int? _selectedPump;    // index into _pumps
-  final _mouldController = TextEditingController(text: '9');
+  bool _technician = true;
+  int _cubeMoulds = 6;
+  bool _technicianExpanded = true;
 
-  @override
-  void dispose() {
-    _mouldController.dispose();
-    super.dispose();
-  }
+  bool _temperature = false;
+  bool _temperatureExpanded = false;
 
-  Future<void> _pickStructureRef() async {
-    final v = await _showPickerSheet<String>(
-      context: context,
-      title: 'Structure Ref',
-      items: _structureRefs,
-      selected: _structureRef,
-      labelOf: (s) => s,
-    );
-    if (v != null && mounted) setState(() => _structureRef = v);
-  }
+  bool _labTesting = false;
+  bool _labTestingExpanded = false;
+
+  bool _otherService = false;
+  bool _otherServiceExpanded = false;
 
   void _onContinue() {
+    String pumpName = 'No Pump';
+    if (_pump) {
+      switch (_pumpSize) {
+        case _PumpSize.small:
+          pumpName = 'Small Pump (Up to 42 m)';
+          break;
+        case _PumpSize.medium:
+          pumpName = 'Medium Pump (43-52 m)';
+          break;
+        case _PumpSize.big:
+          pumpName = 'Big Pump (53 m and above)';
+          break;
+      }
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => NewCashOrderReviewScreen(
+        builder: (_) => NewCashOrderSiteAccessScreen(
           mixCode: widget.mixCode,
           quantity: widget.quantity,
           structureRef: _structureRef,
           technicianRequired: _technician,
           temperatureControl: _temperature,
-          temperature: _temperature ? _selectedTemp : null,
+          temperature: null,
           pumpRequired: _pump,
-          pumpName: _pump && _selectedPump != null
-              ? _pumps[_selectedPump!].name
-              : null,
-          cubeMould: _cubeMould,
-          numMoulds: _cubeMould ? int.tryParse(_mouldController.text) ?? 0 : 0,
+          pumpName: pumpName,
+          cubeMould: _technician,
+          numMoulds: _technician ? _cubeMoulds : 0,
         ),
       ),
     );
@@ -106,82 +101,287 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
         bottom: false,
         child: Column(
           children: [
-            const OrderStepAppBar(subtitle: 'Other'),
+            const AppBrandHeader(showBack: true),
             const OrderStepperSection(currentStep: 4),
             Expanded(
-              child: ColoredBox(
-                color: kOrderBodyBg,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Other Details',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: kOrderTextDark,
-                          height: 1.2,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  context.scaled(24),
+                  context.scaled(8),
+                  context.scaled(24),
+                  context.scaled(112) + MediaQuery.paddingOf(context).bottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Choose Services',
+                      style: TextStyle(
+                        fontSize: context.scaled(22),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.2,
+                        color: const Color(0xFF1F2533),
+                      ),
+                    ),
+                    SizedBox(height: context.scaledV(3)),
+                    Text(
+                      'Select the structure type and services required for this delivery.',
+                      style: TextStyle(
+                        fontSize: context.scaled(13.5),
+                        color: kOrderTextGrey,
+                      ),
+                    ),
+                    SizedBox(height: context.scaledV(18)),
+
+                    // Structure Type
+                    Text(
+                      'Structure Type',
+                      style: TextStyle(
+                        fontSize: context.scaled(13),
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1F2533),
+                      ),
+                    ),
+                    SizedBox(height: context.scaledV(6)),
+                    _StructureTypeDropdown(
+                      value: _structureRef,
+                      onChanged: (v) => setState(() => _structureRef = v),
+                    ),
+                    SizedBox(height: context.scaledV(14)),
+
+                    // Concrete Pump
+                    _ServiceCard(
+                      isSelected: _pump,
+                      onToggleCheck: (v) => setState(() => _pump = v),
+                      isExpanded: _pumpExpanded,
+                      onToggleExpand: () =>
+                          setState(() => _pumpExpanded = !_pumpExpanded),
+                      title: 'Concrete Pump',
+                      subtitle: 'Assigned and tracked as a separate resource',
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(context.scaled(8)),
+                        child: Image.asset(
+                          AppAssets.mixThumb8,
+                          width: context.scaled(66),
+                          height: context.scaled(42),
+                          fit: BoxFit.cover,
                         ),
                       ),
-                      const SizedBox(height: 20),
-
-                      // Structure Ref
-                      _DropdownTile(
-                        label: 'Structure Ref',
-                        value: _structureRef,
-                        onTap: _pickStructureRef,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Choose Pump Size',
+                            style: TextStyle(
+                              fontSize: context.scaled(13),
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1F2533),
+                            ),
+                          ),
+                          SizedBox(height: context.scaledV(10)),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _PumpSizeCard(
+                                  title: 'Small Pump',
+                                  subtitle: 'Up to 42 m',
+                                  isSelected: _pumpSize == _PumpSize.small,
+                                  onTap: () => setState(
+                                      () => _pumpSize = _PumpSize.small),
+                                ),
+                              ),
+                              SizedBox(width: context.scaled(8)),
+                              Expanded(
+                                child: _PumpSizeCard(
+                                  title: 'Medium Pump',
+                                  subtitle: '43–52 m',
+                                  isSelected: _pumpSize == _PumpSize.medium,
+                                  onTap: () => setState(
+                                      () => _pumpSize = _PumpSize.medium),
+                                ),
+                              ),
+                              SizedBox(width: context.scaled(8)),
+                              Expanded(
+                                child: _PumpSizeCard(
+                                  title: 'Big Pump',
+                                  subtitle: '53 m and above',
+                                  isSelected: _pumpSize == _PumpSize.big,
+                                  onTap: () =>
+                                      setState(() => _pumpSize = _PumpSize.big),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
+                    ),
+                    SizedBox(height: context.scaledV(14)),
 
-                      // Technician Required
-                      _ToggleCard(
-                        label: 'Technician Required?',
-                        value: _technician,
-                        onToggle: (v) => setState(() => _technician = v),
-                        child: _infoBanner('Technician will be arranged'),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Temperature Control
-                      _ToggleCard(
-                        label: 'Temperature Control Required?',
-                        value: _temperature,
-                        onToggle: (v) => setState(() => _temperature = v),
-                        child: _TempSection(
-                          selected: _selectedTemp,
-                          onSelect: (t) => setState(() => _selectedTemp = t),
+                    // Technician
+                    _ServiceCard(
+                      isSelected: _technician,
+                      onToggleCheck: (v) => setState(() => _technician = v),
+                      isExpanded: _technicianExpanded,
+                      onToggleExpand: () => setState(
+                          () => _technicianExpanded = !_technicianExpanded),
+                      title: 'Technician',
+                      subtitle: 'On-site support for sampling and quality control',
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(context.scaled(8)),
+                        child: Image.asset(
+                          AppAssets.mixThumb9,
+                          width: context.scaled(66),
+                          height: context.scaled(42),
+                          fit: BoxFit.cover,
                         ),
                       ),
-                      const SizedBox(height: 12),
-
-                      // Pump
-                      _ToggleCard(
-                        label: _pump ? 'Select Pump Type' : 'Pump Required?',
-                        value: _pump,
-                        onToggle: (v) => setState(() => _pump = v),
-                        child: _PumpSection(
-                          pumps: _pumps,
-                          selected: _selectedPump,
-                          onSelect: (i) => setState(() => _selectedPump = i),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.scaled(14),
+                          vertical: context.scaledV(12),
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(context.scaled(12)),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Cube Mould Quantity',
+                                style: TextStyle(
+                                  fontSize: context.scaled(12.5),
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF1F2533),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: context.scaled(4)),
+                            GestureDetector(
+                              onTap: () {
+                                if (_cubeMoulds > 6) {
+                                  setState(() => _cubeMoulds--);
+                                }
+                              },
+                              child: Container(
+                                width: context.scaled(32),
+                                height: context.scaled(32),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  borderRadius: BorderRadius.circular(context.scaled(8)),
+                                ),
+                                child: Text(
+                                  '−',
+                                  style: TextStyle(
+                                    fontSize: context.scaled(20),
+                                    color: kOrderTextGrey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: context.scaled(48),
+                              alignment: Alignment.center,
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '$_cubeMoulds',
+                                    style: TextStyle(
+                                      fontSize: context.scaled(15),
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF1F2533),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Minimum 6',
+                                    style: TextStyle(
+                                      fontSize: context.scaled(7),
+                                      color: kOrderTextGrey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() => _cubeMoulds++);
+                              },
+                              child: Container(
+                                width: context.scaled(32),
+                                height: context.scaled(32),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  borderRadius: BorderRadius.circular(context.scaled(8)),
+                                ),
+                                child: Text(
+                                  '+',
+                                  style: TextStyle(
+                                    fontSize: context.scaled(20),
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                    ),
+                    SizedBox(height: context.scaledV(14)),
 
-                      // Cube Mould
-                      _ToggleCard(
-                        label: 'Cube Mould Required',
-                        value: _cubeMould,
-                        onToggle: (v) => setState(() => _cubeMould = v),
-                        child: _MouldInput(controller: _mouldController),
-                      ),
-                    ],
-                  ),
+                    // Temperature Control
+                    _ServiceCard(
+                      isSelected: _temperature,
+                      onToggleCheck: (v) => setState(() => _temperature = v),
+                      isExpanded: _temperatureExpanded,
+                      onToggleExpand: () => setState(
+                          () => _temperatureExpanded = !_temperatureExpanded),
+                      title: 'Temperature Control',
+                      subtitle: 'Special temperature requirement',
+                      leading: const _ServiceIcon(icon: Icons.light_mode_outlined),
+                    ),
+                    SizedBox(height: context.scaledV(10)),
+
+                    // Laboratory Testing
+                    _ServiceCard(
+                      isSelected: _labTesting,
+                      onToggleCheck: (v) => setState(() => _labTesting = v),
+                      isExpanded: _labTestingExpanded,
+                      onToggleExpand: () => setState(
+                          () => _labTestingExpanded = !_labTestingExpanded),
+                      title: 'Laboratory Testing',
+                      subtitle: 'Testing to meet project specifications',
+                      leading: const _ServiceIcon(icon: Icons.science_outlined),
+                    ),
+                    SizedBox(height: context.scaledV(10)),
+
+                    // Other Approved Service
+                    _ServiceCard(
+                      isSelected: _otherService,
+                      onToggleCheck: (v) => setState(() => _otherService = v),
+                      isExpanded: _otherServiceExpanded,
+                      onToggleExpand: () => setState(
+                          () => _otherServiceExpanded = !_otherServiceExpanded),
+                      title: 'Other Approved Service',
+                      subtitle: 'Add a service request',
+                      leading: const _ServiceIcon(icon: Icons.inventory_2_outlined),
+                    ),
+                    SizedBox(height: context.scaledV(28)),
+
+                    // Continue Button
+                    PrimaryButton(
+                      arrow: true,
+                      label: 'Continue to Site Access',
+                      onPressed: _onContinue,
+                    ),
+                  ],
                 ),
               ),
             ),
-            OrderStepBottomBar(onContinue: _onContinue),
           ],
         ),
       ),
@@ -189,127 +389,165 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
   }
 }
 
-// ── Dropdown tile ─────────────────────────────────────────────────────────────
+// ── Dropdown structure card ───────────────────────────────────────────────────
 
-class _DropdownTile extends StatelessWidget {
-  const _DropdownTile({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String label;
+class _StructureTypeDropdown extends StatefulWidget {
+  const _StructureTypeDropdown({required this.value, required this.onChanged});
   final String value;
-  final VoidCallback onTap;
+  final ValueChanged<String> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 72,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kOrderFieldBorder),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: kOrderLabelGrey,
-                        height: 1.33,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      value,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: kOrderTextDark,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 22,
-                color: kOrderTextDark,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  State<_StructureTypeDropdown> createState() => _StructureTypeDropdownState();
 }
 
-// ── Toggle card ───────────────────────────────────────────────────────────────
-
-class _ToggleCard extends StatelessWidget {
-  const _ToggleCard({
-    required this.label,
-    required this.value,
-    required this.onToggle,
-    required this.child,
-  });
-
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onToggle;
-  final Widget child;
+class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
+  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
+    final selectedItem =
+        _structureRefs.firstWhere((e) => e['title'] == widget.value);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kOrderFieldBorder),
+        borderRadius: BorderRadius.circular(context.scaled(16)),
+        border: Border.all(color: _isExpanded ? AppColors.primary : const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A1E1946),
+            offset: Offset(0, 2),
+            blurRadius: 8,
+          ),
+        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: kOrderTextDark,
-                  height: 1.3,
-                ),
+          // Header
+          GestureDetector(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.scaled(18),
+                vertical: context.scaledV(15),
               ),
-              const Spacer(),
-              Switch(
-                value: value,
-                onChanged: onToggle,
-                activeColor: AppColors.primary,
-                activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
+              child: Row(
+                children: [
+                  Container(
+                    width: context.scaled(38),
+                    height: context.scaled(38),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(context.scaled(12)),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(context.scaled(12)),
+                      child: Image.asset(
+                        selectedItem['image']!,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: context.scaled(14)),
+                  Expanded(
+                    child: Text(
+                      selectedItem['title']!,
+                      style: TextStyle(
+                        fontSize: context.scaled(14.5),
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1F2533),
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: kOrderTextGrey,
+                    size: context.scaled(20),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-          if (value) ...[
-            const SizedBox(height: 12),
-            child,
+          if (_isExpanded) ...[
+            const Divider(color: Color(0xFFE2E8F0), height: 1),
+            // Expanded List
+            ..._structureRefs.map((item) {
+              final isSelected = item['title'] == widget.value;
+              return GestureDetector(
+                onTap: () {
+                  widget.onChanged(item['title']!);
+                  setState(() => _isExpanded = false);
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.scaled(18),
+                    vertical: context.scaledV(13),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: context.scaled(34),
+                        height: context.scaled(34),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(context.scaled(10)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(context.scaled(10)),
+                          child: Image.asset(
+                            item['image']!,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: context.scaled(14)),
+                      Expanded(
+                        child: Text(
+                          item['title']!,
+                          style: TextStyle(
+                            fontSize: context.scaled(14),
+                            color: const Color(0xFF1F2533),
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        Container(
+                          width: context.scaled(22),
+                          height: context.scaled(22),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.primary, width: 2),
+                            color: AppColors.primary,
+                          ),
+                          child: Container(
+                            width: context.scaled(9),
+                            height: context.scaled(9),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          width: context.scaled(22),
+                          height: context.scaled(22),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFD3D1E4), width: 2),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ],
         ],
       ),
@@ -317,89 +555,161 @@ class _ToggleCard extends StatelessWidget {
   }
 }
 
-// ── Info banner ───────────────────────────────────────────────────────────────
+// ── Generic Service Card ──────────────────────────────────────────────────────
 
-Widget _infoBanner(String text) {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFEDE9FB),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: AppColors.primary,
-        height: 1.3,
-      ),
-    ),
-  );
-}
+class _ServiceCard extends StatelessWidget {
+  const _ServiceCard({
+    required this.isSelected,
+    required this.onToggleCheck,
+    required this.isExpanded,
+    required this.onToggleExpand,
+    required this.title,
+    required this.subtitle,
+    required this.leading,
+    this.child,
+  });
 
-// ── Temperature section ───────────────────────────────────────────────────────
-
-class _TempSection extends StatelessWidget {
-  const _TempSection({required this.selected, required this.onSelect});
-  final int selected;
-  final ValueChanged<int> onSelect;
+  final bool isSelected;
+  final ValueChanged<bool> onToggleCheck;
+  final bool isExpanded;
+  final VoidCallback onToggleExpand;
+  final String title;
+  final String subtitle;
+  final Widget leading;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Temperature (°C)',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: kOrderTextGrey,
-            height: 1.33,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.scaled(16)),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A1E1946),
+            offset: Offset(0, 2),
+            blurRadius: 8,
           ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: _temperatures
-              .map(
-                (t) => _TempChip(
-                  value: t,
-                  isSelected: t == selected,
-                  onTap: () => onSelect(t),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.scaled(18),
+              vertical: context.scaledV(14),
+            ),
+            child: Row(
+              children: [
+                _FigmaCheckbox(
+                  value: isSelected,
+                  onChanged: onToggleCheck,
                 ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 10),
-        GestureDetector(
-          onTap: () {},
-          child: const Text(
-            '+Add custom temperature',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primary,
-              height: 1.3,
+                SizedBox(width: context.scaled(12)),
+                leading,
+                SizedBox(width: context.scaled(12)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: context.scaled(14),
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1F2533),
+                        ),
+                      ),
+                      SizedBox(height: context.scaledV(2)),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: context.scaled(11.5),
+                          color: kOrderTextGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: onToggleExpand,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: context.scaled(12)),
+                    child: Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: kOrderTextGrey,
+                      size: context.scaled(20),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
+          if (isSelected && isExpanded && child != null) ...[
+            const Divider(color: Color(0xFFE2E8F0), height: 1),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                context.scaled(18),
+                context.scaledV(14),
+                context.scaled(18),
+                context.scaledV(18),
+              ),
+              child: child,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
 
-class _TempChip extends StatelessWidget {
-  const _TempChip({
-    required this.value,
+// ── Custom Widgets ────────────────────────────────────────────────────────────
+
+class _FigmaCheckbox extends StatelessWidget {
+  const _FigmaCheckbox({required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: context.scaled(22),
+        height: context.scaled(22),
+        decoration: BoxDecoration(
+          color: value ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(context.scaled(6)),
+          border: Border.all(
+            color: value ? AppColors.primary : const Color(0xFFD3D1E4),
+            width: 2,
+          ),
+        ),
+        child: value
+            ? Icon(Icons.check, size: context.scaled(14), color: Colors.white)
+            : null,
+      ),
+    );
+  }
+}
+
+class _PumpSizeCard extends StatelessWidget {
+  const _PumpSizeCard({
+    required this.title,
+    required this.subtitle,
     required this.isSelected,
     required this.onTap,
   });
 
-  final int value;
+  final String title;
+  final String subtitle;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -408,249 +718,87 @@ class _TempChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(minWidth: 72, minHeight: 40),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(
+          vertical: context.scaledV(14),
+          horizontal: context.scaled(4),
+        ),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? const Color(0xFFF5F7FF) : Colors.white,
+          borderRadius: BorderRadius.circular(context.scaled(12)),
           border: Border.all(
-            color: isSelected ? AppColors.primary : kOrderFieldBorder,
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.5 : 1.0,
           ),
         ),
-        child: Text(
-          '+ $value°C',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : kOrderTextDark,
-            height: 1.2,
-          ),
+        child: Column(
+          children: [
+            Container(
+              width: context.scaled(18),
+              height: context.scaled(18),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : const Color(0xFFD3D1E4),
+                  width: 1.5,
+                ),
+                color: isSelected ? AppColors.primary : Colors.white,
+              ),
+              child: isSelected
+                  ? Container(
+                      width: context.scaled(8),
+                      height: context.scaled(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    )
+                  : null,
+            ),
+            SizedBox(height: context.scaledV(12)),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.scaled(12),
+                fontWeight: FontWeight.w600,
+                color: isSelected ? AppColors.primary : const Color(0xFF1F2533),
+              ),
+            ),
+            SizedBox(height: context.scaledV(4)),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.scaled(11),
+                color: kOrderTextGrey,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// ── Pump section ──────────────────────────────────────────────────────────────
-
-class _PumpSection extends StatelessWidget {
-  const _PumpSection({
-    required this.pumps,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final List<PumpItem> pumps;
-  final int? selected;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(pumps.length, (i) {
-        final p = pumps[i];
-        final isSelected = i == selected;
-        return Padding(
-          padding: EdgeInsets.only(bottom: i < pumps.length - 1 ? 10 : 0),
-          child: GestureDetector(
-            onTap: () => onSelect(i),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : kOrderFieldBorder,
-                  width: isSelected ? 1.5 : 1.0,
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          p.name,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: kOrderTextDark,
-                            height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '<20 m³: AED ${p.priceSmall}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: kOrderTextGrey,
-                            height: 1.5,
-                          ),
-                        ),
-                        Text(
-                          '20-70 m³: AED ${p.priceMid}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: kOrderTextGrey,
-                            height: 1.5,
-                          ),
-                        ),
-                        Text(
-                          '>70 m³: AED ${p.priceLarge}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: kOrderTextGrey,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    'AED ${p.priceLarge}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
-// ── Cube mould input ──────────────────────────────────────────────────────────
-
-class _MouldInput extends StatelessWidget {
-  const _MouldInput({required this.controller});
-  final TextEditingController controller;
+class _ServiceIcon extends StatelessWidget {
+  const _ServiceIcon({required this.icon});
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      width: context.scaled(36),
+      height: context.scaled(36),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kOrderFieldBorder),
+        color: const Color(0xFFF1F5F9), // var(--muted)
+        borderRadius: BorderRadius.circular(context.scaled(10)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text.rich(
-            TextSpan(
-              text: 'No. of Moulds',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: kOrderLabelGrey,
-                height: 1.33,
-              ),
-              children: const [
-                TextSpan(
-                  text: '*',
-                  style: TextStyle(color: kOrderRequiredPink),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: kOrderTextDark,
-              height: 1.25,
-            ),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
+      child: Icon(
+        icon,
+        size: context.scaled(18),
+        color: AppColors.primary,
       ),
     );
   }
-}
-
-// ── Picker sheet helper ───────────────────────────────────────────────────────
-
-Future<T?> _showPickerSheet<T>({
-  required BuildContext context,
-  required String title,
-  required List<T> items,
-  required T selected,
-  required String Function(T) labelOf,
-}) {
-  return showModalBottomSheet<T>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    barrierColor: const Color(0x4D000000),
-    builder: (_) => DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD6D6D6),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: kOrderTextDark,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...items.map(
-                (item) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    labelOf(item),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: kOrderTextDark,
-                    ),
-                  ),
-                  trailing: item == selected
-                      ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                      : null,
-                  onTap: () => Navigator.of(context).pop(item),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../../app/navigation/app_route_args.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_gradient_button.dart';
+import '../../core/widgets/app_tab_toggle.dart';
 import '../../core/widgets/app_text_field.dart';
 
 class CreateAccountScreen extends StatefulWidget {
@@ -22,6 +24,7 @@ class CreateAccountScreen extends StatefulWidget {
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _agreed = false;
+  int _accountType = 0; // 0 = Business, 1 = Individual Professional
   final TextEditingController _emailController = TextEditingController();
 
   @override
@@ -41,6 +44,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         contact: contact,
         isEmail: true,
         flow: VerifyAccountFlow.signUp,
+        isBusiness: _accountType == 0,
       ),
     );
   }
@@ -64,161 +68,195 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: const BackButton(color: AppColors.textPrimary),
-        title: const Text(
-          'Create account',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: AppSpacing.authBodyTop),
+      body: SafeArea(
+        // A scroll view that only engages if the content doesn't fit —
+        // this renders identically to a plain Column when there's room,
+        // and becomes scrollable instead of overflowing on smaller
+        // screens or with larger system font sizes.
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl(context)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(height: context.scaledV(4)),
 
-            // ── Subtitle ─────────────────────────────────────────────────
-            const Text(
-              'Sign up to start ordering concrete',
-              style: AppTextStyles.authScreenSubtitle,
-              textAlign: TextAlign.center,
-            ),
+              // ── Heading ──────────────────────────────────────────────────
+              Text(
+                'Create account',
+                style: AppTextStyles.authScreenTitle(context),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: context.scaledV(4)),
 
-            const SizedBox(height: AppSpacing.xxl),
+              // ── Subtitle ─────────────────────────────────────────────────
+              Text(
+                'Sign up to start ordering concrete',
+                style: AppTextStyles.authScreenSubtitle(context),
+                textAlign: TextAlign.center,
+              ),
 
-            // ── Full Name ─────────────────────────────────────────────────
-            const AppTextField(label: 'Full Name', hint: 'Omar'),
+              SizedBox(height: context.scaledV(16)),
 
-            const SizedBox(height: AppSpacing.md),
+              // ── Account type tab toggle ──────────────────────────────────
+              AppTabToggle(
+                tabs: const ['Business', 'Individual Professional'],
+                selectedIndex: _accountType,
+                onChanged: (i) => setState(() => _accountType = i),
+              ),
 
-            // ── Email ─────────────────────────────────────────────────────
-            AppTextField(
-              label: 'Email Address',
-              hint: 'Sample.email@.com',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-            ),
+              SizedBox(height: context.scaledV(16)),
 
-            const SizedBox(height: AppSpacing.md),
+              // ── Full Name ─────────────────────────────────────────────────
+              const AppTextField(label: 'Full Name', hint: 'Omar'),
 
-            // ── Phone number ──────────────────────────────────────────────
-            _PhoneField(),
+              SizedBox(height: context.scaledV(8)),
 
-            const SizedBox(height: AppSpacing.md),
+              // ── Email ─────────────────────────────────────────────────────
+              AppTextField(
+                label: 'Email Address',
+                hint: 'Sample.email@.com',
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+              ),
 
-            // ── Company ───────────────────────────────────────────────────
-            const AppTextField(
-              label: 'Company name (As per license)',
-              hint: 'Omar Construction',
-            ),
+              SizedBox(height: context.scaledV(8)),
 
-            const SizedBox(height: AppSpacing.md),
+              // ── Trade License (Business) / Phone number (Individual) ───────
+              if (_accountType == 0)
+                const _DocumentUploadField(
+                  label: 'Trade License',
+                  isRequired: true,
+                )
+              else
+                _PhoneField(),
 
-            // ── Passcode ──────────────────────────────────────────────────
-            const AppTextField(label: 'Passcode', obscureText: true),
+              SizedBox(height: context.scaledV(8)),
 
-            const SizedBox(height: AppSpacing.md),
+              // ── Company ───────────────────────────────────────────────────
+              const AppTextField(
+                label: 'Company name (As per license)',
+                hint: 'Omar Construction',
+              ),
 
-            // ── Confirm Passcode ──────────────────────────────────────────
-            const AppTextField(label: 'Confirm Passcode', obscureText: true),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // ── Terms checkbox ────────────────────────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: Checkbox(
-                    value: _agreed,
-                    onChanged: (v) => setState(() => _agreed = v ?? false),
-                    activeColor: AppColors.primary,
-                    side: const BorderSide(
-                      color: AppColors.checkboxBorder,
-                      width: 1.5,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
+              // ── VAT Registration Certificate (Business only) ───────────────
+              if (_accountType == 0) ...[
+                SizedBox(height: context.scaledV(8)),
+                const _DocumentUploadField(
+                  label: 'VAT Registration Certificate (If applicable)',
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      text: 'I agree to the ',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textPrimary,
+              ],
+
+              SizedBox(height: context.scaledV(8)),
+
+              // ── Passcode ──────────────────────────────────────────────────
+              const AppTextField(label: 'Passcode', obscureText: true),
+
+              SizedBox(height: context.scaledV(8)),
+
+              // ── Confirm Passcode ──────────────────────────────────────────
+              const AppTextField(label: 'Confirm Passcode', obscureText: true),
+
+              SizedBox(height: context.scaledV(12)),
+
+              // ── Terms checkbox ────────────────────────────────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: context.scaled(22),
+                    height: context.scaled(22),
+                    child: Checkbox(
+                      value: _agreed,
+                      onChanged: (v) => setState(() => _agreed = v ?? false),
+                      activeColor: AppColors.primary,
+                      side: const BorderSide(
+                        color: AppColors.checkboxBorder,
+                        width: 1.5,
                       ),
-                      children: [
-                        WidgetSpan(
-                          child: GestureDetector(
-                            onTap: () {},
-                            child: const Text(
-                              'Terms of Service',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.link,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const TextSpan(text: ' and '),
-                        WidgetSpan(
-                          child: GestureDetector(
-                            onTap: () {},
-                            child: const Text(
-                              'Privacy Policy',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.link,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(context.scaled(4)),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // ── Sign Up button ────────────────────────────────────────────
-            AppGradientButton(label: 'Sign Up', onPressed: _openVerifyAccount),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // ── Sign in link ──────────────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Already have an account? ',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
+                  SizedBox(width: AppSpacing.sm(context)),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'I agree to the ',
+                        style: TextStyle(
+                          fontSize: context.scaled(13),
+                          color: AppColors.textPrimary,
+                        ),
+                        children: [
+                          WidgetSpan(
+                            child: GestureDetector(
+                              onTap: () {},
+                              child: Text(
+                                'Terms of Service',
+                                style: TextStyle(
+                                  fontSize: context.scaled(13),
+                                  color: AppColors.link,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const TextSpan(text: ' and '),
+                          WidgetSpan(
+                            child: GestureDetector(
+                              onTap: () {},
+                              child: Text(
+                                'Privacy Policy',
+                                style: TextStyle(
+                                  fontSize: context.scaled(13),
+                                  color: AppColors.link,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                GestureDetector(
-                  onTap: _returnToSignIn,
-                  child: const Text('Sign in', style: AppTextStyles.authLink),
-                ),
-              ],
-            ),
+                ],
+              ),
 
-            const SizedBox(height: AppSpacing.xxl),
-          ],
+              SizedBox(height: context.scaledV(16)),
+
+              // ── Sign Up button ────────────────────────────────────────────
+              AppGradientButton(
+                label: 'Sign Up',
+                onPressed: _openVerifyAccount,
+              ),
+
+              SizedBox(height: context.scaledV(12)),
+
+              // ── Sign in link ──────────────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Already have an account? ',
+                    style: TextStyle(
+                      fontSize: context.scaled(14),
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _returnToSignIn,
+                    child: Text(
+                      'Sign in',
+                      style: AppTextStyles.authLink(context),
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: context.scaledV(16)),
+            ],
+          ),
         ),
       ),
     );
@@ -253,15 +291,15 @@ class _PhoneFieldState extends State<_PhoneField> {
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
         color: _active ? AppColors.fieldActiveBg : AppColors.fieldBg,
-        borderRadius: BorderRadius.circular(AppSpacing.md),
+        borderRadius: BorderRadius.circular(AppSpacing.md(context)),
         border: Border.all(
           color: _active ? AppColors.primary : AppColors.fieldBorder,
           width: _active ? 1.5 : 1.0,
         ),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.xs,
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg(context),
+        vertical: AppSpacing.xs(context),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,57 +308,128 @@ class _PhoneFieldState extends State<_PhoneField> {
           Text(
             'Phone Number',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: context.scaled(12),
               color: _active ? AppColors.primary : AppColors.textSecondary,
             ),
           ),
           Row(
             children: [
-              const Text('🇦🇪', style: TextStyle(fontSize: 18, height: 1.4)),
-              const SizedBox(width: 4),
-              const Text(
+              Text(
+                '🇦🇪',
+                style: TextStyle(fontSize: context.scaled(18), height: 1.4),
+              ),
+              SizedBox(width: context.scaled(4)),
+              Text(
                 '+971',
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: context.scaled(15),
                   fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.keyboard_arrow_down_rounded,
-                size: 16,
+                size: context.scaled(16),
                 color: AppColors.textSecondary,
               ),
               Container(
                 width: 1,
-                height: 20,
-                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                height: context.scaled(20),
+                margin: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm(context),
+                ),
                 color: AppColors.fieldBorder,
               ),
               Expanded(
                 child: TextField(
                   focusNode: _focus,
                   keyboardType: TextInputType.phone,
-                  style: const TextStyle(
-                    fontSize: 15,
+                  style: TextStyle(
+                    fontSize: context.scaled(15),
                     fontWeight: FontWeight.w500,
                     color: AppColors.textPrimary,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: '501 234 567',
                     hintStyle: TextStyle(
-                      fontSize: 15,
+                      fontSize: context.scaled(15),
                       color: AppColors.textHint,
                     ),
                     border: InputBorder.none,
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: context.scaled(10),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Document upload field (Trade License / VAT certificate) ───────────────────
+class _DocumentUploadField extends StatelessWidget {
+  final String label;
+  final bool isRequired;
+
+  const _DocumentUploadField({required this.label, this.isRequired = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg(context),
+          vertical: AppSpacing.sm(context),
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.fieldBg,
+          borderRadius: BorderRadius.circular(AppSpacing.md(context)),
+          border: Border.all(color: AppColors.fieldBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text.rich(
+              TextSpan(
+                text: label,
+                style: TextStyle(
+                  fontSize: context.scaled(12),
+                  color: AppColors.textSecondary,
+                ),
+                children: isRequired
+                    ? const [
+                        TextSpan(
+                          text: ' *',
+                          style: TextStyle(color: Colors.redAccent),
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+            SizedBox(height: context.scaledV(4)),
+            Text(
+              'Upload document',
+              style: TextStyle(
+                fontSize: context.scaled(15),
+                color: AppColors.textHint,
+              ),
+            ),
+            SizedBox(height: context.scaledV(4)),
+            Icon(
+              Icons.file_upload_outlined,
+              size: context.scaled(18),
+              color: AppColors.primary,
+            ),
+          ],
+        ),
       ),
     );
   }

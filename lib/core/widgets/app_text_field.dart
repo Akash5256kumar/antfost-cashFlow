@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
+import 'app_svg_icons.dart';
 
 class AppTextField extends StatefulWidget {
   final String label;
@@ -15,6 +17,15 @@ class AppTextField extends StatefulWidget {
   final List<TextInputFormatter>? inputFormatters;
   final int? maxLines;
 
+  /// Small leading icon shown inline with the text field itself (Figma's
+  /// `Field` component). Distinct from [prefixWidget], which replaces the
+  /// whole input row for the phone-number layout.
+  final IconData? leadingIcon;
+  final Widget? leadingWidget;
+
+  final Widget? trailingIcon;
+  final bool labelOutside;
+
   const AppTextField({
     super.key,
     required this.label,
@@ -26,6 +37,10 @@ class AppTextField extends StatefulWidget {
     this.prefixWidget,
     this.inputFormatters,
     this.maxLines = 1,
+    this.leadingIcon,
+    this.leadingWidget,
+    this.trailingIcon,
+    this.labelOutside = true,
   });
 
   @override
@@ -63,81 +78,123 @@ class _AppTextFieldState extends State<AppTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      decoration: BoxDecoration(
-        color: _active ? AppColors.fieldActiveBg : AppColors.fieldBg,
-        borderRadius: BorderRadius.circular(AppSpacing.md),
-        border: Border.all(
-          color: _active ? AppColors.primary : AppColors.fieldBorder,
-          width: _active ? 1.5 : 1.0,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.xs,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.prefixWidget != null) ...[
-              // Phone-style field: label on top, prefix row below
-              Text(widget.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _active ? AppColors.primary : AppColors.textSecondary,
-                    fontWeight: FontWeight.w400,
-                  )),
-              const SizedBox(height: 2),
-              widget.prefixWidget!,
-            ] else
-              TextField(
-                controller: widget.controller,
-                focusNode: _focus,
-                obscureText: widget.obscureText ? _hidden : false,
-                keyboardType: widget.keyboardType,
-                inputFormatters: widget.inputFormatters,
-                maxLines: widget.obscureText ? 1 : widget.maxLines,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
-                ),
-                decoration: InputDecoration(
-                  labelText: widget.label,
-                  labelStyle: TextStyle(
-                    color:
-                        _active ? AppColors.primary : AppColors.textSecondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.label.isNotEmpty && widget.labelOutside) ...[
+          Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: context.scaled(11),
+              fontWeight: FontWeight.w600,
+              color: _active ? AppColors.primary : AppColors.textSecondary,
+              letterSpacing: 0.5,
+            ),
+          ),
+          SizedBox(height: context.scaledV(6)),
+        ],
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: _active ? AppColors.fieldActiveBg : AppColors.fieldBg,
+            borderRadius: BorderRadius.circular(AppSpacing.md(context)),
+            border: Border.all(
+              color: _active ? AppColors.primary : AppColors.fieldBorder,
+              width: _active ? 1.5 : 1.0,
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg(context),
+              vertical: AppSpacing.xs(context),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.prefixWidget != null) ...[
+                  if (!widget.labelOutside && widget.label.isNotEmpty) ...[
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontSize: context.scaled(12),
+                        color: _active ? AppColors.primary : AppColors.textSecondary,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    SizedBox(height: context.scaledV(2)),
+                  ],
+                  widget.prefixWidget!,
+                ] else
+                  TextField(
+                    controller: widget.controller,
+                    focusNode: _focus,
+                    obscureText: widget.obscureText ? _hidden : false,
+                    keyboardType: widget.keyboardType,
+                    inputFormatters: widget.inputFormatters,
+                    maxLines: widget.obscureText ? 1 : widget.maxLines,
+                    style: TextStyle(
+                      fontSize: context.scaled(15),
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: widget.labelOutside ? null : widget.label,
+                      labelStyle: TextStyle(
+                        color: _active
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                        fontSize: context.scaled(14),
+                        fontWeight: FontWeight.w400,
+                      ),
+                      hintText: widget.hint,
+                      hintStyle: TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: context.scaled(15),
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: context.scaled(10),
+                      ),
+                      prefixIcon: widget.leadingWidget == null
+                          ? (widget.leadingIcon == null
+                              ? null
+                              : Icon(
+                                  widget.leadingIcon,
+                                  size: context.scaled(20),
+                                  color: _active
+                                      ? AppColors.primary
+                                      : AppColors.iconMuted,
+                                ))
+                          : UnconstrainedBox(
+                              child: SizedBox(
+                                width: context.scaled(28),
+                                height: context.scaled(24),
+                                child: Center(child: widget.leadingWidget),
+                              ),
+                            ),
+                      prefixIconConstraints: BoxConstraints(
+                        minWidth: context.scaled(32),
+                      ),
+                      suffixIcon: widget.obscureText
+                          ? GestureDetector(
+                              onTap: () => setState(() => _hidden = !_hidden),
+                              child: UnconstrainedBox(
+                                child: _hidden
+                                    ? const AppSvgEyeIcon()
+                                    : const AppSvgEyeOffIcon(),
+                              ),
+                            )
+                          : widget.trailingIcon,
+                    ),
                   ),
-                  hintText: widget.hint,
-                  hintStyle: const TextStyle(
-                    color: AppColors.textHint,
-                    fontSize: 15,
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  suffixIcon: widget.obscureText
-                      ? GestureDetector(
-                          onTap: () => setState(() => _hidden = !_hidden),
-                          child: Icon(
-                            _hidden
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: AppColors.textSecondary,
-                            size: 20,
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }

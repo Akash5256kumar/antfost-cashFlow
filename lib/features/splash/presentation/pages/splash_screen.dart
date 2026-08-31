@@ -22,16 +22,21 @@ class SplashPage extends StatelessWidget {
       listener: (context, state) {
         if (state is SplashReady) {
           final route = switch (state.destination) {
+            // Onboarding re-enabled to match the new Figma flow, which opens
+            // on Onboarding rather than skipping straight past it.
             AppLaunchDestination.onboarding => AppRoutes.onboarding,
-            AppLaunchDestination.getStarted => AppRoutes.getStarted,
+            // The new flow drops the separate "Get Started" chooser screen —
+            // onboarding now leads straight into Login, so a user who has
+            // already seen onboarding but isn't signed in goes to Login too.
+            AppLaunchDestination.getStarted => AppRoutes.signIn,
             AppLaunchDestination.home => AppRoutes.home,
             AppLaunchDestination.kycVerification => AppRoutes.kycVerification,
           };
           Navigator.of(context).pushReplacementNamed(route);
         }
         if (state is SplashError) {
-          // On error still navigate to getStarted as safe fallback
-          Navigator.of(context).pushReplacementNamed(AppRoutes.getStarted);
+          // On error, fall back to sign-in rather than re-showing onboarding.
+          Navigator.of(context).pushReplacementNamed(AppRoutes.signIn);
         }
       },
       builder: (context, state) {
@@ -56,7 +61,11 @@ class _SplashView extends StatelessWidget {
           builder: (context, constraints) {
             final mediaQuery = MediaQuery.of(context);
             final size = mediaQuery.size;
-            final isTablet = constraints.maxWidth > AppBreakpoints.tablet;
+            // Real device width, not this LayoutBuilder's constraints —
+            // the app-wide max-width wrapper in main.dart caps content at
+            // AppBreakpoints.tablet, so constraints.maxWidth alone could
+            // never exceed it (isTablet would always be false).
+            final isTablet = size.width > AppBreakpoints.tablet;
             final blobSize =
                 constraints.maxWidth *
                 (isTablet

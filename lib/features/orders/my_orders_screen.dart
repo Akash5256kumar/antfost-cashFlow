@@ -2,33 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../app/config/app_assets.dart';
+import '../../app/navigation/app_routes.dart';
 import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
+import '../../app/theme/app_spacing.dart';
+import '../../app/theme/app_text_styles.dart';
+import '../../core/widgets/app_chips_row.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/app_status_badge.dart';
+import '../../core/widgets/svg_embedded_raster_image.dart';
 import 'domain/entities/order.dart' as order_entity;
+import 'order_confirmed_screen.dart';
+import 'order_complete_screen.dart';
 import 'order_details_screen.dart';
+import 'live_tracking_screen.dart';
 import 'presentation/bloc/orders_bloc.dart';
 import 'presentation/bloc/orders_event.dart';
 import 'presentation/bloc/orders_state.dart';
+import 'schedule_proposed_screen.dart';
+import 'order_details_screen.dart';
 
-// ── Colours ───────────────────────────────────────────────────────────────────
-const Color _pageBg = Color(0xFFF5F5F8);
-const Color _cardBg = Colors.white;
-const Color _fieldBorder = Color(0xFFE8E8E8);
-const Color _textDark = Color(0xFF111111);
-const Color _textGrey = Color(0xFF9E9E9E);
-const Color _orderIdColor = Color(0xFF7A6BFF);
-const Color _inProgressBg = Color(0xFFFEF3C7);
-const Color _inProgressText = Color(0xFFD97706);
-const Color _scheduledBg = Color(0xFFEDE9FD);
-const Color _scheduledText = Color(0xFF7A6BFF);
-const Color _completedBg = Color(0xFFDCFCE7);
-const Color _completedText = Color(0xFF16A34A);
-const Color _progressTrack = Color(0xFFE5E7EB);
-const Color _progressGreen = Color(0xFF22C55E);
-const Color _progressBlue = Color(0xFF6366F1);
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-
+/// Ported from the new Figma design's `screens/Orders.tsx` — a search bar,
+/// filter chips, and a compact single-tap order list (the whole row routes
+/// to the right screen for that order's status, matching the existing
+/// per-status navigation this app already had).
 class MyOrdersScreen extends StatefulWidget {
   const MyOrdersScreen({super.key});
 
@@ -39,12 +38,11 @@ class MyOrdersScreen extends StatefulWidget {
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   final _searchCtrl = TextEditingController();
 
-  static const _filters = ['All', 'Active', 'Scheduled', 'Completed'];
+  static const _filters = ['All', 'Active', 'Confirmation needed', 'Completed'];
 
   @override
   void initState() {
     super.initState();
-    // Trigger initial fetch when the screen is first created.
     context.read<OrdersBloc>().add(const FetchOrdersEvent());
   }
 
@@ -54,150 +52,214 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     super.dispose();
   }
 
+  void _openOrder(order_entity.Order o) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OrderDetailsScreen(
+          orderId: o.orderId,
+          projectName: o.location,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _pageBg,
+      backgroundColor: AppColors.background,
+      appBar: AppBrandHeader(
+        onBellTap: () =>
+            Navigator.of(context).pushNamed(AppRoutes.notifications),
+      ),
       bottomNavigationBar: const AppTabBottomNavBar(currentTab: AppTab.orders),
-      body: SafeArea(
-        child: BlocConsumer<OrdersBloc, OrdersState>(
-          listener: (context, state) {
-            // Show snackbar on error state with a retry action.
-            if (state is OrdersError) {
-              ScaffoldMessenger.of(context)
-                ..clearSnackBars()
-                ..showSnackBar(SnackBar(
+      body: BlocConsumer<OrdersBloc, OrdersState>(
+        listener: (context, state) {
+          if (state is OrdersError) {
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(
+                SnackBar(
                   content: Text(state.message),
                   action: SnackBarAction(
                     label: 'Retry',
-                    onPressed: () {
-                      context
-                          .read<OrdersBloc>()
-                          .add(const RetryOrdersEvent());
-                    },
-                  ),
-                ));
-            }
-          },
-          builder: (context, state) {
-            // Derive active filter index and search query from BLoC state.
-            final filterIndex =
-                state is OrdersSuccess ? state.filterIndex : 0;
-
-            return Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 20),
-
-                        // Title
-                        const Text(
-                          'My Orders',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: _textDark,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Track and manage your orders',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: _textGrey,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Search bar — dispatches SearchOrdersEvent on change.
-                        _SearchBar(
-                          controller: _searchCtrl,
-                          onChanged: (query) {
-                            context
-                                .read<OrdersBloc>()
-                                .add(SearchOrdersEvent(query));
-                          },
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Filter chips — dispatch FilterOrdersEvent on select.
-                        _FilterRow(
-                          filters: _filters,
-                          selected: filterIndex,
-                          onSelect: (i) {
-                            context
-                                .read<OrdersBloc>()
-                                .add(FilterOrdersEvent(i));
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Body: loading / success / error / initial states.
-                        if (state is OrdersLoading) ...[
-                          // Shimmer placeholders while loading.
-                          const _ShimmerOrderCard(),
-                          const SizedBox(height: 12),
-                          const _ShimmerOrderCard(),
-                          const SizedBox(height: 12),
-                          const _ShimmerOrderCard(),
-                        ] else if (state is OrdersSuccess) ...[
-                          // Real order cards from BLoC filtered list.
-                          ...state.filteredOrders.map(
-                            (o) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _OrderCard(
-                                item: o,
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const OrderDetailsScreen(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (state.filteredOrders.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 40),
-                              child: Center(
-                                child: Text(
-                                  'No orders found.',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: _textGrey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ] else if (state is OrdersError) ...[
-                          // Inline retry widget shown alongside the snackbar.
-                          _OrdersErrorWidget(message: state.message),
-                        ] else if (state is OrdersInitial) ...[
-                          // Optionally show a brief placeholder before fetch completes.
-                          const SizedBox(height: 40),
-                        ],
-
-                        const SizedBox(height: 20),
-                      ],
+                    onPressed: () => context.read<OrdersBloc>().add(
+                      const RetryOrdersEvent(),
                     ),
                   ),
                 ),
+              );
+          }
+        },
+        builder: (context, state) {
+          final filterIndex = state is OrdersSuccess ? state.filterIndex : 0;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: context.scaledV(4)),
+                Text(
+                  'My Orders',
+                  style: AppTextStyles.authScreenTitle(
+                    context,
+                  ).copyWith(fontSize: context.scaled(25)),
+                ),
+                SizedBox(height: context.scaledV(14)),
+                _SearchField(
+                  controller: _searchCtrl,
+                  onChanged: (q) =>
+                      context.read<OrdersBloc>().add(SearchOrdersEvent(q)),
+                ),
+                SizedBox(height: context.scaledV(14)),
+                AppChipsRow(
+                  options: _filters,
+                  value: _filters[filterIndex],
+                  onChanged: (label) => context.read<OrdersBloc>().add(
+                    FilterOrdersEvent(_filters.indexOf(label)),
+                  ),
+                ),
+                SizedBox(height: context.scaledV(14)),
+                if (state is OrdersLoading) ...[
+                  const _ShimmerOrderCard(),
+                  SizedBox(height: context.scaledV(10)),
+                  const _ShimmerOrderCard(),
+                ] else if (state is OrdersSuccess) ...[
+                  if (state.filteredOrders.isEmpty)
+                    const _EmptyOrders()
+                  else
+                    ...state.filteredOrders.map(
+                      (o) => Padding(
+                        padding: EdgeInsets.only(bottom: context.scaledV(10)),
+                        child: _OrderRow(order: o, onTap: () => _openOrder(o)),
+                      ),
+                    ),
+                ] else if (state is OrdersError) ...[
+                  _OrdersErrorWidget(message: state.message),
+                ],
+                SizedBox(height: context.scaledV(14)),
+                _CreateOrderButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.addNewProject),
+                ),
+                SizedBox(height: context.scaledV(10)),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.orderGuide),
+                    icon: const Icon(
+                      Icons.help_outline_rounded,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                    label: Text(
+                      'How ordering works',
+                      style: TextStyle(
+                        fontSize: context.scaled(13),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: context.scaledV(20)),
               ],
-            );
-          },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.controller, required this.onChanged});
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontSize: context.scaled(14),
+          color: AppColors.textPrimary,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Search order or project',
+          hintStyle: TextStyle(
+            fontSize: context.scaled(14),
+            color: AppColors.textHint,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.iconMuted,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),
     );
   }
 }
 
-// ── Shimmer order card placeholder ────────────────────────────────────────────
+class _CreateOrderButton extends StatelessWidget {
+  const _CreateOrderButton({required this.onPressed});
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 58,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.add_circle_outline_rounded,
+                size: 24,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Create New Order',
+                style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _ShimmerOrderCard extends StatelessWidget {
   const _ShimmerOrderCard();
@@ -205,20 +267,18 @@ class _ShimmerOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE0E0E0),
-      highlightColor: const Color(0xFFF5F5F5),
+      baseColor: AppColors.circleInactive,
+      highlightColor: AppColors.muted,
       child: Container(
-        height: 160,
+        height: 100,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(20),
         ),
       ),
     );
   }
 }
-
-// ── Orders error widget ───────────────────────────────────────────────────────
 
 class _OrdersErrorWidget extends StatelessWidget {
   final String message;
@@ -228,26 +288,25 @@ class _OrdersErrorWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
+        padding: EdgeInsets.symmetric(vertical: context.scaledV(40)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
               Icons.error_outline_rounded,
               size: 48,
-              color: _textGrey,
+              color: AppColors.textSecondary,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: context.scaledV(16)),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: _textGrey),
+              style: AppTextStyles.cardSubtitle(context),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                context.read<OrdersBloc>().add(const RetryOrdersEvent());
-              },
+            SizedBox(height: context.scaledV(16)),
+            TextButton(
+              onPressed: () =>
+                  context.read<OrdersBloc>().add(const RetryOrdersEvent()),
               child: const Text('Retry'),
             ),
           ],
@@ -257,346 +316,170 @@ class _OrdersErrorWidget extends StatelessWidget {
   }
 }
 
-// ── Search bar ────────────────────────────────────────────────────────────────
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.controller, required this.onChanged});
-
-  final TextEditingController controller;
-
-  /// Callback invoked with the current query text on every change.
-  final ValueChanged<String> onChanged;
+class _EmptyOrders extends StatelessWidget {
+  const _EmptyOrders();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        style: const TextStyle(fontSize: 15, color: _textDark),
-        decoration: InputDecoration(
-          hintText: 'Search By Order ID..',
-          hintStyle: const TextStyle(fontSize: 15, color: _textGrey),
-          prefixIcon: const Icon(
-            Icons.search_rounded,
-            size: 22,
-            color: _textDark,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 0,
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: const BorderSide(color: _textDark, width: 1.5),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: const BorderSide(color: _textDark, width: 1.5),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-          ),
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder),
       ),
-    );
-  }
-}
-
-// ── Filter row ────────────────────────────────────────────────────────────────
-
-class _FilterRow extends StatelessWidget {
-  const _FilterRow({
-    required this.filters,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final List<String> filters;
-  final int selected;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: List.generate(
-          filters.length,
-          (i) => Padding(
-            padding: EdgeInsets.only(right: i < filters.length - 1 ? 8 : 0),
-            child: _FilterChip(
-              label: filters[i],
-              isSelected: i == selected,
-              onTap: () => onSelect(i),
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryContainer,
+              shape: BoxShape.circle,
             ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.search_rounded, color: AppColors.primary),
           ),
-        ),
+          const SizedBox(height: 12),
+          Text('No orders found', style: AppTextStyles.cardTitle(context)),
+          const SizedBox(height: 4),
+          Text(
+            'Try another order number or project name.',
+            style: AppTextStyles.cardSubtitle(context),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
+class _OrderRow extends StatelessWidget {
+  const _OrderRow({required this.order, required this.onTap});
+  final order_entity.Order order;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final bool needsConfirmation =
+        order.status == order_entity.OrderStatusType.inProgress &&
+        (order.delivered == null || order.delivered == 0);
+
+    final (tone, label) = needsConfirmation
+        ? (AppStatusTone.confirm, 'Confirmation needed')
+        : switch (order.status) {
+            order_entity.OrderStatusType.scheduled => (
+              AppStatusTone.scheduled,
+              'Scheduled',
+            ),
+            order_entity.OrderStatusType.inProgress => (
+              AppStatusTone.onWay,
+              'On the way',
+            ),
+            order_entity.OrderStatusType.completed => (
+              AppStatusTone.completed,
+              'Completed',
+            ),
+          };
+    final thumbnail = AppAssets.orderThumbnailFor(
+      order.orderId,
+      order.location,
+    );
+
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        alignment: Alignment.center,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : _fieldBorder,
-          ),
+          border: Border.all(color: AppColors.cardBorder),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : _textDark,
-            height: 1.2,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Order card ────────────────────────────────────────────────────────────────
-
-/// Displays a domain [order_entity.Order] as a visual card.
-class _OrderCard extends StatelessWidget {
-  const _OrderCard({required this.item, required this.onTap});
-
-  final order_entity.Order item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasProgress =
-        item.status == order_entity.OrderStatusType.inProgress &&
-        item.delivered != null &&
-        item.total != null;
-    final progress = hasProgress ? item.delivered! / item.total! : 0.0;
-
-    // Format the amount as a currency string with comma separators.
-    final amountText =
-        'AED ${item.amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _cardBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _fieldBorder),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Order ID + status badge.
-            Row(
-              children: [
-                Text(
-                  item.orderId,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _orderIdColor,
-                  ),
-                ),
-                const Spacer(),
-                _StatusBadge(status: item.status),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Grade.
-            Text(
-              item.grade,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: _textDark,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(11),
+              child: SvgEmbeddedRasterImage(
+                assetPath: thumbnail,
+                width: 94,
+                height: 94,
+                fit: BoxFit.cover,
               ),
             ),
-
-            if (item.location.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _InfoRow(icon: Icons.location_on_outlined, text: item.location),
-            ],
-            if (item.timeSlot.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              _InfoRow(icon: Icons.access_time_rounded, text: item.timeSlot),
-            ],
-            if (item.volume.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              _InfoRow(
-                icon: Icons.local_shipping_outlined,
-                text: item.volume,
-              ),
-            ],
-
-            const SizedBox(height: 12),
-            const Divider(color: _fieldBorder, height: 1),
-            const SizedBox(height: 10),
-
-            Row(
-              children: [
-                Text(
-                  item.date,
-                  style: const TextStyle(fontSize: 13, color: _textGrey),
-                ),
-                const Spacer(),
-                Text(
-                  amountText,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: _textDark,
-                  ),
-                ),
-              ],
-            ),
-
-            if (hasProgress) ...[
-              const SizedBox(height: 6),
-              Row(
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Delivered: ${item.delivered} m³',
-                    style: const TextStyle(fontSize: 12, color: _textGrey),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        order.orderId,
+                        style: TextStyle(
+                          fontSize: context.scaled(16),
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textPrimary,
+                        size: 20,
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  Text(
-                    'Remaining: ${item.total! - item.delivered!} m³',
-                    style: const TextStyle(fontSize: 12, color: _textGrey),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          order.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: context.scaled(14),
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        order.volume,
+                        style: TextStyle(
+                          fontSize: context.scaled(15),
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          order.date,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: context.scaled(13),
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      AppStatusBadge(label: label, tone: tone),
+                    ],
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              _GradientProgressBar(progress: progress),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Info row ──────────────────────────────────────────────────────────────────
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: _textGrey),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 13, color: _textGrey),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Status badge ──────────────────────────────────────────────────────────────
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-  final order_entity.OrderStatusType status;
-
-  @override
-  Widget build(BuildContext context) {
-    Color bg;
-    Color text;
-    String label;
-    switch (status) {
-      case order_entity.OrderStatusType.inProgress:
-        bg = _inProgressBg;
-        text = _inProgressText;
-        label = 'in Progress';
-        break;
-      case order_entity.OrderStatusType.scheduled:
-        bg = _scheduledBg;
-        text = _scheduledText;
-        label = 'Scheduled';
-        break;
-      case order_entity.OrderStatusType.completed:
-        bg = _completedBg;
-        text = _completedText;
-        label = 'Completed';
-        break;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: text,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Gradient progress bar ─────────────────────────────────────────────────────
-
-class _GradientProgressBar extends StatelessWidget {
-  const _GradientProgressBar({required this.progress});
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        height: 7,
-        child: Stack(
-          children: [
-            Container(color: _progressTrack),
-            FractionallySizedBox(
-              widthFactor: progress.clamp(0.0, 1.0),
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [_progressGreen, _progressBlue],
-                  ),
-                ),
               ),
             ),
           ],

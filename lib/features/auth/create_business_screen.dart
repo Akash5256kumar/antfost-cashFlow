@@ -1,0 +1,143 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../app/config/app_assets.dart';
+import '../../app/navigation/app_route_args.dart';
+import '../../app/navigation/app_routes.dart';
+import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
+import '../../app/theme/app_spacing.dart';
+import '../../app/theme/app_text_styles.dart';
+import '../../core/widgets/app_svg_icons.dart';
+import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/primary_button.dart';
+import '../../core/widgets/svg_embedded_raster_image.dart';
+
+/// Ported from the new Figma design's `screens/CreateBusiness.tsx`.
+class CreateBusinessScreen extends StatefulWidget {
+  const CreateBusinessScreen({super.key});
+
+  @override
+  State<CreateBusinessScreen> createState() => _CreateBusinessScreenState();
+}
+
+class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
+  final _mobileController = TextEditingController();
+
+  @override
+  void dispose() {
+    _mobileController.dispose();
+    super.dispose();
+  }
+
+  void _createAccount() {
+    final contact = _mobileController.text.trim().isEmpty
+        ? '+971 50 123 4567'
+        : _mobileController.text.trim();
+    Navigator.of(context).pushNamed(
+      AppRoutes.verifyAccount,
+      arguments: VerifyAccountRouteArgs(
+        contact: contact,
+        isEmail: false,
+        flow: VerifyAccountFlow.signUp,
+        isBusiness: true,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(height: context.scaledV(8)),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    ),
+                  ),
+                  SvgPicture.asset(
+                    AppAssets.antfostLogo,
+                    width: context.scaled(140),
+                  ),
+                ],
+              ),
+              SizedBox(height: context.scaledV(12)),
+              SizedBox(
+                height: context.scaledV(170),
+                child: SvgEmbeddedRasterImage(
+                  assetPath: AppAssets.figmaPlant,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              SizedBox(height: context.scaledV(10)),
+              Text(
+                'Create Business Account',
+                style: AppTextStyles.authScreenTitle(context),
+              ),
+              SizedBox(height: context.scaledV(4)),
+              Text(
+                'Set up your company access',
+                style: AppTextStyles.cardSubtitle(context),
+              ),
+              SizedBox(height: context.scaledV(16)),
+              const AppTextField(
+                label: 'COMPANY NAME',
+                leadingWidget: AppSvgBusinessIcon(),
+              ),
+              SizedBox(height: context.scaledV(12)),
+              const AppTextField(
+                label: 'BUSINESS USERNAME',
+                leadingWidget: AppSvgUserIcon(),
+              ),
+              SizedBox(height: context.scaledV(12)),
+              AppTextField(
+                label: 'REGISTERED MOBILE',
+                controller: _mobileController,
+                keyboardType: TextInputType.phone,
+                leadingWidget: const AppSvgPhoneIcon(),
+              ),
+              SizedBox(height: context.scaledV(12)),
+              const AppTextField(
+                label: 'PASSWORD',
+                obscureText: true,
+                leadingWidget: AppSvgLockIcon(),
+              ),
+              SizedBox(height: context.scaledV(12)),
+              const AppTextField(
+                label: 'CONFIRM PASSWORD',
+                obscureText: true,
+                leadingWidget: AppSvgLockIcon(),
+              ),
+              SizedBox(height: context.scaledV(16)),
+              Text(
+                'You can plan an order while verification is in progress.\n'
+                'Payment activates after approval.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.authNote(context),
+              ),
+              SizedBox(height: context.scaledV(16)),
+              PrimaryButton(
+                onPressed: _createAccount,
+                arrow: true,
+                label: 'Create Account',
+              ),
+              SizedBox(height: context.scaledV(16)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

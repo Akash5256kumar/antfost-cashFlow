@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 import '../auth/presentation/bloc/auth_bloc.dart';
 import '../auth/presentation/bloc/auth_event.dart';
 import '../auth/presentation/bloc/auth_state.dart';
@@ -12,13 +13,14 @@ import 'domain/entities/user_profile.dart';
 import 'presentation/bloc/profile_bloc.dart';
 import 'presentation/bloc/profile_event.dart';
 import 'presentation/bloc/profile_state.dart';
+import 'presentation/widgets/rate_app_bottom_sheet.dart';
 
 // ── Local palette ─────────────────────────────────────────────────────────────
-const Color _textDark = Color(0xFF1A1A1A);
-const Color _textGrey = Color(0xFF9E9E9E);
-const Color _fieldBorder = Color(0xFFE8E8E8);
-const Color _bodyBg = Color(0xFFF2F2F7);
-const Color _iconBoxBg = Color(0xFFEDE9FB);
+const Color _textDark = AppColors.textPrimary;
+const Color _textGrey = AppColors.textSecondary;
+const Color _fieldBorder = AppColors.cardBorder;
+const Color _bodyBg = AppColors.background;
+const Color _iconBoxBg = AppColors.primaryContainer;
 
 // ── Menu item model ───────────────────────────────────────────────────────────
 class _MenuItem {
@@ -48,10 +50,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final accountItems = [
-      _MenuItem(icon: Icons.person_outline_rounded, label: 'Personal Details'),
-      _MenuItem(icon: Icons.location_on_outlined, label: 'Saved Sites'),
-      _MenuItem(icon: Icons.description_outlined, label: 'Documents'),
-      _MenuItem(icon: Icons.business_outlined, label: 'Company Info'),
+      _MenuItem(
+        icon: Icons.person_outline_rounded,
+        label: 'Personal Details',
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.personalDetails),
+      ),
+      _MenuItem(
+        icon: Icons.location_on_outlined,
+        label: 'Saved Sites',
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.savedSites),
+      ),
+      _MenuItem(
+        icon: Icons.description_outlined,
+        label: 'Documents',
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.documents),
+      ),
+      _MenuItem(
+        icon: Icons.business_outlined,
+        label: 'Company Info',
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.companyInfo),
+      ),
+      _MenuItem(
+        icon: Icons.verified_user_outlined,
+        label: 'Verification Status',
+        onTap: () =>
+            Navigator.of(context).pushNamed(AppRoutes.kycVerificationStatus),
+      ),
       _MenuItem(
         icon: Icons.receipt_long_outlined,
         label: 'Invoices',
@@ -71,13 +95,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         label: 'Notifications',
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
       ),
-      _MenuItem(icon: Icons.settings_outlined, label: 'Settings'),
+      _MenuItem(
+        icon: Icons.settings_outlined,
+        label: 'Settings',
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.settings),
+      ),
     ];
 
     final supportItems = [
-      _MenuItem(icon: Icons.help_outline_rounded, label: 'Help & FAQ'),
-      _MenuItem(icon: Icons.chat_bubble_outline_rounded, label: 'Contact Us'),
-      _MenuItem(icon: Icons.star_outline_rounded, label: 'Rate the App'),
+      _MenuItem(
+        icon: Icons.help_outline_rounded,
+        label: 'Help & FAQ',
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.helpFaq),
+      ),
+      _MenuItem(
+        icon: Icons.chat_bubble_outline_rounded,
+        label: 'Contact Us',
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.contactUs),
+      ),
+      _MenuItem(
+        icon: Icons.star_outline_rounded,
+        label: 'Rate the App',
+        onTap: () => RateAppBottomSheet.show(context),
+      ),
     ];
 
     return MultiBlocListener(
@@ -88,10 +128,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (state is ProfileError) {
               ScaffoldMessenger.of(context)
                 ..clearSnackBars()
-                ..showSnackBar(SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.redAccent,
-                ));
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
             }
           },
         ),
@@ -109,8 +151,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
       child: Scaffold(
         backgroundColor: _bodyBg,
-        bottomNavigationBar:
-            const AppTabBottomNavBar(currentTab: AppTab.profile),
+        bottomNavigationBar: const AppTabBottomNavBar(
+          currentTab: AppTab.profile,
+        ),
         body: SafeArea(
           bottom: false,
           child: Column(
@@ -138,8 +181,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                        padding: EdgeInsets.fromLTRB(
+                          context.scaled(16),
+                          context.scaled(20),
+                          context.scaled(16),
+                          0,
+                        ),
                         child: BlocBuilder<ProfileBloc, ProfileState>(
                           builder: (context, state) {
                             if (state is ProfileLoading ||
@@ -150,9 +197,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             if (state is ProfileError) {
                               return _ProfileErrorBody(
                                 message: state.message,
-                                onRetry: () => context
-                                    .read<ProfileBloc>()
-                                    .add(const FetchProfileEvent()),
+                                onRetry: () => context.read<ProfileBloc>().add(
+                                  const FetchProfileEvent(),
+                                ),
                               );
                             }
 
@@ -183,12 +230,15 @@ class _ProfileAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: const Center(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.scaled(16),
+        vertical: context.scaled(14),
+      ),
+      child: Center(
         child: Text(
           'My Profile',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: context.scaled(20),
             fontWeight: FontWeight.w600,
             color: _textDark,
             height: 1.2,
@@ -210,7 +260,12 @@ class _ProfileHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: EdgeInsets.fromLTRB(
+        context.scaled(20),
+        context.scaled(24),
+        context.scaled(20),
+        context.scaled(24),
+      ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -225,8 +280,8 @@ class _ProfileHero extends StatelessWidget {
         children: [
           // Avatar
           Container(
-            width: 72,
-            height: 72,
+            width: context.scaled(72),
+            height: context.scaled(72),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
@@ -242,7 +297,7 @@ class _ProfileHero extends StatelessWidget {
                   : _defaultAvatarIcon(),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: context.scaled(16)),
 
           // Name + company
           Expanded(
@@ -251,27 +306,29 @@ class _ProfileHero extends StatelessWidget {
               children: [
                 Text(
                   profile.name,
-                  style: const TextStyle(
-                    fontSize: 20,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: context.scaled(20),
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                     height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: context.scaledV(4)),
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.business_rounded,
-                      size: 14,
+                      size: context.scaled(14),
                       color: Colors.white70,
                     ),
-                    const SizedBox(width: 5),
+                    SizedBox(width: context.scaled(5)),
                     Flexible(
                       child: Text(
                         profile.company,
-                        style: const TextStyle(
-                          fontSize: 14,
+                        style: TextStyle(
+                          fontSize: context.scaled(14),
                           fontWeight: FontWeight.w400,
                           color: Colors.white,
                           height: 1.3,
@@ -290,14 +347,12 @@ class _ProfileHero extends StatelessWidget {
   }
 
   /// Fallback avatar icon shown when no [avatarUrl] is available.
+  // No BuildContext available here (plain instance method on a
+  // StatelessWidget, not build()/a builder callback) — left unscaled.
   Widget _defaultAvatarIcon() => Container(
-        color: const Color(0xFFE0E0E0),
-        child: const Icon(
-          Icons.person_rounded,
-          size: 40,
-          color: Colors.grey,
-        ),
-      );
+    color: const Color(0xFFE0E0E0),
+    child: const Icon(Icons.person_rounded, size: 40, color: Colors.grey),
+  );
 }
 
 // ── Profile hero shimmer (loading placeholder) ────────────────────────────────
@@ -309,7 +364,7 @@ class _ProfileHeroShimmer extends StatelessWidget {
       highlightColor: const Color(0xFFB0A6FF),
       child: Container(
         width: double.infinity,
-        height: 110,
+        height: context.scaled(110),
         color: const Color(0xFF8878FF),
       ),
     );
@@ -323,24 +378,29 @@ class _MenuGroupsShimmer extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _shimmerBlock(height: 20, width: 100),
-        const SizedBox(height: 10),
+        _shimmerBlock(height: context.scaled(20), width: context.scaled(100)),
+        SizedBox(height: context.scaledV(10)),
         _shimmerGroup(itemCount: 6),
-        const SizedBox(height: 20),
-        _shimmerBlock(height: 20, width: 120),
-        const SizedBox(height: 10),
+        SizedBox(height: context.scaledV(20)),
+        _shimmerBlock(height: context.scaled(20), width: context.scaled(120)),
+        SizedBox(height: context.scaledV(10)),
         _shimmerGroup(itemCount: 2),
-        const SizedBox(height: 20),
-        _shimmerBlock(height: 20, width: 80),
-        const SizedBox(height: 10),
+        SizedBox(height: context.scaledV(20)),
+        _shimmerBlock(height: context.scaled(20), width: context.scaled(80)),
+        SizedBox(height: context.scaledV(10)),
         _shimmerGroup(itemCount: 3),
-        const SizedBox(height: 24),
-        _shimmerBlock(height: 58, width: double.infinity),
-        const SizedBox(height: 16),
+        SizedBox(height: context.scaledV(24)),
+        _shimmerBlock(height: context.scaled(58), width: double.infinity),
+        SizedBox(height: context.scaledV(16)),
       ],
     );
   }
 
+  // NOTE: no BuildContext is available in this helper's scope (it's a plain
+  // instance method, not a widget build method or builder callback), so its
+  // literals are intentionally left unscaled per the task's context-
+  // availability rule. Call-site width/height arguments above are scaled by
+  // the caller instead.
   Widget _shimmerBlock({required double height, required double width}) {
     return Shimmer.fromColors(
       baseColor: const Color(0xFFE0E0E0),
@@ -356,6 +416,10 @@ class _MenuGroupsShimmer extends StatelessWidget {
     );
   }
 
+  // NOTE: no BuildContext is available in this helper's scope (it's a plain
+  // instance method, not a widget build method or builder callback), so its
+  // literals are intentionally left unscaled per the task's context-
+  // availability rule.
   Widget _shimmerGroup({required int itemCount}) {
     return Shimmer.fromColors(
       baseColor: const Color(0xFFE0E0E0),
@@ -370,12 +434,8 @@ class _MenuGroupsShimmer extends StatelessWidget {
             final isLast = i == itemCount - 1;
             return Column(
               children: [
-                Container(
-                  height: 68,
-                  color: Colors.white,
-                ),
-                if (!isLast)
-                  const Divider(color: _fieldBorder, height: 1),
+                Container(height: 68, color: Colors.white),
+                if (!isLast) const Divider(color: _fieldBorder, height: 1),
               ],
             );
           }),
@@ -395,26 +455,30 @@ class _ProfileErrorBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
+      padding: EdgeInsets.symmetric(vertical: context.scaled(40)),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: _textGrey),
-            const SizedBox(height: 12),
+            Icon(
+              Icons.error_outline,
+              size: context.scaled(48),
+              color: _textGrey,
+            ),
+            SizedBox(height: context.scaledV(12)),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: _textGrey),
+              style: TextStyle(fontSize: context.scaled(14), color: _textGrey),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: context.scaledV(20)),
             ElevatedButton(
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(context.scaled(12)),
                 ),
               ),
               child: const Text('Retry'),
@@ -445,41 +509,40 @@ class _ProfileMenuContent extends StatelessWidget {
       children: [
         // Account section
         const _SectionLabel(label: 'Account'),
-        const SizedBox(height: 10),
+        SizedBox(height: context.scaledV(10)),
         _MenuGroup(items: accountItems),
-        const SizedBox(height: 20),
+        SizedBox(height: context.scaledV(20)),
 
         // Preferences section
         const _SectionLabel(label: 'Preferences'),
-        const SizedBox(height: 10),
+        SizedBox(height: context.scaledV(10)),
         _MenuGroup(items: preferenceItems),
-        const SizedBox(height: 20),
+        SizedBox(height: context.scaledV(20)),
 
         // Support section
         const _SectionLabel(label: 'Support'),
-        const SizedBox(height: 10),
+        SizedBox(height: context.scaledV(10)),
         _MenuGroup(items: supportItems),
-        const SizedBox(height: 24),
+        SizedBox(height: context.scaledV(24)),
 
         // Sign Out button – dispatches SignOutEvent to AuthBloc.
         _SignOutButton(
-          onPressed: () =>
-              context.read<AuthBloc>().add(const SignOutEvent()),
+          onPressed: () => context.read<AuthBloc>().add(const SignOutEvent()),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: context.scaledV(16)),
 
         // App version label
-        const Center(
+        Center(
           child: Text(
             'Cash Order v1.0.0',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: context.scaled(13),
               color: _textGrey,
               height: 1.3,
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.scaledV(8)),
       ],
     );
   }
@@ -494,8 +557,8 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
-        fontSize: 16,
+      style: TextStyle(
+        fontSize: context.scaled(16),
         fontWeight: FontWeight.w700,
         color: _textDark,
         height: 1.3,
@@ -514,7 +577,7 @@ class _MenuGroup extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(context.scaled(16)),
         border: Border.all(color: _fieldBorder),
       ),
       child: Column(
@@ -525,11 +588,11 @@ class _MenuGroup extends StatelessWidget {
             children: [
               _MenuTile(item: item),
               if (!isLast)
-                const Divider(
+                Divider(
                   color: _fieldBorder,
                   height: 1,
-                  indent: 16,
-                  endIndent: 16,
+                  indent: context.scaled(16),
+                  endIndent: context.scaled(16),
                 ),
             ],
           );
@@ -550,35 +613,42 @@ class _MenuTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: item.onTap ?? () {},
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(context.scaled(16)),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.scaled(16),
+            vertical: context.scaled(14),
+          ),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: context.scaled(40),
+                height: context.scaled(40),
                 decoration: BoxDecoration(
                   color: _iconBoxBg,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(context.scaled(10)),
                 ),
-                child: Icon(item.icon, size: 20, color: AppColors.primary),
+                child: Icon(
+                  item.icon,
+                  size: context.scaled(20),
+                  color: AppColors.primary,
+                ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: context.scaled(14)),
               Expanded(
                 child: Text(
                   item.label,
-                  style: const TextStyle(
-                    fontSize: 15,
+                  style: TextStyle(
+                    fontSize: context.scaled(15),
                     fontWeight: FontWeight.w500,
                     color: _textDark,
                     height: 1.3,
                   ),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                size: 22,
+                size: context.scaled(22),
                 color: _textGrey,
               ),
             ],
@@ -598,7 +668,7 @@ class _SignOutButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 58,
+      height: context.scaled(58),
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -609,26 +679,30 @@ class _SignOutButton extends StatelessWidget {
               AppColors.primaryGradientEnd,
             ],
           ),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(context.scaled(18)),
         ),
         child: TextButton(
           onPressed: onPressed,
           style: TextButton.styleFrom(
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(context.scaled(18)),
             ),
             padding: EdgeInsets.zero,
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.logout_rounded, size: 20, color: Colors.white),
-              SizedBox(width: 8),
+              Icon(
+                Icons.logout_rounded,
+                size: context.scaled(20),
+                color: Colors.white,
+              ),
+              SizedBox(width: context.scaled(8)),
               Text(
                 'Sign Out',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: context.scaled(16),
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
                 ),

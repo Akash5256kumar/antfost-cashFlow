@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 
-/// Reusable order stepper — 5 steps, 44 px circles, 8pt spacing grid.
-/// [currentStep] is 0-based. Steps before it show a completed checkmark.
+/// Reusable order stepper — supports 6 steps, responsive sizing, 8pt grid.
+/// [currentStep] is 0-based. Steps before it show a completed green checkmark.
 class OrderStepperWidget extends StatelessWidget {
   const OrderStepperWidget({
     super.key,
     required this.currentStep,
-    this.labels = defaultLabels,
+    this.labels = flowLabels,
   });
 
   final int currentStep;
@@ -19,33 +20,40 @@ class OrderStepperWidget extends StatelessWidget {
     'Mix Code',
     'Quantity',
     'Schedule',
-    'Other',
+    'Services',
+    'Site Access',
+    'Review',
   ];
 
   static const List<String> flowLabels = [
-    'Location',
+    'Project',
     'Mix Code',
     'Quantity',
     'Schedule',
-    'Other',
+    'Services',
+    'Site Access',
+    'Review',
   ];
 
-  // Design tokens
-  static const double _circleSize    = 44;
-  static const double _connectorH    = 2;
-  static const double _labelFontSize = 12;
+  // Design tokens — ported from the new Figma design's `StepRail`
+  // component (`ui.tsx`): done/active steps are both brand-purple, with a
+  // ring around the active step; upcoming steps sit on a light lavender.
+  static const double _connectorH = 3;
 
-  static const Color _doneBg         = AppColors.primary;
-  static const Color _activeBg       = AppColors.primary;
-  static const Color _inactiveBg     = Color(0xFFF1F1F1);
-  static const Color _inactiveText   = Color(0xFF111111);
-  static const Color _connectorDone  = AppColors.primary;
-  static const Color _connectorGrey  = Color(0xFFEFEFEF);
-  static const Color _activeLabel    = AppColors.primary;
-  static const Color _inactiveLabel  = Color(0xFF111111);
+  static const Color _doneBg = AppColors.primary;
+  static const Color _activeBg = AppColors.primary;
+  static const Color _inactiveBg = AppColors.circleInactive;
+  static const Color _inactiveText = AppColors.iconMuted;
+  static const Color _connectorDone = AppColors.primary;
+  static const Color _connectorGrey = AppColors.indicatorInactive;
+  static const Color _activeLabel = AppColors.primary;
+  static const Color _inactiveLabel = AppColors.iconMuted;
 
   @override
   Widget build(BuildContext context) {
+    final isSixSteps = labels.length >= 6;
+    final circleSize = context.scaled(isSixSteps ? 32 : 40);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -53,7 +61,8 @@ class OrderStepperWidget extends StatelessWidget {
         Row(
           children: List.generate(labels.length * 2 - 1, (i) {
             if (i.isOdd) {
-              final connectorStep = i ~/ 2; // step index to the left of this connector
+              final connectorStep =
+                  i ~/ 2; // step index to the left of this connector
               final isDone = connectorStep < currentStep;
               return Expanded(
                 child: Container(
@@ -64,15 +73,15 @@ class OrderStepperWidget extends StatelessWidget {
             }
 
             final stepIndex = i ~/ 2;
-            final isDone   = stepIndex < currentStep;
+            final isDone = stepIndex < currentStep;
             final isActive = stepIndex == currentStep;
 
             return _StepCircle(
-              number:   stepIndex + 1,
-              isDone:   isDone,
+              number: stepIndex + 1,
+              isDone: isDone,
               isActive: isActive,
-              size:     _circleSize,
-              doneBg:   _doneBg,
+              size: circleSize,
+              doneBg: _doneBg,
               activeBg: _activeBg,
               inactiveBg: _inactiveBg,
               inactiveTextColor: _inactiveText,
@@ -80,7 +89,7 @@ class OrderStepperWidget extends StatelessWidget {
           }),
         ),
 
-        const SizedBox(height: 8),
+        SizedBox(height: context.scaledV(6)),
 
         // ── Labels ────────────────────────────────────────────────────────
         Row(
@@ -93,7 +102,7 @@ class OrderStepperWidget extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: _labelFontSize,
+                  fontSize: context.scaled(isSixSteps ? 11 : 12),
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                   color: isActive ? _activeLabel : _inactiveLabel,
                   height: 1.33,
@@ -134,21 +143,31 @@ class _StepCircle extends StatelessWidget {
     final Color bg = isDone
         ? doneBg
         : isActive
-            ? activeBg
-            : inactiveBg;
+        ? activeBg
+        : inactiveBg;
 
     return SizedBox(
       width: size,
       height: size,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+        decoration: BoxDecoration(
+          color: bg,
+          shape: BoxShape.circle,
+          border: isActive
+              ? Border.all(color: AppColors.primaryContainer, width: 4)
+              : null,
+        ),
         child: Center(
           child: isDone
-              ? const Icon(Icons.check_rounded, size: 20, color: Colors.white)
+              ? Icon(
+                  Icons.check_rounded,
+                  size: size * 0.55,
+                  color: Colors.white,
+                )
               : Text(
                   '$number',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: size * 0.42,
                     fontWeight: FontWeight.w600,
                     color: isActive ? Colors.white : inactiveTextColor,
                     height: 1,

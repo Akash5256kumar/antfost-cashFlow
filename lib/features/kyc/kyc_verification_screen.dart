@@ -1,588 +1,400 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/config/app_assets.dart';
+import '../../app/navigation/app_route_args.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
-import '../../core/widgets/app_gradient_button.dart';
+import '../../app/theme/app_text_styles.dart';
+import '../../core/widgets/app_illustration_image.dart';
+import '../../core/widgets/app_svg_icons.dart';
+import '../../core/widgets/primary_button.dart';
 
-// ── Colours local to this screen ─────────────────────────────────────────────
-const Color _bannerBg = Color(0xFFFFF5F5);
-const Color _bannerBorder = Color(0xFFFFCDD2);
-const Color _bannerRed = Color(0xFFD32F2F);
-const Color _requiredRed = Color(0xFFE53935);
-const Color _cardBg = Color(0xFFFFFFFF);
-
+/// Ported from the new Figma design's `screens/VerifyBusiness.tsx`. The
+/// Figma flow shows this same screen after OTP regardless of account type
+/// and hands off straight to Home (no separate pending/status screen) —
+/// [isBusiness] only swaps the copy/field labels between the business and
+/// individual document sets, since the old app's richer status screens
+/// (`KycPendingScreen`, `VerificationStatusScreen`) aren't part of that flow
+/// anymore but stay in the codebase, restyled, in case something still
+/// links to them directly.
 class KycVerificationScreen extends StatefulWidget {
-  const KycVerificationScreen({super.key});
+  final bool isBusiness;
+
+  const KycVerificationScreen({super.key, this.isBusiness = true});
 
   @override
   State<KycVerificationScreen> createState() => _KycVerificationScreenState();
 }
 
 class _KycVerificationScreenState extends State<KycVerificationScreen> {
-  bool _hasCompany = true;
-  bool _vatRegistered = true;
-  final _vatController = TextEditingController();
-
-  @override
-  void dispose() {
-    _vatController.dispose();
-    super.dispose();
+  void _goHome() {
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.home,
+      (route) => false,
+      arguments: HomeRouteArgs(verificationUnderReview: widget.isBusiness),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final docs = widget.isBusiness
+        ? const [
+            _DocSpec(
+              'Trade License',
+              'Upload a clear copy of your trade license',
+            ),
+            _DocSpec(
+              'VAT Certificate',
+              'Upload your VAT certificate',
+              optional: true,
+            ),
+            _DocSpec(
+              'Authorized Person ID',
+              'Upload ID of authorized signatory',
+            ),
+          ]
+        : const [
+            _DocSpec('Emirates ID', 'Upload a clear copy of your Emirates ID'),
+            _DocSpec(
+              'Proof of Address',
+              'Upload a recent utility bill or bank statement',
+              optional: true,
+            ),
+          ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7FA),
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        toolbarHeight: 64,
-        leading: const BackButton(color: AppColors.textPrimary),
-        centerTitle: true,
-        title: Column(
-          children: const [
-            Text(
-              'KYC Verification',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: 2),
-            Text(
-              'Upload required documents for verification',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          // ── Scrollable content ─────────────────────────────────────────
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Status banner ────────────────────────────────────────
-                  const _StatusBanner(),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // ── Company toggle ───────────────────────────────────────
-                  _QuestionCard(
-                    question: 'Do you have a company?',
-                    subtext: 'Trade license required if\negistered',
-                    value: _hasCompany,
-                    onChanged: (v) => setState(() => _hasCompany = v),
-                  ),
-
-                  const SizedBox(height: AppSpacing.md),
-
-                  // ── VAT registered toggle ────────────────────────────────
-                  _QuestionCard(
-                    question: 'VAT Registered?',
-                    subtext: 'VAT certificate required if\nregistered',
-                    value: _vatRegistered,
-                    onChanged: (v) => setState(() => _vatRegistered = v),
-                  ),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // ── VAT number field ─────────────────────────────────────
-                  _VatNumberField(controller: _vatController),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // ── Document upload cards ────────────────────────────────
-                  _DocumentCard(
-                    title: 'Emirates ID (Front)',
-                    description: 'Upload front side of\nEmirates ID',
-                  ),
-
-                  const SizedBox(height: AppSpacing.md),
-
-                  _DocumentCard(
-                    title: 'Emirates ID (Back)',
-                    description: 'Upload back side of\nEmirates ID',
-                  ),
-
-                  const SizedBox(height: AppSpacing.md),
-
-                  _DocumentCard(
-                    title: 'Trade License',
-                    description: 'Upload company trade\nlicense',
-                  ),
-
-                  const SizedBox(height: AppSpacing.md),
-
-                  _DocumentCard(
-                    title: 'VAT Certificate',
-                    description: 'Upload VAT registration\ncertificate',
-                  ),
-
-                  const SizedBox(height: AppSpacing.xl),
-
-                  // ── Important notes ──────────────────────────────────────
-                  const _ImportantNotes(),
-
-                  const SizedBox(height: AppSpacing.xxl),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Fixed submit button ────────────────────────────────────────
-          Container(
-            color: AppColors.white,
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.md,
-              AppSpacing.lg,
-              bottomInset > 0 ? bottomInset + AppSpacing.xs : AppSpacing.lg,
-            ),
-            child: AppGradientButton(
-              label: 'Submit for verification',
-              onPressed: () => Navigator.of(
-                context,
-              ).pushReplacementNamed(AppRoutes.kycPending),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Status banner ─────────────────────────────────────────────────────────────
-class _StatusBanner extends StatelessWidget {
-  const _StatusBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: _bannerBg,
-        borderRadius: BorderRadius.circular(AppSpacing.md),
-        border: Border.all(color: _bannerBorder),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Icon(Icons.warning_amber_rounded, color: _bannerRed, size: 20),
-          SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Verification Status',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _bannerRed,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Upload all required documents. Verification usually takes 2-4 hours during business hours.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textPrimary,
-                    height: 1.45,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Yes / No question card ────────────────────────────────────────────────────
-class _QuestionCard extends StatelessWidget {
-  final String question;
-  final String subtext;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _QuestionCard({
-    required this.question,
-    required this.subtext,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(AppSpacing.md),
-        border: Border.all(color: AppColors.fieldBorder),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  question,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtext,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          _YesNoToggle(value: value, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Yes / No pill toggle ──────────────────────────────────────────────────────
-class _YesNoToggle extends StatelessWidget {
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _YesNoToggle({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F2F6),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.fieldBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _TogglePill(
-            label: 'Yes',
-            active: value,
-            onTap: () => onChanged(true),
-          ),
-          _TogglePill(
-            label: 'No',
-            active: !value,
-            onTap: () => onChanged(false),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TogglePill extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  const _TogglePill({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(17),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: active ? AppColors.white : AppColors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── VAT number field ──────────────────────────────────────────────────────────
-class _VatNumberField extends StatelessWidget {
-  final TextEditingController controller;
-
-  const _VatNumberField({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.sm,
-            AppSpacing.lg,
-            AppSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: _cardBg,
-            borderRadius: BorderRadius.circular(AppSpacing.md),
-            border: Border.all(color: AppColors.fieldBorder),
-          ),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'VAT Number*',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 2),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(15),
+              SizedBox(height: context.scaledV(8)),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    ),
+                  ),
+                  SvgPicture.asset(
+                    AppAssets.antfostLogo,
+                    width: context.scaled(140),
+                  ),
                 ],
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
-                ),
-                decoration: const InputDecoration(
-                  hintText: '123456789000003',
-                  hintStyle: TextStyle(fontSize: 15, color: AppColors.textHint),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.only(bottom: AppSpacing.xs),
+              ),
+              SizedBox(height: context.scaledV(16)),
+              Text(
+                widget.isBusiness
+                    ? 'Verify Your Business'
+                    : 'Verify Your Identity',
+                style: AppTextStyles.authScreenTitle(
+                  context,
+                ).copyWith(fontSize: context.scaled(26)),
+              ),
+              SizedBox(height: context.scaledV(4)),
+              Text(
+                widget.isBusiness
+                    ? 'Secure company verification'
+                    : 'Quick identity verification',
+                style: AppTextStyles.cardSubtitle(
+                  context,
+                ).copyWith(fontSize: context.scaled(14)),
+              ),
+              SizedBox(height: context.scaledV(12)),
+              AppIllustrationImage(
+                asset: AppAssets.artKycShield,
+                height: 170,
+                borderRadius: 0,
+                fit: BoxFit.contain,
+              ),
+              SizedBox(height: context.scaledV(12)),
+              Row(
+                children: [
+                  Text(
+                    '1 of 3',
+                    style: TextStyle(
+                      fontSize: context.scaled(12),
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  SizedBox(width: context.scaled(14)),
+                  Expanded(
+                    child: Row(
+                      children: List.generate(3, (index) {
+                        final isActive = index == 0;
+                        return Expanded(
+                          child: Container(
+                            height: 3.5,
+                            margin: EdgeInsets.only(
+                              right: index < 2 ? 6.0 : 0.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? AppColors.primary
+                                  : const Color(0xFFE2E6FA),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: context.scaledV(22)),
+              Text(
+                'Upload Documents',
+                style: AppTextStyles.authScreenTitle(
+                  context,
+                ).copyWith(fontSize: context.scaled(20)),
+              ),
+              SizedBox(height: context.scaledV(12)),
+              ...docs.map(
+                (d) => Padding(
+                  padding: EdgeInsets.only(bottom: context.scaledV(12)),
+                  child: _DocumentRow(doc: d),
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Padding(
-          padding: EdgeInsets.only(left: 2),
-          child: Text(
-            '15-digit TRN number (e.g., 123456789000003)',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Document upload card ──────────────────────────────────────────────────────
-class _DocumentCard extends StatelessWidget {
-  final String title;
-  final String description;
-
-  const _DocumentCard({required this.title, required this.description});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(AppSpacing.md),
-        border: Border.all(color: AppColors.fieldBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header ──────────────────────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
+              SizedBox(height: context.scaledV(6)),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(AppSpacing.lg(context)),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text.rich(
-                      TextSpan(
-                        text: title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                        children: const [
-                          TextSpan(
-                            text: '*',
-                            style: TextStyle(color: _requiredRed),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 3),
                     Text(
-                      description,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        height: 1.4,
-                      ),
+                      widget.isBusiness
+                          ? 'Company Details'
+                          : 'Personal Details',
+                      style: AppTextStyles.cardTitle(
+                        context,
+                      ).copyWith(fontSize: context.scaled(18)),
+                    ),
+                    SizedBox(height: context.scaledV(12)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _UnderlineField(
+                            label: widget.isBusiness
+                                ? 'Company Legal Name'
+                                : 'Full Legal Name',
+                            iconWidget: widget.isBusiness
+                                ? const AppSvgBusinessIcon(
+                                    color: AppColors.primary,
+                                    size: 18,
+                                  )
+                                : const AppSvgUserIcon(
+                                    color: AppColors.primary,
+                                    size: 18,
+                                  ),
+                            hint: widget.isBusiness
+                                ? 'Enter legal company name'
+                                : 'Enter your full name',
+                          ),
+                        ),
+                        Container(
+                          width: 1.0,
+                          height: 38.0,
+                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                          color: const Color(0xFFECEBF5),
+                        ),
+                        Expanded(
+                          child: _UnderlineField(
+                            label: widget.isBusiness
+                                ? 'License Number'
+                                : 'Emirates ID Number',
+                            iconWidget: const AppSvgLicenseCardIcon(
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                            hint: widget.isBusiness
+                                ? 'Enter license number'
+                                : 'Enter ID number',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+              SizedBox(height: context.scaledV(14)),
               Row(
-                children: const [
-                  Icon(
-                    Icons.upload_outlined,
-                    size: 14,
+                children: [
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 15,
                     color: AppColors.textSecondary,
                   ),
-                  SizedBox(width: 3),
-                  Text(
-                    'Not Uploaded',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Documents are encrypted and used only for account verification.',
+                      style: AppTextStyles.cardSubtitle(
+                        context,
+                      ).copyWith(fontSize: context.scaled(12)),
                     ),
                   ),
                 ],
               ),
+              SizedBox(height: context.scaledV(18)),
+              PrimaryButton(onPressed: _goHome, arrow: true, label: 'Continue'),
+              SizedBox(height: context.scaledV(10)),
+              Center(
+                child: GestureDetector(
+                  onTap: _goHome,
+                  child: Text(
+                    'Save and finish later',
+                    style: TextStyle(
+                      fontSize: context.scaled(14),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.scaledV(16)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
 
-          const SizedBox(height: AppSpacing.md),
+class _DocSpec {
+  final String title;
+  final String description;
+  final bool optional;
+  const _DocSpec(this.title, this.description, {this.optional = false});
+}
 
-          // ── Upload button ────────────────────────────────────────────────
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textPrimary,
-              side: const BorderSide(color: AppColors.textPrimary, width: 1.2),
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.md),
-              ),
-              padding: EdgeInsets.zero,
+class _DocumentRow extends StatelessWidget {
+  const _DocumentRow({required this.doc});
+
+  final _DocSpec doc;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.md(context)),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF2FE),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.upload_outlined, size: 18),
-                SizedBox(width: 8),
+            alignment: Alignment.center,
+            child: const AppSvgDocumentIcon(
+              color: AppColors.primary,
+              size: 20,
+            ),
+          ),
+          SizedBox(width: AppSpacing.md(context)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(doc.title, style: AppTextStyles.cardTitle(context)),
                 Text(
-                  'Choose file or take photo',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  doc.description,
+                  style: AppTextStyles.cardSubtitle(context),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: AppSpacing.sm),
-
-          // ── Supported formats ────────────────────────────────────────────
-          const Center(
-            child: Text(
-              'Supported: JPG, PNG, PDF (Max 10MB)',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          if (doc.optional) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF2FE),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                'Optional',
+                style: AppTextStyles.badgeLabel(
+                  context,
+                ).copyWith(color: AppColors.primary),
+              ),
             ),
-          ),
+            const SizedBox(width: 6),
+          ],
+          const Icon(Icons.chevron_right_rounded, color: AppColors.iconMuted),
         ],
       ),
     );
   }
 }
 
-// ── Important notes ───────────────────────────────────────────────────────────
-class _ImportantNotes extends StatelessWidget {
-  static const _items = [
-    'Documents must be clear and all details visible',
-    'Emirates ID must be valid (not expired)',
-    'Trade license must match company name',
-    'VAT number must be 15 digits',
-    'Verification takes 2-4 business hours',
-  ];
+class _UnderlineField extends StatelessWidget {
+  const _UnderlineField({
+    required this.label,
+    required this.iconWidget,
+    required this.hint,
+  });
 
-  const _ImportantNotes();
+  final String label;
+  final Widget iconWidget;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Important Notes',
+        Text(
+          label,
           style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            fontSize: context.scaled(11),
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
           ),
         ),
-        const SizedBox(height: AppSpacing.md),
-        ..._items.map(
-          (note) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '• ',
+        SizedBox(height: context.scaledV(4)),
+        Row(
+          children: [
+            iconWidget,
+            const SizedBox(width: 6),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.only(bottom: 6),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.cardBorder),
+                  ),
+                ),
+                child: Text(
+                  hint,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
-                    height: 1.5,
+                    fontSize: context.scaled(12),
+                    color: AppColors.textHint,
                   ),
                 ),
-                Expanded(
-                  child: Text(
-                    note,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );

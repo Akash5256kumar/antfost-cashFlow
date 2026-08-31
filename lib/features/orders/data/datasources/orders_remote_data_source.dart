@@ -39,36 +39,52 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
 
   static const List<Map<String, dynamic>> _ordersJson = [
     {
-      'orderId': 'AF-2024-02-000001',
-      'status': 'inProgress',
-      'grade': 'C25/30',
-      'location': 'Marina Tower - Ground Floor',
-      'timeSlot': '6 AM - 10 AM (±4 hrs)',
-      'volume': '50 m³ · 5 trips',
-      'date': '7 Feb, 10:06 AM',
-      'amount': 17400.0,
-      'delivered': 20,
-      'total': 50,
-    },
-    {
-      'orderId': 'AF-2024-02-000002',
+      'orderId': 'AF-2052',
       'status': 'scheduled',
-      'grade': 'C30/37',
-      'location': 'Palm Villa Site A',
-      'timeSlot': '6 AM - 12 PM (±6 hrs)',
-      'volume': '25 m³ · 3 trips',
-      'date': '6 Feb, 12:06 PM',
-      'amount': 9450.0,
+      'grade': 'C25/30',
+      'location': 'Marina Tower',
+      'timeSlot': '6 AM - 10 AM (±4 hrs)',
+      'volume': '42 m³',
+      'date': 'May 16, 2025',
+      'amount': 17400.0,
+      'delivered': 0,
+      'total': 42,
     },
     {
-      'orderId': 'AF-2024-02-000003',
+      'orderId': 'AF-2048',
+      'status': 'inProgress',
+      'grade': 'C30/37',
+      'location': 'Palm Jumeirah Villa',
+      'timeSlot': '6 AM - 12 PM (±6 hrs)',
+      'volume': '28 m³',
+      'date': 'May 15, 2025',
+      'amount': 9450.0,
+      'delivered': 10,
+      'total': 28,
+    },
+    {
+      'orderId': 'AF-2043',
+      'status': 'inProgress',
+      'grade': 'C30/37',
+      'location': 'Creek Residence',
+      'timeSlot': '',
+      'volume': '120 m³',
+      'date': 'May 14, 2025',
+      'amount': 25000.0,
+      'delivered': 0,
+      'total': 120,
+    },
+    {
+      'orderId': 'AF-2031',
       'status': 'completed',
       'grade': 'C30/37',
-      'location': 'Palm Villa Site A',
+      'location': 'JVC Townhouse',
       'timeSlot': '',
-      'volume': '',
-      'date': '6 Feb, 12:06 PM',
-      'amount': 9450.0,
+      'volume': '18 m³',
+      'date': 'May 12, 2025',
+      'amount': 6500.0,
+      'delivered': 18,
+      'total': 18,
     },
   ];
 
@@ -86,6 +102,14 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
   static const List<Map<String, dynamic>> _projectsJson = [
     {'id': 'p1', 'name': 'Marina Tower', 'location': 'Dubai Marina'},
     {'id': 'p2', 'name': 'Palm Villa', 'location': 'Palm Jumeirah'},
+    {'id': 'p3', 'name': 'Creek Residence', 'location': 'Dubai Creek'},
+    {
+      'id': 'p4',
+      'name': 'JVC Townhouse',
+      'location': 'Jumeirah Village Circle',
+    },
+    {'id': 'p5', 'name': 'Neighborhood Center', 'location': 'Dubai Hills'},
+    {'id': 'p6', 'name': 'Downtown Apartment', 'location': 'Downtown Dubai'},
   ];
 
   // ── Helper ────────────────────────────────────────────────────────────────
@@ -106,9 +130,7 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
     await _delay();
     final json = _ordersJson.firstWhere(
       (o) => o['orderId'] == orderId,
-      orElse: () => throw const ServerException(
-        'Order not found.',
-      ),
+      orElse: () => throw const ServerException('Order not found.'),
     );
     return OrderModel.fromJson(json);
   }
@@ -142,7 +164,7 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
       grade: 'C25/30',
       location: 'New Project Site',
       timeSlot: '6 AM - 10 AM',
-      volume: '0 m³ · 0 trips',
+      volume: '0 m³',
       date: 'Pending',
       amount: 0.0,
     );

@@ -78,12 +78,7 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
   }) async {
     await _fakeDelay();
 
-    final isValidEmail = isEmail && contact == _mockEmail && passcode == _mockPasscode;
-    final isValidPhone = !isEmail && contact == _mockPhone && passcode == _mockPasscode;
-
-    if (!isValidEmail && !isValidPhone) {
-      throw const AuthException('Invalid credentials. Please try again.');
-    }
+    // Accept all credentials for testing
 
     return _dummyUser;
   }

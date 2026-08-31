@@ -3,24 +3,25 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 import '../../core/widgets/common_input_field.dart';
 import '../../core/widgets/order_stepper_widget.dart';
 import '../../core/widgets/primary_button.dart';
-import 'new_cash_order_mix_code_screen.dart';
+import 'new_cash_order_mix_selection_screen.dart';
 import 'order_project_summary.dart';
 
 // ── Colour palette (local, matches Figma) ──────────────────────────────────
-const Color _borderSection   = Color(0xFFEFEFEF);
-const Color _bodyBg          = Color(0xFFF2F2F7);
-const Color _sheetScrim      = Color(0x4D000000);
-const Color _sheetBg         = Colors.white;
+const Color _borderSection = Color(0xFFFFFFFF);
+const Color _bodyBg = Color(0xFFF5F5F5);
+const Color _sheetScrim = Color(0x4D000000);
+const Color _sheetBg = Colors.white;
 // Exact Figma text colours
-const Color _textDark        = Color(0xFF1A1A1A);  // titles
-const Color _textGrey        = Color(0xFF9E9E9E);  // subtitles, labels
+const Color _textDark = Color(0xFF1A1A1A); // titles
+const Color _textGrey = Color(0xFF9E9E9E); // subtitles, labels
 // Sheet / tile colours
-const Color _tileBorder      = Color(0xFFE3E3E3);
-const Color _tileIconBg      = Color(0xFFFFF8D6);
-const Color _tileIconColor   = Color(0xFFFF8A00);
+const Color _tileBorder = Color(0xFFD3D3D3);
+const Color _tileIconBg = Color(0xFFFFF8D6);
+const Color _tileIconColor = Color(0xFFFF8A00);
 
 // ── Sample data ────────────────────────────────────────────────────────────
 const _abuDhabi = LatLng(24.48862, 54.38652);
@@ -85,10 +86,10 @@ class _NewCashOrderScreenState extends State<NewCashOrderScreen> {
   }
 
   Future<void> _openAddNewProject() async {
-    final created = await Navigator.of(context)
-        .pushNamed<OrderProjectSummary>(AppRoutes.addNewProject);
-    if (created != null && mounted) {
-      setState(() => _selectedProject = created);
+    final result = await Navigator.of(context, rootNavigator: true)
+        .pushNamed<OrderProjectSummary>(AppRoutes.addNewProject, arguments: true);
+    if (result != null && mounted) {
+      setState(() => _selectedProject = result);
     }
   }
 
@@ -113,7 +114,12 @@ class _NewCashOrderScreenState extends State<NewCashOrderScreen> {
               child: Container(
                 color: _bodyBg,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                  padding: EdgeInsets.fromLTRB(
+                    context.scaled(16),
+                    context.scaled(24),
+                    context.scaled(16),
+                    context.scaled(24),
+                  ),
                   child: _ProjectSiteForm(
                     projectName: _projectName,
                     projectSite: _projectSite,
@@ -127,7 +133,7 @@ class _NewCashOrderScreenState extends State<NewCashOrderScreen> {
             _BottomBar(
               onContinue: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const NewCashOrderMixCodeScreen(),
+                  builder: (_) => const NewCashOrderMixSelectionScreen(),
                 ),
               ),
             ),
@@ -144,41 +150,46 @@ class _AppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(
+        context.scaled(4),
+        context.scaled(8),
+        context.scaled(16),
+        context.scaled(8),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Back button — touch target 44×44
           SizedBox(
-            width: 44,
-            height: 44,
+            width: context.scaled(44),
+            height: context.scaled(44),
             child: IconButton(
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded, size: 24),
+              icon: Icon(Icons.arrow_back_rounded, size: context.scaled(24)),
               color: AppColors.textPrimary,
               padding: EdgeInsets.zero,
-              splashRadius: 22,
+              splashRadius: context.scaled(22),
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: context.scaled(4)),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               Text(
                 'New Cash Order',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: context.scaled(22),
                   fontWeight: FontWeight.w400,
                   color: Colors.black,
                   height: 1.2,
                 ),
               ),
-              SizedBox(height: 2),
+              SizedBox(height: context.scaledV(2)),
               Text(
                 'Project',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.scaled(14),
                   fontWeight: FontWeight.w400,
                   color: _textGrey,
                   height: 1.2,
@@ -208,8 +219,14 @@ class _StepperSection extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: OrderStepperWidget(currentStep: currentStep),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.scaled(16),
+          vertical: context.scaled(16),
+        ),
+        child: OrderStepperWidget(
+          currentStep: currentStep,
+          labels: OrderStepperWidget.flowLabels,
+        ),
       ),
     );
   }
@@ -234,26 +251,26 @@ class _ProjectSiteForm extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Section heading
-        const Text(
+        Text(
           'Project & Site',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: context.scaled(20),
             fontWeight: FontWeight.w600,
             color: _textDark,
             height: 1.2,
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
+        SizedBox(height: context.scaledV(4)),
+        Text(
           'Project Details',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: context.scaled(14),
             fontWeight: FontWeight.w400,
-            color: _textGrey,
+            color: _textDark,
             height: 1.43,
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: context.scaledV(24)),
 
         // ── Project Name field (tappable → picker) ───────────────────
         CommonInputField(
@@ -261,15 +278,15 @@ class _ProjectSiteForm extends StatelessWidget {
           value: projectName,
           placeholder: 'Select Project',
           isRequired: true,
-          trailingIcon: const Icon(
+          trailingIcon: Icon(
             Icons.keyboard_arrow_down_rounded,
-            size: 24,
+            size: context.scaled(24),
             color: AppColors.textPrimary,
           ),
           onTap: onProjectTap,
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: context.scaledV(16)),
 
         // ── Project Site field (read-only, populated from project) ────
         CommonInputField(
@@ -298,11 +315,13 @@ class _BottomBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        minimum: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: PrimaryButton(
-          label: 'Continue',
-          onPressed: onContinue,
+        minimum: EdgeInsets.fromLTRB(
+          context.scaled(16),
+          context.scaled(12),
+          context.scaled(16),
+          context.scaled(16),
         ),
+        child: PrimaryButton(label: 'Continue', onPressed: onContinue),
       ),
     );
   }
@@ -327,6 +346,8 @@ class _ProjectPickerSheet extends StatefulWidget {
 
 class _ProjectPickerSheetState extends State<_ProjectPickerSheet> {
   late final TextEditingController _search;
+  bool _showMap = false;
+  LatLng _markerPosition = _abuDhabi;
 
   @override
   void initState() {
@@ -343,10 +364,12 @@ class _ProjectPickerSheetState extends State<_ProjectPickerSheet> {
   List<OrderProjectSummary> get _filtered {
     final q = _search.text.trim().toLowerCase();
     if (q.isEmpty) return widget.projects;
-    return widget.projects.where((p) {
-      return p.projectName.toLowerCase().contains(q) ||
-          p.projectSite.toLowerCase().contains(q);
-    }).toList(growable: false);
+    return widget.projects
+        .where((p) {
+          return p.projectName.toLowerCase().contains(q) ||
+              p.projectSite.toLowerCase().contains(q);
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -354,7 +377,7 @@ class _ProjectPickerSheetState extends State<_ProjectPickerSheet> {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
     return FractionallySizedBox(
-      heightFactor: 0.55,
+      heightFactor: 0.85,
       alignment: Alignment.bottomCenter,
       child: DecoratedBox(
         decoration: const BoxDecoration(
@@ -364,45 +387,73 @@ class _ProjectPickerSheetState extends State<_ProjectPickerSheet> {
         child: SafeArea(
           top: false,
           child: Padding(
-            padding:
-                EdgeInsets.fromLTRB(20, 20, 20, bottom + 16),
+            padding: EdgeInsets.fromLTRB(
+              context.scaled(20),
+              context.scaled(20),
+              context.scaled(20),
+              bottom + context.scaled(16),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Handle bar
                 Center(
                   child: Container(
-                    width: 40,
-                    height: 4,
+                    width: context.scaled(40),
+                    height: context.scaled(4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFD6D6D6),
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(context.scaled(2)),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: context.scaledV(16)),
 
-                const Text(
+                Text(
                   'Select Project',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: context.scaled(20),
                     fontWeight: FontWeight.w600,
                     color: _textDark,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: context.scaledV(16)),
 
                 // Search field
                 _SearchField(controller: _search),
-                const SizedBox(height: 20),
+                SizedBox(height: context.scaledV(16)),
+
+                // Add New Project button — reveals the inline map below
+                _AddNewProjectButton(
+                  onTap: () => setState(() => _showMap = true),
+                ),
+
+                // Location picker mini-section (opens with a real map once
+                // "Add New Project" is tapped, instead of navigating away)
+                if (_showMap) ...[
+                  SizedBox(height: context.scaledV(16)),
+                  _LocationPickerSection(
+                    markerPosition: _markerPosition,
+                    onMapTap: (pos) => setState(() => _markerPosition = pos),
+                    onPinOnMap: () {
+                      Navigator.of(context).pop();
+                      widget.onAddNew();
+                    },
+                    onUseCurrentLocation: () {
+                      Navigator.of(context).pop();
+                      widget.onAddNew();
+                    },
+                  ),
+                ],
+                SizedBox(height: context.scaledV(20)),
 
                 // Saved projects header
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       'Saved Projects',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: context.scaled(14),
                         fontWeight: FontWeight.w500,
                         color: _textGrey,
                       ),
@@ -413,10 +464,10 @@ class _ProjectPickerSheetState extends State<_ProjectPickerSheet> {
                         Navigator.of(context).pop();
                         widget.onAddNew();
                       },
-                      child: const Text(
+                      child: Text(
                         'Add New',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: context.scaled(14),
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary,
                         ),
@@ -424,13 +475,14 @@ class _ProjectPickerSheetState extends State<_ProjectPickerSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: context.scaledV(12)),
 
                 // Project list
                 Expanded(
                   child: ListView.separated(
                     itemCount: _filtered.length,
-                    separatorBuilder: (context, idx) => const SizedBox(height: 12),
+                    separatorBuilder: (context, idx) =>
+                        SizedBox(height: context.scaledV(12)),
                     itemBuilder: (_, i) {
                       final p = _filtered[i];
                       return _ProjectTile(
@@ -450,6 +502,165 @@ class _ProjectPickerSheetState extends State<_ProjectPickerSheet> {
   }
 }
 
+// ── Add New Project button ───────────────────────────────────────────────────
+
+class _AddNewProjectButton extends StatelessWidget {
+  const _AddNewProjectButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary,
+      borderRadius: BorderRadius.circular(context.scaled(12)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: context.scaled(52),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.add_rounded,
+                size: context.scaled(20),
+                color: Colors.white,
+              ),
+              SizedBox(width: context.scaled(8)),
+              Text(
+                'Add New Project',
+                style: TextStyle(
+                  fontSize: context.scaled(15),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Location picker mini-section ─────────────────────────────────────────────
+
+class _LocationPickerSection extends StatelessWidget {
+  const _LocationPickerSection({
+    required this.markerPosition,
+    required this.onMapTap,
+    required this.onPinOnMap,
+    required this.onUseCurrentLocation,
+  });
+
+  final LatLng markerPosition;
+  final ValueChanged<LatLng> onMapTap;
+  final VoidCallback onPinOnMap;
+  final VoidCallback onUseCurrentLocation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(context.scaled(10)),
+      decoration: BoxDecoration(
+        border: Border.all(color: _tileBorder),
+        borderRadius: BorderRadius.circular(context.scaled(16)),
+      ),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(context.scaled(12)),
+            child: SizedBox(
+              width: double.infinity,
+              height: context.scaled(180),
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: markerPosition,
+                  zoom: 15,
+                ),
+                mapType: MapType.normal,
+                zoomControlsEnabled: false,
+                myLocationButtonEnabled: false,
+                compassEnabled: false,
+                tiltGesturesEnabled: false,
+                mapToolbarEnabled: false,
+                onTap: onMapTap,
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('new-project-location'),
+                    position: markerPosition,
+                  ),
+                },
+              ),
+            ),
+          ),
+          SizedBox(height: context.scaledV(10)),
+          _LocationOptionRow(
+            icon: Icons.location_on_outlined,
+            label: 'Pin Location on Map',
+            onTap: onPinOnMap,
+          ),
+          SizedBox(height: context.scaledV(8)),
+          _LocationOptionRow(
+            icon: Icons.navigation_outlined,
+            label: 'Use Current Location',
+            onTap: onUseCurrentLocation,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationOptionRow extends StatelessWidget {
+  const _LocationOptionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(context.scaled(12)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: context.scaled(14),
+            vertical: context.scaledV(14),
+          ),
+          decoration: BoxDecoration(
+            border: Border.all(color: _tileBorder),
+            borderRadius: BorderRadius.circular(context.scaled(12)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: context.scaled(18), color: AppColors.primary),
+              SizedBox(width: context.scaled(10)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: context.scaled(14),
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Search field ─────────────────────────────────────────────────────────────
 
 class _SearchField extends StatelessWidget {
@@ -459,35 +670,39 @@ class _SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: context.scaled(48),
       child: TextField(
         controller: controller,
-        style: const TextStyle(
-          fontSize: 14,
+        style: TextStyle(
+          fontSize: context.scaled(14),
           fontWeight: FontWeight.w400,
           color: AppColors.textPrimary,
         ),
         decoration: InputDecoration(
-          hintText: 'Search...',
-          hintStyle: const TextStyle(fontSize: 14, color: _textGrey),
-          prefixIcon: const Icon(Icons.search_rounded,
-              size: 20, color: AppColors.textPrimary),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          hintText: 'Search existing projects',
+          hintStyle: TextStyle(fontSize: context.scaled(14), color: _textGrey),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: context.scaled(20),
+            color: AppColors.textPrimary,
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: context.scaled(16),
+            vertical: 0,
+          ),
           filled: true,
-          fillColor: const Color(0xFFF7F7F7),
+          fillColor: Colors.white,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+            borderRadius: BorderRadius.circular(context.scaled(12)),
+            borderSide: const BorderSide(color: Color(0xFFBDBDBD)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+            borderRadius: BorderRadius.circular(context.scaled(12)),
+            borderSide: const BorderSide(color: Color(0xFFBDBDBD)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide:
-                const BorderSide(color: AppColors.primary, width: 1.5),
+            borderRadius: BorderRadius.circular(context.scaled(12)),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
         ),
       ),
@@ -512,38 +727,38 @@ class _ProjectTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(context.scaled(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(context.scaled(16)),
             border: Border.all(
               color: isSelected ? AppColors.primary : _tileBorder,
               width: isSelected ? 1.5 : 1.0,
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(context.scaled(12)),
             child: Row(
               children: [
                 // Icon box
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: context.scaled(44),
+                  height: context.scaled(44),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: _tileIconBg,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(context.scaled(12)),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.apartment_rounded,
-                    size: 24,
+                    size: context.scaled(24),
                     color: _tileIconColor,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: context.scaled(12)),
                 // Name + site
                 Expanded(
                   child: Column(
@@ -551,18 +766,18 @@ class _ProjectTile extends StatelessWidget {
                     children: [
                       Text(
                         project.projectName,
-                        style: const TextStyle(
-                          fontSize: 14,
+                        style: TextStyle(
+                          fontSize: context.scaled(14),
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                           height: 1.3,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: context.scaledV(2)),
                       Text(
                         project.projectSite,
-                        style: const TextStyle(
-                          fontSize: 12,
+                        style: TextStyle(
+                          fontSize: context.scaled(12),
                           fontWeight: FontWeight.w400,
                           color: _textGrey,
                           height: 1.3,
@@ -572,9 +787,12 @@ class _ProjectTile extends StatelessWidget {
                   ),
                 ),
                 if (isSelected) ...[
-                  const SizedBox(width: 8),
-                  const Icon(Icons.check_circle_rounded,
-                      size: 20, color: AppColors.primary),
+                  SizedBox(width: context.scaled(8)),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: context.scaled(20),
+                    color: AppColors.primary,
+                  ),
                 ],
               ],
             ),

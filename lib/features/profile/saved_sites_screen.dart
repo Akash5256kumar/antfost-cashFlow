@@ -1,0 +1,686 @@
+import 'package:flutter/material.dart';
+
+import '../../app/navigation/app_routes.dart';
+import '../../app/navigation/app_tab_navigation.dart';
+import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
+import '../../app/theme/app_text_styles.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/primary_button.dart';
+import '../orders/order_project_summary.dart';
+import '../../app/config/app_assets.dart';
+
+class _SiteItem {
+  final String id;
+  final String name;
+  final String subtitle;
+  final String location;
+  final String imagePath;
+  final String contactPerson;
+  final String contactPhone;
+  final int activeOrdersCount;
+  final bool isDefault;
+
+  const _SiteItem({
+    required this.id,
+    required this.name,
+    required this.subtitle,
+    required this.location,
+    required this.imagePath,
+    required this.contactPerson,
+    required this.contactPhone,
+    required this.activeOrdersCount,
+    this.isDefault = false,
+  });
+
+  _SiteItem copyWith({
+    String? id,
+    String? name,
+    String? subtitle,
+    String? location,
+    String? imagePath,
+    String? contactPerson,
+    String? contactPhone,
+    int? activeOrdersCount,
+    bool? isDefault,
+  }) {
+    return _SiteItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      subtitle: subtitle ?? this.subtitle,
+      location: location ?? this.location,
+      imagePath: imagePath ?? this.imagePath,
+      contactPerson: contactPerson ?? this.contactPerson,
+      contactPhone: contactPhone ?? this.contactPhone,
+      activeOrdersCount: activeOrdersCount ?? this.activeOrdersCount,
+      isDefault: isDefault ?? this.isDefault,
+    );
+  }
+}
+
+class SavedSitesScreen extends StatefulWidget {
+  const SavedSitesScreen({
+    super.key,
+    this.pickForOrder = false,
+    this.pickForProject = false,
+  });
+
+  /// When true, renders the new Figma design's `screens/SavedLocations.tsx`
+  /// picker flow (single-select + "Create New Order") instead of the
+  /// management view.
+  final bool pickForOrder;
+
+  /// When true, renders the picker flow but with no default selection,
+  /// and clicking the button returns a [ProjectLocationDraft].
+  final bool pickForProject;
+
+  @override
+  State<SavedSitesScreen> createState() => _SavedSitesScreenState();
+}
+
+class _SavedSitesScreenState extends State<SavedSitesScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  int? _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start with nothing selected if picking for a project, otherwise select the first one.
+    _selectedIndex = widget.pickForProject ? null : 0;
+  }
+
+  List<_SiteItem> _sites = [
+    const _SiteItem(
+      id: 'site_1',
+      name: 'Main Villa Entrance',
+      subtitle: 'Palm Jumeirah Villa',
+      location: 'Palm Jumeirah, Dubai',
+      imagePath: AppAssets.orderThumbPalm,
+      contactPerson: 'Eng. Tarek Mahmoud',
+      contactPhone: '+971 52 849 2011',
+      activeOrdersCount: 2,
+      isDefault: true,
+    ),
+    const _SiteItem(
+      id: 'site_2',
+      name: 'Service Gate',
+      subtitle: 'Palm Jumeirah Villa',
+      location: 'Palm Jumeirah, Dubai',
+      imagePath: AppAssets.orderThumbPalm,
+      contactPerson: 'Eng. Khalid Al Mazrouei',
+      contactPhone: '+971 50 392 4810',
+      activeOrdersCount: 1,
+    ),
+    const _SiteItem(
+      id: 'site_3',
+      name: 'Tower Loading Bay',
+      subtitle: 'Marina Tower',
+      location: 'Dubai Marina, Dubai',
+      imagePath: AppAssets.orderThumbMarina,
+      contactPerson: 'Eng. Rashid Siddiqui',
+      contactPhone: '+971 55 104 9283',
+      activeOrdersCount: 0,
+    ),
+    const _SiteItem(
+      id: 'site_4',
+      name: 'Main Site Entrance',
+      subtitle: 'Creek Residence',
+      location: 'Dubai Creek Harbour, Dubai',
+      imagePath: AppAssets.orderThumbCreek,
+      contactPerson: 'Eng. Omar Farooq',
+      contactPhone: '+971 56 718 2930',
+      activeOrdersCount: 0,
+    ),
+  ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<_SiteItem> get _filteredSites {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _sites;
+    return _sites.where((s) {
+      return s.name.toLowerCase().contains(query) ||
+          s.location.toLowerCase().contains(query) ||
+          s.contactPerson.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  Future<void> _handleAddNewProject() async {
+    final result = await Navigator.of(context, rootNavigator: true)
+        .pushNamed<OrderProjectSummary?>(AppRoutes.addNewProject, arguments: true);
+
+    if (result != null && mounted) {
+      setState(() {
+        _sites.insert(
+          0,
+          _SiteItem(
+            id: 'site_${DateTime.now().millisecondsSinceEpoch}',
+            name: result.projectName,
+            subtitle: result.projectSite,
+            location: '${result.projectSite}, ${result.locationLabel}',
+            imagePath: AppAssets.figmaVilla,
+            contactPerson: 'Site In-Charge',
+            contactPhone: '+971 50 000 0000',
+            activeOrdersCount: 0,
+          ),
+        );
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Site "${result.projectName}" added successfully!'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    }
+  }
+
+  void _setDefaultSite(String id) {
+    setState(() {
+      _sites = _sites.map((s) => s.copyWith(isDefault: s.id == id)).toList();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Default delivery site updated'),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+
+  void _deleteSite(String id) {
+    setState(() {
+      _sites.removeWhere((s) => s.id == id);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Site removed from saved sites')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filteredSites;
+
+    // The user requested that both sides (management and picker) open the exact same screen.
+    return _PickerView(
+      sites: filtered,
+      selectedIndex: _selectedIndex,
+      pickForProject: widget.pickForProject,
+      onSelect: (i) => setState(() => _selectedIndex = i),
+      onCreateOrder: () {
+        if (_selectedIndex == null) return;
+        final selected = filtered[_selectedIndex!];
+
+        if (widget.pickForProject) {
+          Navigator.of(context).pop(
+            ProjectLocationDraft(
+              name: selected.name,
+              address: selected.location,
+              contactName: selected.contactPerson,
+              contactPhone: selected.contactPhone,
+            ),
+          );
+        } else {
+          Navigator.of(context).pushNamed(AppRoutes.newCashOrderMixCode);
+        }
+      },
+      searchController: _searchController,
+      onSearchChanged: (_) => setState(() {}),
+    );
+  }
+}
+
+/// Management view — Profile's entry point. Lists every saved site with a
+/// "..." menu for Set Default / Delete, plus an "Add New Project" CTA.
+class _ManagementView extends StatelessWidget {
+  const _ManagementView({
+    required this.sites,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.onAddNewProject,
+    required this.onSetDefault,
+    required this.onDelete,
+  });
+
+  final List<_SiteItem> sites;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onAddNewProject;
+  final ValueChanged<String> onSetDefault;
+  final ValueChanged<String> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: const AppBrandHeader(showBack: true),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: context.scaledV(4)),
+            Text(
+              'Saved Sites',
+              style: TextStyle(
+                fontSize: context.scaled(24),
+                fontWeight: FontWeight.w800,
+                color: AppColors.textDark,
+              ),
+            ),
+            SizedBox(height: context.scaledV(6)),
+            Text(
+              'Manage the project sites you deliver to most often.',
+              style: AppTextStyles.cardSubtitle(context),
+            ),
+            SizedBox(height: context.scaledV(16)),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFEBEBEB)),
+              ),
+              child: TextField(
+                controller: searchController,
+                onChanged: onSearchChanged,
+                style: TextStyle(
+                  fontSize: context.scaled(14),
+                  color: AppColors.textPrimary,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search saved sites',
+                  hintStyle: TextStyle(
+                    fontSize: context.scaled(13),
+                    color: AppColors.textHint,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: AppColors.iconMuted,
+                    size: 20,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: context.scaledV(14),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: context.scaledV(16)),
+            if (sites.isEmpty)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: context.scaledV(32)),
+                child: Center(
+                  child: Text(
+                    'No saved sites found',
+                    style: AppTextStyles.cardSubtitle(context),
+                  ),
+                ),
+              )
+            else
+              ...sites.map(
+                (site) => Padding(
+                  padding: EdgeInsets.only(bottom: context.scaledV(14)),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.asset(
+                            site.imagePath,
+                            width: 68,
+                            height: 68,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
+                            isAntiAlias: true,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      site.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: context.scaled(14),
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                  if (site.isDefault)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryContainer,
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Default',
+                                        style: TextStyle(
+                                          fontSize: context.scaled(10.5),
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              Text(
+                                site.location,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.cardSubtitle(context),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_vert_rounded,
+                            color: AppColors.iconMuted,
+                          ),
+                          onSelected: (v) {
+                            if (v == 'default') onSetDefault(site.id);
+                            if (v == 'delete') onDelete(site.id);
+                          },
+                          itemBuilder: (_) => [
+                            if (!site.isDefault)
+                              const PopupMenuItem(
+                                value: 'default',
+                                child: Text('Set as Default'),
+                              ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            SizedBox(height: context.scaledV(8)),
+            PrimaryButton(label: 'Add New Project', onPressed: onAddNewProject),
+            SizedBox(height: context.scaledV(24)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ported from the new Figma design's `screens/SavedLocations.tsx` — a
+/// single-select location list used when starting an order from the
+/// project flow, as opposed to the management view above (Profile entry
+/// point).
+class _PickerView extends StatelessWidget {
+  const _PickerView({
+    required this.sites,
+    required this.selectedIndex,
+    required this.pickForProject,
+    required this.onSelect,
+    required this.onCreateOrder,
+    required this.searchController,
+    required this.onSearchChanged,
+  });
+
+  final List<_SiteItem> sites;
+  final int? selectedIndex;
+  final bool pickForProject;
+  final ValueChanged<int> onSelect;
+  final VoidCallback onCreateOrder;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: const AppBrandHeader(showBack: true),
+      bottomNavigationBar: const AppTabBottomNavBar(currentTab: AppTab.projects),
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            context.scaled(20),
+            context.scaledV(4),
+            context.scaled(20),
+            context.scaledV(112),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Saved Locations',
+                style: TextStyle(
+                  fontSize: context.scaled(22),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  color: AppColors.textDark,
+                ),
+              ),
+              SizedBox(height: context.scaledV(4)),
+              Text(
+                'Choose a location to create an order for.',
+                style: TextStyle(
+                  fontSize: context.scaled(13),
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              SizedBox(height: context.scaledV(20)),
+              // Search Bar
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(context.scaled(16)),
+                  border: Border.all(color: const Color(0xFFF1F5F9)), // faint border
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x051E1946),
+                      offset: Offset(0, 2),
+                      blurRadius: 8,
+                    )
+                  ],
+                ),
+                child: TextField(
+                  controller: searchController,
+                  onChanged: onSearchChanged,
+                  style: TextStyle(
+                    fontSize: context.scaled(14),
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Search saved locations',
+                    hintStyle: TextStyle(
+                      fontSize: context.scaled(13),
+                      color: AppColors.textHint,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: AppColors.iconMuted,
+                      size: context.scaled(20),
+                    ),
+                    suffixIcon: searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear_rounded, size: context.scaled(18)),
+                            onPressed: () {
+                              searchController.clear();
+                              onSearchChanged('');
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: context.scaled(16),
+                      vertical: context.scaledV(14),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.scaledV(24)),
+              if (sites.isEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: context.scaledV(32)),
+                  child: Center(
+                    child: Text(
+                      'No saved locations found',
+                      style: AppTextStyles.cardSubtitle(context),
+                    ),
+                  ),
+                )
+              else
+                ...List.generate(sites.length, (i) {
+                  final site = sites[i];
+                  final on = i == selectedIndex;
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: context.scaledV(12)),
+                    child: GestureDetector(
+                      onTap: () => onSelect(i),
+                      child: Container(
+                        padding: EdgeInsets.all(context.scaled(12)),
+                        decoration: BoxDecoration(
+                          color: on
+                              ? const Color(0x0A2B44FF) // super soft primary background
+                              : AppColors.white,
+                          borderRadius: BorderRadius.circular(context.scaled(16)),
+                          border: Border.all(
+                            color: on ? AppColors.primary : const Color(0xFFF1F5F9),
+                            width: on ? 1.5 : 1,
+                          ),
+                          boxShadow: [
+                            if (!on)
+                              const BoxShadow(
+                                color: Color(0x051E1946),
+                                offset: Offset(0, 2),
+                                blurRadius: 8,
+                              )
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(context.scaled(12)),
+                              child: Image.asset(
+                                site.imagePath,
+                                width: context.scaled(72),
+                                height: context.scaled(72),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            SizedBox(width: context.scaled(14)),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    site.name,
+                                    style: TextStyle(
+                                      fontSize: context.scaled(14.5),
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF1F2533),
+                                    ),
+                                  ),
+                                  SizedBox(height: context.scaledV(2)),
+                                  Text(
+                                    site.subtitle,
+                                    style: TextStyle(
+                                      fontSize: context.scaled(13),
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary, // ALWAYS primary in screenshot
+                                    ),
+                                  ),
+                                  SizedBox(height: context.scaledV(6)),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.location_on_outlined,
+                                        size: context.scaled(13),
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      SizedBox(width: context.scaled(4)),
+                                      Expanded(
+                                        child: Text(
+                                          site.location,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: context.scaled(12),
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(width: context.scaled(10)),
+                            Container(
+                              width: context.scaled(22),
+                              height: context.scaled(22),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: on ? AppColors.primary : null,
+                                border: Border.all(
+                                  color: on
+                                      ? AppColors.primary
+                                      : const Color(0xFFD3D1E4),
+                                  width: 2,
+                                ),
+                              ),
+                              child: on
+                                  ? Center(
+                                      child: Container(
+                                        width: context.scaled(9),
+                                        height: context.scaled(9),
+                                        decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              SizedBox(height: context.scaledV(32)),
+              PrimaryButton(
+                arrow: true,
+                label: pickForProject ? 'Select Location' : 'Create New Order',
+                onPressed: (sites.isEmpty || selectedIndex == null)
+                    ? null
+                    : onCreateOrder,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

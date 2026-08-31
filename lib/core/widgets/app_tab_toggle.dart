@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_spacing.dart';
+import '../../app/theme/app_scale.dart';
+
+const Color _trackBg = AppColors.muted;
 
 class AppTabToggle extends StatelessWidget {
   final List<String> tabs;
@@ -17,39 +19,58 @@ class AppTabToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(tabs.length, (i) {
-        final active = i == selectedIndex;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: i < tabs.length - 1 ? 8 : 0),
+    return Container(
+      padding: EdgeInsets.all(context.scaled(4)),
+      decoration: BoxDecoration(
+        color: _trackBg,
+        borderRadius: BorderRadius.circular(context.scaled(14)),
+      ),
+      child: Row(
+        children: List.generate(tabs.length, (i) {
+          final active = i == selectedIndex;
+          return Expanded(
             child: GestureDetector(
               onTap: () => onChanged(i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                height: 40,
+                height: context.scaled(40),
                 alignment: Alignment.center,
+                padding: EdgeInsets.symmetric(horizontal: context.scaled(6)),
                 decoration: BoxDecoration(
-                  color: active ? AppColors.primary : AppColors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: active
-                      ? null
-                      : Border.all(color: AppColors.fieldBorder, width: 1.0),
+                  color: active ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(context.scaled(10)),
+                  boxShadow: active
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : null,
                 ),
-                child: Text(
-                  tabs[i],
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color:
-                        active ? AppColors.white : AppColors.textPrimary,
+                // FittedBox shrinks the label to fit on one line instead of
+                // wrapping — needed since some tab labels (e.g. "Individual
+                // Professional") are too long to fit at the base font size
+                // on narrower screens.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    tabs[i],
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontSize: context.scaled(14),
+                      fontWeight: FontWeight.w600,
+                      color: active ? AppColors.white : AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 }

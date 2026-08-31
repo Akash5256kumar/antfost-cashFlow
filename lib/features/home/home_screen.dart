@@ -6,137 +6,138 @@ import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../app/theme/app_text_styles.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/app_location_thumb.dart';
+import '../../core/widgets/app_status_badge.dart';
+import '../../core/widgets/primary_button.dart';
 import 'domain/entities/home_data.dart';
 import 'presentation/bloc/home_bloc.dart';
 import 'presentation/bloc/home_event.dart';
 import 'presentation/bloc/home_state.dart';
 
-// ── Local palette ─────────────────────────────────────────────────────────────
-const Color _cardBg = Colors.white;
-const Color _pageBg = Color(0xFFF5F5F8);
-const Color _bannerBg = Color(0xFFEBE9FF);
-const Color _noteBg = Color(0xFFEBE9FF);
-const Color _progressTrack = Color(0xFFE5E7EB);
-const Color _progressGreen = Color(0xFF22C55E);
-const Color _progressBlue = Color(0xFF6366F1);
-const Color _inProgressBg = Color(0xFFFEF3C7);
-const Color _inProgressText = Color(0xFFD97706);
-const Color _scheduledBg = Color(0xFFEDE9FD);
-const Color _scheduledText = Color(0xFF7A6BFF);
-const Color _orderIdColor = Color(0xFF7A6BFF);
-
-// ── Status enum ───────────────────────────────────────────────────────────────
-enum OrderStatus { inProgress, scheduled }
-
-// ── Screen ────────────────────────────────────────────────────────────────────
+/// Ported from the new Figma design's `screens/Home.tsx`: a branded header,
+/// account status, two stat cards, a hero CTA, and Recent Orders.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.verificationUnderReview = false});
+
+  final bool verificationUnderReview;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _pageBg,
+      backgroundColor: AppColors.background,
+      appBar: AppBrandHeader(
+        onBellTap: () =>
+            Navigator.of(context).pushNamed(AppRoutes.notifications),
+      ),
       bottomNavigationBar: const AppTabBottomNavBar(currentTab: AppTab.home),
-      body: SafeArea(
-        child: BlocConsumer<HomeBloc, HomeState>(
-          listener: (context, state) {
-            // No side-effect listeners needed here; errors are shown inline.
-          },
-          builder: (context, state) {
-            // Trigger initial data fetch when BLoC is in initial state.
-            if (state is HomeInitial) {
-              context.read<HomeBloc>().add(const FetchHomeDataEvent());
-            }
+      body: BlocConsumer<HomeBloc, HomeState>(
+        listener: (context, state) {},
+        builder: (context, state) {
+          if (state is HomeInitial) {
+            context.read<HomeBloc>().add(const FetchHomeDataEvent());
+          }
+          final activeOrders = state is HomeSuccess
+              ? (verificationUnderReview
+                    ? const <ActiveOrder>[]
+                    : state.data.activeOrders)
+              : const <ActiveOrder>[];
 
-            return Column(
+          return SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.lg,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // ── Header ─────────────────────────────────────────
-                        if (state is HomeSuccess)
-                          _HomeHeader(userName: state.data.userName)
-                        else
-                          const _HomeHeader(userName: ''),
-
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // ── Order Concrete banner ──────────────────────────
-                        const _OrderConcreteBanner(),
-
-                        const SizedBox(height: AppSpacing.xl),
-
-                        // ── Active Order section ───────────────────────────
-                        _SectionHeader(
-                          title: 'Active Order',
-                          actionLabel: 'View Details',
-                          onAction: () {},
-                        ),
-
-                        const SizedBox(height: AppSpacing.md),
-
-                        // ── Body: loading / success / error ────────────────
-                        if (state is HomeLoading) ...[
-                          // Shimmer placeholders while loading
-                          _ShimmerOrderCard(),
-                          const SizedBox(height: AppSpacing.md),
-                          _ShimmerOrderCard(),
-                        ] else if (state is HomeSuccess) ...[
-                          // Real order cards from BLoC data
-                          ...state.data.activeOrders.map(
-                            (o) => Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.md,
-                              ),
-                              child: _OrderCard(data: o),
-                            ),
-                          ),
-                        ] else if (state is HomeError) ...[
-                          // Error state with retry button
-                          _HomeErrorWidget(message: state.message),
-                        ],
-
-                        // ── Note card ──────────────────────────────────────
-                        if (state is HomeSuccess || state is HomeInitial) ...[
-                          const _NoteCard(
-                            text:
-                                'Note: Orders above 100m³ require coordinator review and approval before scheduling.',
-                          ),
-                        ],
-
-                        const SizedBox(height: AppSpacing.xxl),
-                      ],
-                    ),
+                SizedBox(height: context.scaledV(4)),
+                Center(
+                  child: AppStatusBadge(
+                    label: verificationUnderReview
+                        ? 'Under Review'
+                        : 'Approved',
+                    tone: verificationUnderReview
+                        ? AppStatusTone.review
+                        : AppStatusTone.active,
+                    showIcon: true,
                   ),
                 ),
+                SizedBox(height: context.scaledV(14)),
+                Text(
+                  state is HomeSuccess
+                      ? 'Good afternoon, ${state.data.userName}'
+                      : 'Good afternoon',
+                  style: AppTextStyles.authScreenTitle(context).copyWith(
+                    fontSize: context.scaled(20),
+                    height: 1.15,
+                    letterSpacing: 0,
+                  ),
+                ),
+                if (verificationUnderReview) ...[
+                  SizedBox(height: context.scaledV(6)),
+                  Text(
+                    'Business verification in review - Payments activate after approval',
+                    style: AppTextStyles.cardSubtitle(context).copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: context.scaled(11),
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+                SizedBox(height: context.scaledV(16)),
+                if (state is HomeLoading)
+                  const _ShimmerBlock(height: 76)
+                else if (state is HomeSuccess)
+                  _StatsRow(
+                    orders: activeOrders,
+                    projectCount: verificationUnderReview ? 0 : 5,
+                  )
+                else
+                  const SizedBox.shrink(),
+                SizedBox(height: context.scaledV(16)),
+                const _HeroBanner(),
+                SizedBox(height: context.scaledV(22)),
+                Text(
+                  'Recent Orders',
+                  style: AppTextStyles.authScreenTitle(
+                    context,
+                  ).copyWith(fontSize: context.scaled(18)),
+                ),
+                SizedBox(height: context.scaledV(12)),
+                if (state is HomeLoading) ...[
+                  const _ShimmerBlock(height: 200),
+                ] else if (state is HomeSuccess) ...[
+                  if (activeOrders.isEmpty)
+                    const _EmptyOrders()
+                  else
+                    _RecentOrdersList(orders: activeOrders),
+                ] else if (state is HomeError) ...[
+                  _HomeErrorWidget(message: state.message),
+                ],
+                SizedBox(height: context.scaledV(28)),
               ],
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-// ── Shimmer order card placeholder ────────────────────────────────────────────
-class _ShimmerOrderCard extends StatelessWidget {
+class _ShimmerBlock extends StatelessWidget {
+  const _ShimmerBlock({required this.height});
+  final double height;
+
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE0E0E0),
-      highlightColor: const Color(0xFFF5F5F5),
+      baseColor: AppColors.circleInactive,
+      highlightColor: AppColors.muted,
       child: Container(
-        height: 200,
+        height: context.scaled(height),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
         ),
       ),
@@ -144,7 +145,6 @@ class _ShimmerOrderCard extends StatelessWidget {
   }
 }
 
-// ── Home error widget ─────────────────────────────────────────────────────────
 class _HomeErrorWidget extends StatelessWidget {
   final String message;
   const _HomeErrorWidget({required this.message});
@@ -155,79 +155,57 @@ class _HomeErrorWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: AppSpacing.lg),
+          SizedBox(height: context.scaledV(16)),
           const Icon(
             Icons.error_outline_rounded,
             size: 48,
             color: AppColors.textSecondary,
           ),
-          const SizedBox(height: AppSpacing.md),
+          SizedBox(height: context.scaledV(12)),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
+            style: AppTextStyles.cardSubtitle(context),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          ElevatedButton(
-            onPressed: () {
-              context.read<HomeBloc>().add(const FetchHomeDataEvent());
-            },
+          SizedBox(height: context.scaledV(16)),
+          TextButton(
+            onPressed: () =>
+                context.read<HomeBloc>().add(const FetchHomeDataEvent()),
             child: const Text('Retry'),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          SizedBox(height: context.scaledV(16)),
         ],
       ),
     );
   }
 }
 
-// ── Home header ───────────────────────────────────────────────────────────────
-class _HomeHeader extends StatelessWidget {
-  final String userName;
-  const _HomeHeader({required this.userName});
+// ── Stat cards ("Projects" / "Active Orders") ──────────────────────────────
+class _StatsRow extends StatelessWidget {
+  const _StatsRow({required this.orders, required this.projectCount});
+
+  final List<ActiveOrder> orders;
+  final int projectCount;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Welcome Back,',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              Text(
-                userName,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                  height: 1.2,
-                ),
-              ),
-            ],
+          child: _StatCard(
+            icon: Icons.business_rounded,
+            label: 'Projects',
+            value: '$projectCount',
+            onTap: () => Navigator.of(context).pushNamed(AppRoutes.projects),
           ),
         ),
-        GestureDetector(
-          onTap: () {},
-          child: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.fieldBorder, width: 1.3),
-              color: AppColors.white,
-            ),
-            child: const Icon(
-              Icons.more_horiz_rounded,
-              size: 20,
-              color: AppColors.textPrimary,
-            ),
+        SizedBox(width: AppSpacing.md(context)),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.assignment_outlined,
+            label: 'Active Orders',
+            value: '${orders.length}',
+            onTap: () => Navigator.of(context).pushNamed(AppRoutes.myOrders),
           ),
         ),
       ],
@@ -235,333 +213,264 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
-// ── Order Concrete banner ─────────────────────────────────────────────────────
-class _OrderConcreteBanner extends StatelessWidget {
-  const _OrderConcreteBanner();
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: _bannerBg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Truck + text ───────────────────────────────────────────────
-          Row(
-            children: [
-              Image.asset(
-                AppAssets.mixtureMachine,
-                height: 62,
-                fit: BoxFit.contain,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: context.scaledV(82),
+        padding: EdgeInsets.symmetric(horizontal: context.scaled(12)),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(context.scaled(18)),
+          border: Border.all(color: const Color(0xFFE7E8F2)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.textPrimary.withValues(alpha: 0.025),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: context.scaled(42),
+              height: context.scaled(42),
+              decoration: const BoxDecoration(
+                color: AppColors.primaryContainer,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: AppSpacing.md),
-              const Expanded(
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                size: context.scaled(20),
+                color: AppColors.primary,
+              ),
+            ),
+
+            SizedBox(width: context.scaled(9)),
+
+            Expanded(
+              child: Transform.translate(
+                offset: Offset(0, -context.scaledV(3)),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Order Concrete',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 3),
-                    Text(
-                      'Get instant pricing & fast delivery',
-                      style: TextStyle(
-                        fontSize: 13,
+                      label,
+                      style: AppTextStyles.cardSubtitle(context).copyWith(
+                        fontSize: context.scaled(11),
+                        fontWeight: FontWeight.w500,
                         color: AppColors.textSecondary,
-                        height: 1.4,
+                        height: 1.15,
+                      ),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.visible,
+                    ),
+                    SizedBox(height: context.scaledV(2)),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: context.scaled(26),
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        height: 0.95,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
 
-          const SizedBox(height: AppSpacing.md),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: context.scaled(22),
+              color: AppColors.iconMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-          // ── CTA button ─────────────────────────────────────────────────
+// ── Hero banner ─────────────────────────────────────────────────────────────
+// Ported from Figma's Home.tsx hero card: artwork stays fully visible while
+// the heading and CTA remain pinned in place.
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    const cardBgColor = Color(0xFFF3F5FD);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBgColor,
+        borderRadius: BorderRadius.circular(context.scaled(20)),
+        border: Border.all(color: const Color(0xFFE2E7FA)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
           SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
-              ),
-              child: TextButton(
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.newCashOrder),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      AppSpacing.buttonRadius,
+            height: context.scaledV(200),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  AppAssets.artHomeHero,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 14,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          cardBgColor.withValues(alpha: 0.0),
+                          cardBgColor.withValues(alpha: 0.35),
+                          cardBgColor,
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                child: const Text(
-                  '+ New Cash Order',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.white,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Section header ────────────────────────────────────────────────────────────
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String actionLabel;
-  final VoidCallback onAction;
-
-  const _SectionHeader({
-    required this.title,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const Spacer(),
-        GestureDetector(
-          onTap: onAction,
-          child: Text(
-            actionLabel,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Order card ────────────────────────────────────────────────────────────────
-/// Displays an [ActiveOrder] entity as a visual card.
-class _OrderCard extends StatelessWidget {
-  final ActiveOrder data;
-  const _OrderCard({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final hasProgress = data.delivered != null && data.total != null;
-    final progress = hasProgress ? data.delivered! / data.total! : 0.0;
-
-    // Determine status badge from the string status value.
-    final isInProgress = data.status == 'inProgress';
-
-    // Format the amount as a currency string.
-    final amountText =
-        'AED ${data.amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.fieldBorder, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Order ID + status badge ──────────────────────────────────────
-          Row(
-            children: [
-              Text(
-                data.orderId,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _orderIdColor,
-                ),
-              ),
-              const Spacer(),
-              _StatusBadge(isInProgress: isInProgress),
-            ],
-          ),
-
-          const SizedBox(height: 6),
-
-          // ── Grade ────────────────────────────────────────────────────────
-          Text(
-            data.grade,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          // ── Info rows ────────────────────────────────────────────────────
-          _InfoRow(icon: Icons.location_on_outlined, text: data.location),
-          const SizedBox(height: 6),
-          _InfoRow(icon: Icons.access_time_rounded, text: data.timeSlot),
-          const SizedBox(height: 6),
-          _InfoRow(icon: Icons.local_shipping_outlined, text: data.volume),
-
-          const SizedBox(height: AppSpacing.md),
-          const Divider(color: AppColors.fieldBorder, height: 1),
-          const SizedBox(height: AppSpacing.md),
-
-          // ── Date + Amount ─────────────────────────────────────────────────
-          Row(
-            children: [
-              Text(
-                data.date,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                amountText,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-
-          // ── Progress section (in-progress orders only) ────────────────────
-          if (hasProgress) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Text(
-                  'Delivered: ${data.delivered} m³',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  'Remaining: ${data.total! - data.delivered!} m³',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                Positioned(
+                  left: context.scaled(16),
+                  top: context.scaledV(14),
+                  child: Text(
+                    'Ready for\nyour next pour?',
+                    style: TextStyle(
+                      fontSize: context.scaled(20),
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                      height: 1.15,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            _GradientProgressBar(progress: progress),
-          ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: PrimaryButton(
+              arrow: true,
+              label: 'Create New Project',
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.addNewProject),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-// ── Info row ──────────────────────────────────────────────────────────────────
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _InfoRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: AppColors.textSecondary),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Status badge ──────────────────────────────────────────────────────────────
-class _StatusBadge extends StatelessWidget {
-  final bool isInProgress;
-  const _StatusBadge({required this.isInProgress});
+// ── Recent orders list ──────────────────────────────────────────────────────
+class _RecentOrdersList extends StatelessWidget {
+  const _RecentOrdersList({required this.orders});
+  final List<ActiveOrder> orders;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isInProgress ? _inProgressBg : _scheduledBg,
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
       ),
-      child: Text(
-        isInProgress ? 'in Progress' : 'Scheduled',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: isInProgress ? _inProgressText : _scheduledText,
-        ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: List.generate(orders.length, (i) {
+          final order = orders[i];
+          return Column(
+            children: [
+              if (i > 0) const Divider(height: 1, color: AppColors.cardBorder),
+              _RecentOrderRow(order: order),
+            ],
+          );
+        }),
       ),
     );
   }
 }
 
-// ── Gradient progress bar ─────────────────────────────────────────────────────
-class _GradientProgressBar extends StatelessWidget {
-  final double progress; // 0.0 – 1.0
-  const _GradientProgressBar({required this.progress});
+class _RecentOrderRow extends StatelessWidget {
+  const _RecentOrderRow({required this.order});
+  final ActiveOrder order;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        height: 7,
-        child: Stack(
+    final badgeLabel = switch (order.status) {
+      'inProgress' => 'On the way',
+      'confirmationNeeded' => 'Confirmation\nneeded',
+      _ => 'Scheduled',
+    };
+    final badgeTone = switch (order.status) {
+      'inProgress' => AppStatusTone.onWay,
+      'confirmationNeeded' => AppStatusTone.confirm,
+      _ => AppStatusTone.scheduled,
+    };
+
+    return InkWell(
+      onTap: () => Navigator.of(context).pushNamed(AppRoutes.orderDetails),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
           children: [
-            Container(color: _progressTrack),
-            FractionallySizedBox(
-              widthFactor: progress.clamp(0.0, 1.0),
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [_progressGreen, _progressBlue],
+            AppLocationThumb(location: order.location),
+            SizedBox(width: AppSpacing.md(context)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    order.location,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.cardTitle(
+                      context,
+                    ).copyWith(fontSize: context.scaled(13)),
                   ),
-                ),
+                  Text(
+                    'Order ${order.orderId}',
+                    style: AppTextStyles.cardSubtitle(context),
+                  ),
+                ],
               ),
+            ),
+            AppStatusBadge(label: badgeLabel, tone: badgeTone),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: AppColors.iconMuted,
             ),
           ],
         ),
@@ -570,43 +479,44 @@ class _GradientProgressBar extends StatelessWidget {
   }
 }
 
-// ── Note card ─────────────────────────────────────────────────────────────────
-class _NoteCard extends StatelessWidget {
-  final String text;
-  const _NoteCard({required this.text});
+class _EmptyOrders extends StatelessWidget {
+  const _EmptyOrders();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(vertical: context.scaledV(32)),
       decoration: BoxDecoration(
-        color: _noteBg,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          style: BorderStyle.solid,
+        ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(
-              Icons.warning_amber_rounded,
-              size: 20,
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.assignment_outlined,
+              size: 22,
               color: AppColors.primary,
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textPrimary,
-                height: 1.5,
-              ),
-            ),
+          SizedBox(height: context.scaledV(12)),
+          Text('No orders yet', style: AppTextStyles.cardTitle(context)),
+          SizedBox(height: context.scaledV(4)),
+          Text(
+            'Your first order will appear here',
+            style: AppTextStyles.cardSubtitle(context),
           ),
         ],
       ),

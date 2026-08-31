@@ -1,10 +1,12 @@
+import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'app/di/injection.dart';
 import 'app/navigation/app_router.dart';
 import 'app/navigation/app_routes.dart';
+import 'app/config/app_breakpoints.dart';
 import 'app/config/app_strings.dart';
+import 'app/theme/app_colors.dart';
 import 'app/theme/app_theme.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/home/presentation/bloc/home_bloc.dart';
@@ -23,7 +25,9 @@ import 'features/wallet/presentation/bloc/wallet_bloc.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initDependencies();
-  runApp(const AntfostApp());
+  runApp(
+    AntfostApp()
+  );
 }
 
 class AntfostApp extends StatelessWidget {
@@ -33,52 +37,42 @@ class AntfostApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<SplashBloc>(
-          create: (_) => sl<SplashBloc>(),
-        ),
-        BlocProvider<AuthBloc>(
-          create: (_) => sl<AuthBloc>(),
-        ),
-        BlocProvider<OnboardingBloc>(
-          create: (_) => sl<OnboardingBloc>(),
-        ),
-        BlocProvider<HomeBloc>(
-          create: (_) => sl<HomeBloc>(),
-        ),
-        BlocProvider<OrdersBloc>(
-          create: (_) => sl<OrdersBloc>(),
-        ),
-        BlocProvider<NewCashOrderBloc>(
-          create: (_) => sl<NewCashOrderBloc>(),
-        ),
-        BlocProvider<InvoicesBloc>(
-          create: (_) => sl<InvoicesBloc>(),
-        ),
-        BlocProvider<InvoiceDetailBloc>(
-          create: (_) => sl<InvoiceDetailBloc>(),
-        ),
-        BlocProvider<WalletBloc>(
-          create: (_) => sl<WalletBloc>(),
-        ),
-        BlocProvider<PaymentBloc>(
-          create: (_) => sl<PaymentBloc>(),
-        ),
-        BlocProvider<ProfileBloc>(
-          create: (_) => sl<ProfileBloc>(),
-        ),
-        BlocProvider<NotificationsBloc>(
-          create: (_) => sl<NotificationsBloc>(),
-        ),
-        BlocProvider<KycBloc>(
-          create: (_) => sl<KycBloc>(),
-        ),
+        BlocProvider<SplashBloc>(create: (_) => sl<SplashBloc>()),
+        BlocProvider<AuthBloc>(create: (_) => sl<AuthBloc>()),
+        BlocProvider<OnboardingBloc>(create: (_) => sl<OnboardingBloc>()),
+        BlocProvider<HomeBloc>(create: (_) => sl<HomeBloc>()),
+        BlocProvider<OrdersBloc>(create: (_) => sl<OrdersBloc>()),
+        BlocProvider<NewCashOrderBloc>(create: (_) => sl<NewCashOrderBloc>()),
+        BlocProvider<InvoicesBloc>(create: (_) => sl<InvoicesBloc>()),
+        BlocProvider<InvoiceDetailBloc>(create: (_) => sl<InvoiceDetailBloc>()),
+        BlocProvider<WalletBloc>(create: (_) => sl<WalletBloc>()),
+        BlocProvider<PaymentBloc>(create: (_) => sl<PaymentBloc>()),
+        BlocProvider<ProfileBloc>(create: (_) => sl<ProfileBloc>()),
+        BlocProvider<NotificationsBloc>(create: (_) => sl<NotificationsBloc>()),
+        BlocProvider<KycBloc>(create: (_) => sl<KycBloc>()),
       ],
       child: MaterialApp(
         title: AppStrings.appTitle,
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: AppRouter.scaffoldMessengerKey,
         theme: AppTheme.light(),
         initialRoute: AppRoutes.splash,
         onGenerateRoute: AppRouter.onGenerateRoute,
+        locale: DevicePreview.locale(context),
+        builder: (context, child) {
+          final cappedChild = ColoredBox(
+            color: AppColors.white,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppBreakpoints.tablet,
+                ),
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
+          );
+          return DevicePreview.appBuilder(context, cappedChild);
+        },
       ),
     );
   }

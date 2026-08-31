@@ -11,16 +11,20 @@ class DecorativeRings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
-      child: CustomPaint(size: Size(size, size), painter: _RingsPainter(color)),
+      child: CustomPaint(
+        size: Size(size, size),
+        painter: _RingsPainter(color, AppSpacing.ringStroke(context)),
+      ),
     );
   }
 }
 
 class _RingsPainter extends CustomPainter {
   final Color color;
+  final double strokeWidth;
   static const List<double> _ringRatios = [0.15, 0.35, 0.50];
 
-  const _RingsPainter(this.color);
+  const _RingsPainter(this.color, this.strokeWidth);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -28,7 +32,7 @@ class _RingsPainter extends CustomPainter {
     final strokePaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = AppSpacing.ringStroke;
+      ..strokeWidth = strokeWidth;
 
     for (final ratio in _ringRatios) {
       canvas.drawCircle(center, size.width * ratio, strokePaint);

@@ -1,3 +1,4 @@
+import '../../../../app/config/app_assets.dart';
 import '../../domain/entities/onboarding_page.dart';
 import '../models/onboarding_page_model.dart';
 
@@ -25,22 +26,22 @@ class MockOnboardingLocalDataSource implements OnboardingLocalDataSource {
   /// Static list of onboarding slides returned to callers.
   static const List<OnboardingPageModel> _staticPages = [
     OnboardingPageModel(
-      title: 'Order Ready-Mix Concrete',
+      title: 'Busy like ants.\nFast like ANTFAST.',
       subtitle:
-          'Get instant pricing and fast delivery for all your construction needs.',
-      imagePath: 'assets/images/onboarding1.png',
+          'Reliable ready-mix concrete, delivered exactly when you need it.',
+      imagePath: AppAssets.figmaTruck,
     ),
     OnboardingPageModel(
-      title: 'Real-Time Tracking',
+      title: 'Location-Based Delivery',
       subtitle:
-          'Track your order from plant to site with live delivery updates.',
-      imagePath: 'assets/images/onboarding2.png',
+          'Set the exact project location for accurate planning and '
+          'on-time delivery.',
+      imagePath: AppAssets.onboardingLocation,
     ),
     OnboardingPageModel(
-      title: 'Manage with Ease',
-      subtitle:
-          'View invoices, manage your wallet, and handle multiple projects from one place.',
-      imagePath: 'assets/images/onboarding3.png',
+      title: 'Secure Payments',
+      subtitle: 'Pay securely with multiple options and full transparency.',
+      imagePath: AppAssets.onboardingPayment,
     ),
   ];
 

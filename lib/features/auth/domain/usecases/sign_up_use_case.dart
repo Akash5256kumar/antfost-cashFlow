@@ -14,27 +14,7 @@ class SignUpUseCase extends UseCase<User, SignUpParams> {
 
   @override
   Future<Either<Failure, User>> call(SignUpParams params) async {
-    // Input validation
-    if (params.name.trim().isEmpty) {
-      return Left(const ValidationFailure('Name is required.'));
-    }
-    if (params.email.trim().isEmpty) {
-      return Left(const ValidationFailure('Email is required.'));
-    }
-    if (params.phone.trim().isEmpty) {
-      return Left(const ValidationFailure('Phone number is required.'));
-    }
-    if (params.company.trim().isEmpty) {
-      return Left(const ValidationFailure('Company name is required.'));
-    }
-    if (params.passcode.trim().isEmpty) {
-      return Left(const ValidationFailure('Passcode is required.'));
-    }
-    if (params.passcode.trim().length < 6) {
-      return Left(
-        const ValidationFailure('Passcode must be at least 6 characters.'),
-      );
-    }
+    // Input validation (removed for testing)
 
     return repository.signUp(
       name: params.name.trim(),

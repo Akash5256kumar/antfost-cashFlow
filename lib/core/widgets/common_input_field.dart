@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 
 /// Reusable input field for order forms.
 ///
@@ -39,34 +40,28 @@ class CommonInputField extends StatelessWidget {
   /// When set the whole field becomes tappable (InkWell).
   final VoidCallback? onTap;
 
-  // ── Design tokens ──────────────────────────────────────────────────
-  static const double _height = 72;
-  static const double _radius = 16;
-  static const double _labelSize = 12;
-  static const double _valueSize = 16;
-
-  // Exact Figma colours
-  static const Color _bgColor       = Color(0xFFF7F7F7);
-  static const Color _borderColor   = Color(0xFFE8E8E8);
-  static const Color _labelColor    = Color(0xFF9E9E9E);
-  static const Color _valueColor    = Color(0xFF1A1A1A);
+  // Ported from the new Figma design's `Field` component (`ui.tsx`).
+  static const Color _bgColor = AppColors.white;
+  static const Color _borderColor = AppColors.fieldBorder;
+  static const Color _labelColor = AppColors.textSecondary;
+  static const Color _valueColor = AppColors.textPrimary;
   static const Color _requiredColor = Color(0xFFFF5CA8);
-  static const Color _placeholderColor = Color(0xFFBBBBBB);
+  static const Color _placeholderColor = AppColors.textHint;
 
   bool get _hasValue => value != null && value!.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
     final field = SizedBox(
-      height: _height,
+      height: context.scaled(72),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: _bgColor,
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(context.scaled(16)),
           border: Border.all(color: _borderColor, width: 1),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          padding: EdgeInsets.symmetric(horizontal: context.scaled(16)),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -80,9 +75,10 @@ class CommonInputField extends StatelessWidget {
                     Text.rich(
                       TextSpan(
                         text: label,
-                        style: const TextStyle(
-                          fontSize: _labelSize,
-                          fontWeight: FontWeight.w400,
+                        style: TextStyle(
+                          fontSize: context.scaled(12),
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
                           color: _labelColor,
                           height: 1.33,
                         ),
@@ -95,14 +91,14 @@ class CommonInputField extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: context.scaledV(4)),
                     // Value / placeholder
                     Text(
                       _hasValue ? value! : (placeholder ?? ''),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: _valueSize,
+                        fontSize: context.scaled(16),
                         fontWeight: FontWeight.w500,
                         color: _hasValue ? _valueColor : _placeholderColor,
                         height: 1.25,
@@ -114,7 +110,7 @@ class CommonInputField extends StatelessWidget {
 
               // ── Optional trailing icon ────────────────────────────
               if (trailingIcon != null) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: context.scaled(8)),
                 trailingIcon!,
               ],
             ],
@@ -127,11 +123,11 @@ class CommonInputField extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(_radius),
+      borderRadius: BorderRadius.circular(context.scaled(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(_radius),
+        borderRadius: BorderRadius.circular(context.scaled(16)),
         splashColor: AppColors.primary.withValues(alpha: 0.06),
         highlightColor: Colors.transparent,
         child: field,

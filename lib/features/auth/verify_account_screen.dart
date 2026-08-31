@@ -1,117 +1,145 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_route_args.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_radii.dart';
+import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/utils/route_feedback.dart';
-import '../../core/widgets/app_gradient_button.dart';
-import '../../core/widgets/app_outline_button.dart';
+import '../../core/widgets/app_illustration_image.dart';
+import '../../core/widgets/app_svg_icons.dart';
+import '../../core/widgets/primary_button.dart';
 import 'presentation/bloc/auth_bloc.dart';
 import 'presentation/bloc/auth_event.dart';
 import 'presentation/bloc/auth_state.dart';
 
+/// Six-digit OTP verification with the device's native numeric keyboard.
 class VerifyAccountScreen extends StatefulWidget {
-  final String contact;
-  final bool isEmail;
-  final VerifyAccountFlow flow;
-
   const VerifyAccountScreen({
     super.key,
     required this.contact,
     this.isEmail = true,
     this.flow = VerifyAccountFlow.signUp,
+    this.isBusiness = true,
   });
+
+  final String contact;
+  final bool isEmail;
+  final VerifyAccountFlow flow;
+  final bool isBusiness;
 
   @override
   State<VerifyAccountScreen> createState() => _VerifyAccountScreenState();
 }
 
 class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
-  static const int _otpLength = 4;
+  static const int _otpLength = 6;
+  static const int _resendSeconds = 45;
 
-  final List<TextEditingController> _controllers = List.generate(
-    _otpLength,
-    (_) => TextEditingController(),
-  );
-  final List<FocusNode> _focusNodes = List.generate(
-    _otpLength,
-    (_) => FocusNode(),
-  );
+  final _otpController = TextEditingController();
+  final _otpFocusNode = FocusNode();
+  int _secondsLeft = _resendSeconds;
+  Timer? _timer;
 
-  /// Returns the current OTP value by joining all controller texts.
-  String get _otpValue => _controllers.map((c) => c.text).join();
+  String get _code => _otpController.text;
+
+  @override
+  void initState() {
+    super.initState();
+    _otpController.addListener(_onOtpChanged);
+    _otpFocusNode.addListener(_onOtpChanged);
+    _startTimer();
+  }
 
   @override
   void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
+    _timer?.cancel();
+    _otpController
+      ..removeListener(_onOtpChanged)
+      ..dispose();
+    _otpFocusNode.removeListener(_onOtpChanged);
+    _otpFocusNode.dispose();
     super.dispose();
   }
 
-  void _onOtpChanged(int index, String value) {
-    if (value.length == 1 && index < _otpLength - 1) {
-      _focusNodes[index + 1].requestFocus();
-    } else if (value.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    }
+  void _onOtpChanged() => setState(() {});
+
+  void _startTimer() {
+    _timer?.cancel();
+    _secondsLeft = _resendSeconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsLeft <= 1) {
+        timer.cancel();
+        setState(() => _secondsLeft = 0);
+      } else {
+        setState(() => _secondsLeft -= 1);
+      }
+    });
   }
 
-  /// Dispatches [VerifyOtpEvent] with the entered OTP.
   void _handleContinue() {
+    if (_code.length != _otpLength) {
+      _otpFocusNode.requestFocus();
+      return;
+    }
     context.read<AuthBloc>().add(
       VerifyOtpEvent(
         contact: widget.contact,
-        otp: _otpValue,
+        otp: _code,
         isEmail: widget.isEmail,
       ),
     );
   }
 
-  /// Dispatches [ForgotPasscodeEvent] to resend the OTP.
   void _handleResend() {
     context.read<AuthBloc>().add(
       ForgotPasscodeEvent(contact: widget.contact, isEmail: widget.isEmail),
     );
+    _startTimer();
+    setState(() {});
+  }
+
+  String get _timerLabel {
+    final minutes = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_secondsLeft % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (!context.mounted || !isCurrentRoute(context)) {
-          return;
-        }
+        if (!context.mounted || !isCurrentRoute(context)) return;
 
         if (state is AuthOtpVerified) {
-          // Navigate based on which flow triggered this verification screen.
           switch (widget.flow) {
             case VerifyAccountFlow.signUp:
-              // Proceed to KYC after account OTP is verified.
-              Navigator.of(
-                context,
-              ).pushReplacementNamed(AppRoutes.kycVerification);
-              break;
+              if (widget.isBusiness) {
+                Navigator.of(context).pushReplacementNamed(
+                  AppRoutes.kycVerification,
+                  arguments: true,
+                );
+              } else {
+                // KYC screen commented out for Individual flow as requested — goes directly to Home
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  AppRoutes.home,
+                  (route) => false,
+                  arguments: const HomeRouteArgs(verificationUnderReview: false),
+                );
+              }
             case VerifyAccountFlow.passwordRecovery:
-              // Return to sign-in after password-recovery OTP is verified.
               Navigator.of(context).pushNamedAndRemoveUntil(
                 AppRoutes.signIn,
                 (route) => route.settings.name == AppRoutes.getStarted,
               );
-              break;
           }
         } else if (state is AuthOtpSent) {
-          // OTP was resent; inform the user.
           showSingleSnackBar(
             context,
             const SnackBar(content: Text('OTP resent successfully.')),
@@ -122,137 +150,108 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
       },
       builder: (context, state) {
         final isLoading = state is AuthLoading;
-
         return Scaffold(
-          backgroundColor: AppColors.white,
-          appBar: AppBar(
-            backgroundColor: AppColors.white,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            leading: const BackButton(color: AppColors.textPrimary),
-            title: const Text(
-              'Verify Your Account',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+          backgroundColor: AppColors.background,
+          resizeToAvoidBottomInset: true,
+          body: SafeArea(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg(context),
+                context.scaledV(8),
+                AppSpacing.lg(context),
+                context.scaledV(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Material(
+                      color: AppColors.white,
+                      shape: const CircleBorder(),
+                      elevation: 2,
+                      shadowColor: AppColors.textPrimary.withValues(
+                        alpha: 0.06,
+                      ),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => Navigator.of(context).maybePop(),
+                        child: SizedBox(
+                          width: context.scaled(44),
+                          height: context.scaled(44),
+                          child: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: context.scaled(20),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: context.scaledV(44)),
+                  Text(
+                    'OTP Verification',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.authScreenTitle(context),
+                  ),
+                  SizedBox(height: context.scaledV(14)),
+                  Text(
+                    'Enter the 6-digit code sent to',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.authScreenSubtitle(context),
+                  ),
+                  SizedBox(height: context.scaledV(20)),
+                  _ContactCard(
+                    contact: widget.contact,
+                    isEmail: widget.isEmail,
+                  ),
+                  SizedBox(height: context.scaledV(40)),
+                  _OtpFields(
+                    controller: _otpController,
+                    focusNode: _otpFocusNode,
+                  ),
+                  SizedBox(height: context.scaledV(26)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: context.scaled(20),
+                        color: AppColors.primary,
+                      ),
+                      SizedBox(width: context.scaled(10)),
+                      _secondsLeft > 0
+                          ? Text(
+                              'Resend code in $_timerLabel',
+                              style: AppTextStyles.authScreenSubtitle(context),
+                            )
+                          : TextButton(
+                              onPressed: isLoading ? null : _handleResend,
+                              child: Text(
+                                'Resend code',
+                                style: AppTextStyles.authLink(context),
+                              ),
+                            ),
+                    ],
+                  ),
+                  SizedBox(height: context.scaledV(48)),
+                  AppIllustrationImage(
+                    asset: AppAssets.artOtpEnvelope,
+                    height: context.scaledV(170),
+                    borderRadius: 0,
+                    fit: BoxFit.contain,
+                  ),
+                  SizedBox(height: context.scaledV(38)),
+                  PrimaryButton(
+                    onPressed: isLoading ? null : _handleContinue,
+                    isLoading: isLoading,
+                    label: 'Verify OTP',
+                    height: context.scaled(54),
+                    radius: context.scaled(16),
+                  ),
+                ],
               ),
             ),
-            centerTitle: true,
-          ),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // ── Top content ──────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: AppSpacing.authBodyTop),
-
-                    // ── Subtitle ───────────────────────────────────────────────
-                    Text.rich(
-                      TextSpan(
-                        text: widget.isEmail
-                            ? "Verify Your Email We've sent a 6-digit code to\n"
-                            : "Verify Your Phone We've sent a 6-digit code to\n",
-                        style: AppTextStyles.authScreenSubtitle,
-                        children: [
-                          TextSpan(
-                            text: widget.contact,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.link,
-                              decoration: TextDecoration.underline,
-                              decorationColor: AppColors.link,
-                            ),
-                          ),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxxl),
-
-                    // ── OTP boxes ──────────────────────────────────────────────
-                    _OtpRow(
-                      controllers: _controllers,
-                      focusNodes: _focusNodes,
-                      onChanged: _onOtpChanged,
-                    ),
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // ── Validity note ──────────────────────────────────────────
-                    const Text(
-                      'OTP valid for 5 minutes. Maximum 3 attempts allowed.',
-                      style: AppTextStyles.authNote,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-
-              const Spacer(),
-
-              // ── Bottom actions ───────────────────────────────────────────────
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.xxl,
-                  0,
-                  AppSpacing.xxl,
-                  bottomInset > 0
-                      ? bottomInset + AppSpacing.sm
-                      : AppSpacing.xxl,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Show a loading container while verifying, otherwise the
-                    // active "Verify & Continue" button.
-                    if (isLoading)
-                      _LoadingButton()
-                    else
-                      AppGradientButton(
-                        label: 'Verify & Continue',
-                        onPressed: _handleContinue,
-                      ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    AppOutlineButton(
-                      label: widget.isEmail ? 'Change Email' : 'Change Phone',
-                      onPressed: () => Navigator.pop(context),
-                    ),
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          "Didn't Receive Code? ",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        GestureDetector(
-                          // Resend OTP through the BLoC.
-                          onTap: isLoading ? null : _handleResend,
-                          child: const Text(
-                            'Resend',
-                            style: AppTextStyles.authLink,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
         );
       },
@@ -260,145 +259,123 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
   }
 }
 
-// ── Loading button placeholder ────────────────────────────────────────────────
-//
-// Renders a gradient container matching [AppGradientButton] visually but
-// displays a [CircularProgressIndicator] while an OTP request is in-flight.
-class _LoadingButton extends StatelessWidget {
-  const _LoadingButton();
+class _ContactCard extends StatelessWidget {
+  const _ContactCard({required this.contact, required this.isEmail});
+
+  final String contact;
+  final bool isEmail;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            AppColors.primaryGradientStart,
-            AppColors.primaryGradientEnd,
-          ],
+    return Center(
+      child: Container(
+        constraints: BoxConstraints(maxWidth: context.scaled(290)),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.scaled(20),
+          vertical: context.scaledV(16),
         ),
-        borderRadius: BorderRadius.circular(AppRadii.button),
-      ),
-      child: const SizedBox(
-        width: double.infinity,
-        height: AppSpacing.buttonHeight,
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2,
-            ),
-          ),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(context.scaled(16)),
+          border: Border.all(color: AppColors.cardBorder),
         ),
-      ),
-    );
-  }
-}
-
-// ── OTP row ───────────────────────────────────────────────────────────────────
-class _OtpRow extends StatelessWidget {
-  final List<TextEditingController> controllers;
-  final List<FocusNode> focusNodes;
-  final void Function(int index, String value) onChanged;
-
-  const _OtpRow({
-    required this.controllers,
-    required this.focusNodes,
-    required this.onChanged,
-  });
-
-  static const double _boxSize = 64;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(controllers.length, (i) {
-        return Row(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _OtpBox(
-              size: _boxSize,
-              controller: controllers[i],
-              focusNode: focusNodes[i],
-              onChanged: (v) => onChanged(i, v),
+            isEmail
+                ? Icon(
+                    Icons.email_outlined,
+                    size: context.scaled(22),
+                    color: AppColors.primary,
+                  )
+                : const AppSvgPhoneIcon(
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+            SizedBox(width: context.scaled(16)),
+            Flexible(
+              child: Text(
+                contact,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: context.scaled(16),
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ),
-            if (i < controllers.length - 1)
-              const SizedBox(width: AppSpacing.lg),
           ],
-        );
-      }),
+        ),
+      ),
     );
   }
 }
 
-class _OtpBox extends StatefulWidget {
-  final double size;
+class _OtpFields extends StatelessWidget {
+  const _OtpFields({required this.controller, required this.focusNode});
+
   final TextEditingController controller;
   final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-
-  const _OtpBox({
-    required this.size,
-    required this.controller,
-    required this.focusNode,
-    required this.onChanged,
-  });
-
-  @override
-  State<_OtpBox> createState() => _OtpBoxState();
-}
-
-class _OtpBoxState extends State<_OtpBox> {
-  bool _focused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(() {
-      setState(() => _focused = widget.focusNode.hasFocus);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      width: widget.size,
-      height: widget.size,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.md),
-        border: Border.all(
-          color: _focused ? AppColors.primary : AppColors.fieldBorder,
-          width: _focused ? 1.5 : 1.2,
-        ),
-      ),
-      child: TextField(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        textAlign: TextAlign.center,
-        textAlignVertical: TextAlignVertical.center,
-        keyboardType: TextInputType.number,
-        maxLength: 1,
-        expands: true,
-        maxLines: null,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-        ),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          counterText: '',
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-        onChanged: widget.onChanged,
+    final code = controller.text;
+    return SizedBox(
+      height: context.scaledV(62),
+      child: Stack(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(6, (index) {
+              final isFilled = index < code.length;
+              final isActive = focusNode.hasFocus && index == code.length;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                width: context.scaled(48),
+                height: context.scaledV(58),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(context.scaled(14)),
+                  border: Border.all(
+                    color: isActive ? AppColors.primary : AppColors.cardBorder,
+                    width: isActive ? 1.5 : 1,
+                  ),
+                ),
+                child: Text(
+                  isFilled ? code[index] : '-',
+                  style: TextStyle(
+                    fontSize: context.scaled(21),
+                    fontWeight: FontWeight.w700,
+                    color: isFilled
+                        ? AppColors.textPrimary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              );
+            }),
+          ),
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0,
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                autofocus: false,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                enableInteractiveSelection: false,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                onSubmitted: (_) => focusNode.unfocus(),
+                decoration: const InputDecoration(border: InputBorder.none),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

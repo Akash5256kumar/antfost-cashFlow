@@ -8,41 +8,38 @@ class AppNotificationModel extends AppNotification {
     required super.message,
     required super.date,
     required super.isRead,
-    required super.type,
+    required super.category,
+    super.orderId,
   });
 
   // ---------------------------------------------------------------------------
   // JSON helpers
   // ---------------------------------------------------------------------------
 
-  /// Maps a [NotificationType] to its JSON string representation.
-  static String _typeToString(NotificationType type) {
-    switch (type) {
-      case NotificationType.order:
-        return 'order';
-      case NotificationType.payment:
-        return 'payment';
-      case NotificationType.system:
-        return 'system';
-      case NotificationType.kyc:
-        return 'kyc';
+  /// Maps a [NotificationCategory] to its JSON string representation.
+  static String _categoryToString(NotificationCategory category) {
+    switch (category) {
+      case NotificationCategory.operational:
+        return 'operational';
+      case NotificationCategory.financial:
+        return 'financial';
+      case NotificationCategory.risk:
+        return 'risk';
     }
   }
 
-  /// Parses a JSON string into a [NotificationType].
+  /// Parses a JSON string into a [NotificationCategory].
   ///
-  /// Falls back to [NotificationType.system] for unknown values.
-  static NotificationType _typeFromString(String value) {
+  /// Falls back to [NotificationCategory.operational] for unknown values.
+  static NotificationCategory _categoryFromString(String value) {
     switch (value) {
-      case 'order':
-        return NotificationType.order;
-      case 'payment':
-        return NotificationType.payment;
-      case 'kyc':
-        return NotificationType.kyc;
-      case 'system':
+      case 'financial':
+        return NotificationCategory.financial;
+      case 'risk':
+        return NotificationCategory.risk;
+      case 'operational':
       default:
-        return NotificationType.system;
+        return NotificationCategory.operational;
     }
   }
 
@@ -54,7 +51,8 @@ class AppNotificationModel extends AppNotification {
       message: json['message'] as String,
       date: json['date'] as String,
       isRead: json['isRead'] as bool,
-      type: _typeFromString(json['type'] as String),
+      category: _categoryFromString(json['category'] as String),
+      orderId: json['orderId'] as String?,
     );
   }
 
@@ -66,7 +64,8 @@ class AppNotificationModel extends AppNotification {
       'message': message,
       'date': date,
       'isRead': isRead,
-      'type': _typeToString(type),
+      'category': _categoryToString(category),
+      'orderId': orderId,
     };
   }
 
@@ -78,7 +77,8 @@ class AppNotificationModel extends AppNotification {
       message: entity.message,
       date: entity.date,
       isRead: entity.isRead,
-      type: entity.type,
+      category: entity.category,
+      orderId: entity.orderId,
     );
   }
 
@@ -90,7 +90,8 @@ class AppNotificationModel extends AppNotification {
       message: message,
       date: date,
       isRead: true,
-      type: type,
+      category: category,
+      orderId: orderId,
     );
   }
 }

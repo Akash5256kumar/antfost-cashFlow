@@ -1,0 +1,414 @@
+import 'package:flutter/material.dart';
+
+import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
+import '../../core/widgets/primary_button.dart';
+
+class CompanyInfoScreen extends StatefulWidget {
+  const CompanyInfoScreen({super.key});
+
+  @override
+  State<CompanyInfoScreen> createState() => _CompanyInfoScreenState();
+}
+
+class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
+  bool _isEditing = false;
+  final _formKey = GlobalKey<FormState>();
+
+  late TextEditingController _legalNameController;
+  late TextEditingController _tradeNameController;
+  late TextEditingController _licenseNoController;
+  late TextEditingController _trnController;
+  late TextEditingController _industryController;
+  late TextEditingController _addressController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
+  late TextEditingController _websiteController;
+
+  @override
+  void initState() {
+    super.initState();
+    _legalNameController = TextEditingController(
+      text: 'Arabian Contracting Co. LLC',
+    );
+    _tradeNameController = TextEditingController(
+      text: 'ACC Infrastructure & ReadyMix',
+    );
+    _licenseNoController = TextEditingController(text: 'DED-CN-849201');
+    _trnController = TextEditingController(text: '100293847500003');
+    _industryController = TextEditingController(
+      text: 'Civil Contracting & Infrastructure',
+    );
+    _addressController = TextEditingController(
+      text: 'Plot 402, ADGM Square, Al Maryah Island, Abu Dhabi, UAE',
+    );
+    _emailController = TextEditingController(
+      text: 'procurement@arabiancontracting.ae',
+    );
+    _phoneController = TextEditingController(text: '+971 2 648 2900');
+    _websiteController = TextEditingController(
+      text: 'https://www.arabiancontracting.ae',
+    );
+  }
+
+  @override
+  void dispose() {
+    _legalNameController.dispose();
+    _tradeNameController.dispose();
+    _licenseNoController.dispose();
+    _trnController.dispose();
+    _industryController.dispose();
+    _addressController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _websiteController.dispose();
+    super.dispose();
+  }
+
+  void _saveChanges() {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isEditing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Company information updated successfully!'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textDark,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Company Info',
+          style: TextStyle(
+            fontSize: context.scaled(18),
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (_isEditing) {
+                _saveChanges();
+              } else {
+                setState(() => _isEditing = true);
+              }
+            },
+            child: Text(
+              _isEditing ? 'Done' : 'Edit',
+              style: TextStyle(
+                fontSize: context.scaled(15),
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(context.scaled(16)),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Company Badge Banner
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(context.scaled(18)),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.primary, Color(0xFF8B80FF)],
+                    ),
+                    borderRadius: BorderRadius.circular(context.scaled(18)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: context.scaled(56),
+                        height: context.scaled(56),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(14),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.apartment_rounded,
+                          size: context.scaled(32),
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      SizedBox(width: context.scaled(14)),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _legalNameController.text,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: context.scaled(17),
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(height: context.scaledV(4)),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  size: 16,
+                                  color: Color(0xFF6EE7B7),
+                                ),
+                                SizedBox(width: context.scaled(4)),
+                                Expanded(
+                                  child: Text(
+                                    'KYC Verified Business Account',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: context.scaled(12),
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: context.scaledV(20)),
+
+                // Legal & Tax Identification
+                _buildSectionHeader('Legal & Tax Registration'),
+                SizedBox(height: context.scaledV(10)),
+                Container(
+                  padding: EdgeInsets.all(context.scaled(16)),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(context.scaled(18)),
+                    border: Border.all(color: const Color(0xFFEAEAEA)),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildInfoField(
+                        label: 'Legal Entity Name',
+                        controller: _legalNameController,
+                        icon: Icons.business_rounded,
+                        isEditing: _isEditing,
+                      ),
+                      _divider(),
+                      _buildInfoField(
+                        label: 'Commercial Trade Name',
+                        controller: _tradeNameController,
+                        icon: Icons.storefront_rounded,
+                        isEditing: _isEditing,
+                      ),
+                      _divider(),
+                      _buildInfoField(
+                        label: 'Trade License Number',
+                        controller: _licenseNoController,
+                        icon: Icons.assignment_outlined,
+                        isEditing: _isEditing,
+                      ),
+                      _divider(),
+                      _buildInfoField(
+                        label: 'Tax Registration Number (TRN / VAT)',
+                        controller: _trnController,
+                        icon: Icons.receipt_long_outlined,
+                        isEditing: _isEditing,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: context.scaledV(20)),
+
+                // Corporate Contact Details
+                _buildSectionHeader('Contact & Headquarters Address'),
+                SizedBox(height: context.scaledV(10)),
+                Container(
+                  padding: EdgeInsets.all(context.scaled(16)),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(context.scaled(18)),
+                    border: Border.all(color: const Color(0xFFEAEAEA)),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildInfoField(
+                        label: 'Office Address',
+                        controller: _addressController,
+                        icon: Icons.location_on_outlined,
+                        isEditing: _isEditing,
+                      ),
+                      _divider(),
+                      _buildInfoField(
+                        label: 'Official Email',
+                        controller: _emailController,
+                        icon: Icons.mail_outline_rounded,
+                        isEditing: _isEditing,
+                      ),
+                      _divider(),
+                      _buildInfoField(
+                        label: 'Corporate Landline Phone',
+                        controller: _phoneController,
+                        icon: Icons.phone_outlined,
+                        isEditing: _isEditing,
+                      ),
+                      _divider(),
+                      _buildInfoField(
+                        label: 'Company Website',
+                        controller: _websiteController,
+                        icon: Icons.language_rounded,
+                        isEditing: _isEditing,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: context.scaledV(20)),
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: _isEditing
+          ? SafeArea(
+              top: false,
+              child: Container(
+                color: Colors.white,
+                padding: EdgeInsets.fromLTRB(
+                  context.scaled(16),
+                  context.scaledV(12),
+                  context.scaled(16),
+                  context.scaledV(16),
+                ),
+                child: PrimaryButton(
+                  label: 'Save Company Information',
+                  onPressed: _saveChanges,
+                ),
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: context.scaled(15),
+        fontWeight: FontWeight.w700,
+        color: const Color(0xFF1A1A1A),
+      ),
+    );
+  }
+
+  Widget _divider() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Divider(height: 1, color: Color(0xFFEFEFEF)),
+    );
+  }
+
+  Widget _buildInfoField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    required bool isEditing,
+  }) {
+    if (isEditing) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: TextFormField(
+          controller: controller,
+          style: TextStyle(
+            fontSize: context.scaled(14),
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF1A1A1A),
+          ),
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
+            filled: true,
+            fillColor: const Color(0xFFF9F9FB),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: context.scaled(12),
+                    color: const Color(0xFF888888),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  controller.text,
+                  style: TextStyle(
+                    fontSize: context.scaled(14),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1A1A1A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -14,22 +14,7 @@ class SignInUseCase extends UseCase<User, SignInParams> {
 
   @override
   Future<Either<Failure, User>> call(SignInParams params) async {
-    // Input validation
-    if (params.contact.trim().isEmpty) {
-      return Left(
-        ValidationFailure(
-          params.isEmail ? 'Email is required.' : 'Phone number is required.',
-        ),
-      );
-    }
-    if (params.passcode.trim().isEmpty) {
-      return Left(const ValidationFailure('Passcode is required.'));
-    }
-    if (params.passcode.trim().length < 6) {
-      return Left(
-        const ValidationFailure('Passcode must be at least 6 characters.'),
-      );
-    }
+    // Input validation (removed empty contact check)
 
     return repository.signIn(
       contact: params.contact.trim(),

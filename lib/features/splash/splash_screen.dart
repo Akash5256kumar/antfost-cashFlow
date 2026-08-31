@@ -35,7 +35,11 @@ class _SplashScreenState extends State<SplashScreen> {
           builder: (context, constraints) {
             final mediaQuery = MediaQuery.of(context);
             final size = mediaQuery.size;
-            final isTablet = constraints.maxWidth > AppBreakpoints.tablet;
+            // Real device width, not this LayoutBuilder's constraints —
+            // the app-wide max-width wrapper in main.dart caps content at
+            // AppBreakpoints.tablet, so constraints.maxWidth alone could
+            // never exceed it (isTablet would always be false).
+            final isTablet = size.width > AppBreakpoints.tablet;
             final blobSize =
                 constraints.maxWidth *
                 (isTablet

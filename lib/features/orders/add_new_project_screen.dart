@@ -1,234 +1,536 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
+
+import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_radii.dart';
+import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
+import '../../app/navigation/app_routes.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../features/profile/saved_sites_screen.dart';
+import 'add_location_screen.dart';
+import 'new_cash_order_mix_selection_screen.dart';
 import 'order_project_summary.dart';
 
-// ── Figma colour tokens (local) ────────────────────────────────────────────
-const Color _textDark      = Color(0xFF1A1A1A);
-const Color _textGrey      = Color(0xFF9E9E9E);
-const Color _labelGrey     = Color(0xFF9F9DA6);
-const Color _requiredPink  = Color(0xFFFF5CA8);
-const Color _fieldBorder   = Color(0xFFD7D7D7);
-const Color _searchBorder  = Color(0xFF111111);
+const List<_ProjectType> _projectTypes = [
+  _ProjectType('Residential', Icons.home_rounded),
+  _ProjectType('Commercial', Icons.apartment_rounded),
+  _ProjectType('Industrial', Icons.factory_rounded),
+  _ProjectType('Infrastructure', Icons.alt_route_rounded),
+];
 
+class _ProjectType {
+  const _ProjectType(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
+
+/// Ported from the new Figma design's `screens/CreateProject.tsx`. The map
+/// picker Figma places on `AddLocation` now lives on [AddLocationScreen];
+/// this screen owns project metadata (name/type) and its location list,
+/// updating in place when a location is added rather than round-tripping
+/// through `nav.navigate` params the way the Figma prototype does.
+///
+/// Pops with an [OrderProjectSummary] once the user has at least one
+/// location and taps "Create New Order", preserving the existing contract
+/// `SavedSitesScreen` relies on when adding a project from Profile.
 class AddNewProjectScreen extends StatefulWidget {
-  const AddNewProjectScreen({super.key});
+  const AddNewProjectScreen({super.key, this.returnResult = false});
+  
+  final bool returnResult;
 
   @override
   State<AddNewProjectScreen> createState() => _AddNewProjectScreenState();
 }
 
 class _AddNewProjectScreenState extends State<AddNewProjectScreen> {
-  static const LatLng _initialLocation = LatLng(24.48862, 54.38652);
-  static const CameraPosition _initialCamera = CameraPosition(
-    target: _initialLocation,
-    zoom: 16.7,
-  );
-
-  final TextEditingController _searchController    = TextEditingController();
-  final TextEditingController _projectNameController = TextEditingController(
-    text: 'Al Reef Villas - Phase 2',
-  );
-  final TextEditingController _projectSiteController = TextEditingController(
-    text: 'Block A - Foundation',
-  );
-  final TextEditingController _projectLocationController = TextEditingController();
-
-  LatLng _markerPosition = _initialLocation;
+  final _nameController = TextEditingController();
+  String? _selectedType;
+  bool _typeExpanded = true;
+  final List<ProjectLocationDraft> _locations = [];
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _projectNameController.dispose();
-    _projectSiteController.dispose();
-    _projectLocationController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
-  void _handleMapTap(LatLng position) =>
-      setState(() => _markerPosition = position);
-
-  void _saveProject() {
-    Navigator.of(context).pop(
-      OrderProjectSummary(
-        projectName: _projectNameController.text.trim().isEmpty
-            ? 'Al Reef Villas - Phase 2'
-            : _projectNameController.text.trim(),
-        projectSite: _projectSiteController.text.trim().isEmpty
-            ? 'Block A - Foundation'
-            : _projectSiteController.text.trim(),
-        locationLabel: _projectLocationController.text.trim().isEmpty
-            ? 'Pinned Project Location'
-            : _projectLocationController.text.trim(),
-        coordinates: _markerPosition,
+  Future<void> _addLocation() async {
+    final result = await Navigator.of(context).push<ProjectLocationDraft>(
+      MaterialPageRoute(
+        builder: (_) => AddLocationScreen(
+          projectName: _nameController.text.trim().isEmpty
+              ? null
+              : _nameController.text.trim(),
+        ),
       ),
     );
+    if (result == null || !mounted) return;
+
+    setState(() => _locations.add(result));
+  }
+
+  void _createOrder([ProjectLocationDraft? location]) {
+    final firstLocation =
+        location ?? (_locations.isNotEmpty ? _locations.first : null);
+    
+    final summary = OrderProjectSummary(
+      projectName: _nameController.text.trim().isEmpty
+          ? 'New Project'
+          : _nameController.text.trim(),
+      projectSite: _selectedType ?? 'Residential',
+      locationLabel: firstLocation?.address.isNotEmpty == true
+          ? firstLocation!.address
+          : (firstLocation?.name ?? 'Pinned Project Location'),
+      // No map picker on this screen anymore (moved to AddLocationScreen
+      // per the new Figma flow) — coordinates aren't captured here.
+      coordinates: const LatLng(24.48862, 54.38652),
+    );
+
+    if (widget.returnResult) {
+      Navigator.of(context).pop(summary);
+    } else {
+      Navigator.of(context, rootNavigator: true).pushNamed(AppRoutes.newCashOrderMixCode);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // ── App bar ───────────────────────────────────────────────
-            _AppBar(),
+    final hasLocations = _locations.isNotEmpty;
 
-            // ── Map + overlays + bottom panel ─────────────────────────
-            Expanded(
-              child: Stack(
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: const AppTitleHeader(title: 'New Project'),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasLocations) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_rounded,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Your project has been saved',
+                      style: AppTextStyles.badgeLabel(
+                        context,
+                      ).copyWith(color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: context.scaledV(10)),
+            ],
+            Text(
+              'Create New Project',
+              style: AppTextStyles.authScreenTitle(context),
+            ),
+            SizedBox(height: context.scaledV(4)),
+            Text(
+              'Set up your project, then add its delivery locations.',
+              style: AppTextStyles.cardSubtitle(context),
+            ),
+            SizedBox(height: context.scaledV(12)),
+            AppIllustrationImage(
+              asset: AppAssets.artProjectBuild,
+              height: 170,
+              borderRadius: 0,
+              fit: BoxFit.contain,
+            ),
+            SizedBox(height: context.scaledV(14)),
+            Text('Project Details', style: AppTextStyles.cardTitle(context)),
+            SizedBox(height: context.scaledV(10)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Row(
                 children: [
-                  // Full-screen map
-                  Positioned.fill(
-                    child: GoogleMap(
-                      initialCameraPosition: _initialCamera,
-                      mapType: MapType.normal,
-                      zoomControlsEnabled: false,
-                      myLocationButtonEnabled: false,
-                      compassEnabled: false,
-                      tiltGesturesEnabled: false,
-                      mapToolbarEnabled: false,
-                      onTap: _handleMapTap,
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('project-location'),
-                          position: _markerPosition,
-                        ),
-                      },
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.apartment_rounded,
+                      color: AppColors.primary,
+                      size: 18,
                     ),
                   ),
-
-                  // Search bar overlay
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                    child: _MapSearchBar(controller: _searchController),
-                  ),
-
-                  // Bottom details panel
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: _ProjectDetailsPanel(
-                      projectNameController: _projectNameController,
-                      projectSiteController: _projectSiteController,
-                      projectLocationController: _projectLocationController,
-                      onSave: _saveProject,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Project Name',
+                          style: TextStyle(
+                            fontSize: context.scaled(11),
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        TextField(
+                          controller: _nameController,
+                          style: TextStyle(
+                            fontSize: context.scaled(13),
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textPrimary,
+                          ),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── App bar ──────────────────────────────────────────────────────────────────
-
-class _AppBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded, size: 24),
-              color: AppColors.textPrimary,
-              padding: EdgeInsets.zero,
-              splashRadius: 22,
+            SizedBox(height: context.scaledV(10)),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () => setState(() => _typeExpanded = !_typeExpanded),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.layers_rounded,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Project Type',
+                                  style: TextStyle(
+                                    fontSize: context.scaled(11),
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                Text(
+                                  _selectedType ?? 'Select type',
+                                  style: TextStyle(
+                                    fontSize: context.scaled(13),
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            _typeExpanded
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            color: AppColors.iconMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_typeExpanded)
+                    Column(
+                      children: _projectTypes.map((t) {
+                        final on = t.label == _selectedType;
+                        return InkWell(
+                          onTap: () => setState(() => _selectedType = t.label),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                top: BorderSide(color: AppColors.cardBorder),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  t.icon,
+                                  size: 19,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    t.label,
+                                    style: TextStyle(
+                                      fontSize: context.scaled(13),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: on
+                                          ? AppColors.primary
+                                          : const Color(0xFFD3D1E4),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: on
+                                      ? Center(
+                                          child: Container(
+                                            width: 10,
+                                            height: 10,
+                                            decoration: const BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: const [
+            SizedBox(height: context.scaledV(18)),
+            if (hasLocations) ...[
               Text(
-                'Add New Project',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w400,
-                  color: _textDark,
-                  height: 1.2,
+                'Project Locations',
+                style: AppTextStyles.cardTitle(context),
+              ),
+              Text(
+                'Add one or more delivery locations to this project.',
+                style: AppTextStyles.cardSubtitle(context),
+              ),
+              SizedBox(height: context.scaledV(10)),
+              ..._locations.map(
+                (loc) => Padding(
+                  padding: EdgeInsets.only(bottom: context.scaledV(10)),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.muted,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.location_on_rounded,
+                            size: 19,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                loc.name,
+                                style: AppTextStyles.cardTitle(
+                                  context,
+                                ).copyWith(fontSize: context.scaled(14)),
+                              ),
+                              if (loc.address.isNotEmpty)
+                                Text(
+                                  loc.address,
+                                  style: AppTextStyles.cardSubtitle(context),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              SizedBox(height: 2),
-              Text(
-                'Create a new Project',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: _textGrey,
-                  height: 1.2,
+              OutlinedButton.icon(
+                onPressed: _addLocation,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Another Location'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
+                  minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.scaledV(14)),
+              PrimaryButton(
+                onPressed: _createOrder,
+                arrow: true,
+                label: 'Create New Order',
+              ),
+            ] else ...[
+              CustomPaint(
+                painter: _DashedRectPainter(
+                  color: AppColors.cardBorder,
+                  strokeWidth: 1.5,
+                  dashSpace: 6,
+                  dashWidth: 6,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.location_on_outlined,
+                          size: 22,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      SizedBox(height: context.scaledV(10)),
+                      Text(
+                        'No locations added',
+                        style: AppTextStyles.cardTitle(context),
+                      ),
+                      Text(
+                        'Add the first delivery location for this project.',
+                        style: AppTextStyles.cardSubtitle(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: context.scaledV(14)),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _addLocation,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Add Location',
+                        style: TextStyle(
+                          fontSize: context.scaled(15),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.add, size: 20, color: Colors.white),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: context.scaledV(10)),
+              Center(
+                child: TextButton(
+                  onPressed: () async {
+                    final result =
+                        await Navigator.of(context).push<ProjectLocationDraft>(
+                      MaterialPageRoute(
+                        builder: (_) => const SavedSitesScreen(
+                          pickForProject: true,
+                        ),
+                      ),
+                    );
+                    if (result != null) {
+                      setState(() {
+                        _locations.add(result);
+                      });
+                    }
+                  },
+                  child: Text(
+                    'Use a saved location instead',
+                    style: TextStyle(
+                      fontSize: context.scaled(13),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Map search bar ───────────────────────────────────────────────────────────
-
-class _MapSearchBar extends StatelessWidget {
-  const _MapSearchBar({required this.controller});
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: _searchBorder, width: 1.5),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 16),
-            const Icon(Icons.search_rounded, size: 22, color: _textDark),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  color: _textDark,
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Search',
-                  hintStyle: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: _labelGrey,
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
+            SizedBox(height: MediaQuery.paddingOf(context).bottom + 24),
           ],
         ),
       ),
@@ -236,164 +538,55 @@ class _MapSearchBar extends StatelessWidget {
   }
 }
 
-// ── Bottom details panel ─────────────────────────────────────────────────────
+class _DashedRectPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashSpace;
+  final double dashWidth;
 
-class _ProjectDetailsPanel extends StatelessWidget {
-  const _ProjectDetailsPanel({
-    required this.projectNameController,
-    required this.projectSiteController,
-    required this.projectLocationController,
-    required this.onSave,
+  _DashedRectPainter({
+    required this.color,
+    this.strokeWidth = 1.0,
+    this.dashSpace = 4.0,
+    this.dashWidth = 4.0,
   });
 
-  final TextEditingController projectNameController;
-  final TextEditingController projectSiteController;
-  final TextEditingController projectLocationController;
-  final VoidCallback onSave;
-
   @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
 
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          const Radius.circular(16),
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Section heading
-                const Text(
-                  'Project Details',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: _textDark,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 20),
+      );
 
-                // Project Name
-                _InputField(
-                  label: 'Project Name',
-                  controller: projectNameController,
-                  isRequired: true,
-                ),
-                const SizedBox(height: 16),
+    final dashPath = Path();
+    var distance = 0.0;
+    for (final metric in path.computeMetrics()) {
+      while (distance < metric.length) {
+        dashPath.addPath(
+          metric.extractPath(distance, distance + dashWidth),
+          Offset.zero,
+        );
+        distance += dashWidth + dashSpace;
+      }
+      distance = 0.0; // Reset for next contour if any
+    }
 
-                // Project Site Name
-                _InputField(
-                  label: 'Project Site Name',
-                  controller: projectSiteController,
-                  isRequired: true,
-                ),
-                const SizedBox(height: 16),
-
-                // Project Location
-                _InputField(
-                  label: 'Project Loaction',
-                  controller: projectLocationController,
-                  isRequired: true,
-                  hintText: 'Enter or Pin Project Location',
-                ),
-                const SizedBox(height: 20),
-
-                // Save & Continue button
-                PrimaryButton(
-                  label: 'Save & Continue',
-                  onPressed: onSave,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    canvas.drawPath(dashPath, paint);
   }
-}
-
-// ── Input field ──────────────────────────────────────────────────────────────
-
-class _InputField extends StatelessWidget {
-  const _InputField({
-    required this.label,
-    required this.controller,
-    this.isRequired = false,
-    this.hintText,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final bool isRequired;
-  final String? hintText;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _fieldBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text.rich(
-            TextSpan(
-              text: label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: _labelGrey,
-                height: 1.33,
-              ),
-              children: [
-                if (isRequired)
-                  const TextSpan(
-                    text: '*',
-                    style: TextStyle(color: _requiredPink),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: controller,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: _textDark,
-              height: 1.25,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-              hintText: hintText,
-              hintStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: _labelGrey,
-                height: 1.25,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-      ),
-    );
+  bool shouldRepaint(covariant _DashedRectPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.dashSpace != dashSpace ||
+        oldDelegate.dashWidth != dashWidth;
   }
 }

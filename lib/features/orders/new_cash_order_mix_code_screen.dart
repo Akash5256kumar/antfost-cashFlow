@@ -1,31 +1,71 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
+import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/primary_button.dart';
 import 'new_cash_order_quantity_screen.dart';
 import 'order_step_widgets.dart';
 
 // ── Data model ────────────────────────────────────────────────────────────────
+
 
 class MixCodeItem {
   const MixCodeItem({
     required this.code,
     required this.type,
     required this.pricePerM3,
+    required this.aggregateSize,
+    required this.slump,
+    required this.imagePath,
+    required this.mpa,
+    required this.psi,
   });
 
   final String code;
   final String type;
   final int pricePerM3;
+  final String aggregateSize;
+  final String slump;
+  final String imagePath;
+  final String mpa;
+  final String psi;
 }
 
 // ── Sample data ───────────────────────────────────────────────────────────────
 
-const _mixCodes = [
-  MixCodeItem(code: 'C25/30', type: 'Standard Mix',    pricePerM3: 450),
-  MixCodeItem(code: 'C30/37', type: 'Structural Mix',  pricePerM3: 520),
-  MixCodeItem(code: 'C35/45', type: 'High Strength',   pricePerM3: 590),
+const kSampleMixCodes = [
+  MixCodeItem(
+    code: 'C30/37',
+    type: 'General Structural',
+    pricePerM3: 520,
+    aggregateSize: '20 mm',
+    slump: 'S3',
+    imagePath: AppAssets.mixThumb1,
+    mpa: '37 MPa',
+    psi: '5,365 PSI',
+  ),
+  MixCodeItem(
+    code: 'C40/50',
+    type: 'High Strength',
+    pricePerM3: 590,
+    aggregateSize: '20 mm',
+    slump: 'S3',
+    imagePath: AppAssets.mixThumb2,
+    mpa: '50 MPa',
+    psi: '7,252 PSI',
+  ),
+  MixCodeItem(
+    code: 'C25/30',
+    type: 'Foundations',
+    pricePerM3: 450,
+    aggregateSize: '20 mm',
+    slump: 'S3',
+    imagePath: AppAssets.mixThumb3,
+    mpa: '30 MPa',
+    psi: '4,351 PSI',
+  ),
 ];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -38,29 +78,40 @@ class NewCashOrderMixCodeScreen extends StatefulWidget {
       _NewCashOrderMixCodeScreenState();
 }
 
-class _NewCashOrderMixCodeScreenState
-    extends State<NewCashOrderMixCodeScreen> {
+class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
   MixCodeItem? _selected;
+  late final TextEditingController _search;
 
-  Future<void> _openPicker() async {
-    final result = await showModalBottomSheet<MixCodeItem>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: const Color(0x4D000000),
-      builder: (_) => _MixCodePickerSheet(
-        items: _mixCodes,
-        selected: _selected,
-      ),
-    );
-    if (result != null && mounted) setState(() => _selected = result);
+  @override
+  void initState() {
+    super.initState();
+    _search = TextEditingController()..addListener(() => setState(() {}));
+    _selected = kSampleMixCodes.first;
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<MixCodeItem> get _filtered {
+    final q = _search.text.trim().toLowerCase();
+    if (q.isEmpty) return kSampleMixCodes;
+    return kSampleMixCodes
+        .where(
+          (m) =>
+              m.code.toLowerCase().contains(q) ||
+              m.type.toLowerCase().contains(q),
+        )
+        .toList();
   }
 
   void _onContinue() {
-    final mix = _selected ?? _mixCodes.first;
+    if (_selected == null) return;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => NewCashOrderQuantityScreen(mixCode: mix),
+        builder: (_) => NewCashOrderQuantityScreen(mixCode: _selected!),
       ),
     );
   }
@@ -74,46 +125,86 @@ class _NewCashOrderMixCodeScreenState
         bottom: false,
         child: Column(
           children: [
-            const OrderStepAppBar(subtitle: 'Mix Code'),
+            const AppBrandHeader(showBack: true),
             const OrderStepperSection(currentStep: 1),
             Expanded(
               child: ColoredBox(
                 color: kOrderBodyBg,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+                  padding: EdgeInsets.fromLTRB(
+                    context.scaled(16),
+                    context.scaled(24),
+                    context.scaled(16),
+                    context.scaled(32),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Select Product',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: kOrderTextDark,
-                          height: 1.2,
+                      const OrderStepHeading(
+                        title: 'Select Mix Code',
+                        subtitle:
+                            'Choose the right concrete mix for your project.',
+                      ),
+                      SizedBox(height: context.scaledV(16)),
+                      
+                      // Search Bar
+                      Container(
+                        height: context.scaled(52),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(context.scaled(14)),
+                          border: Border.all(color: const Color(0xFFEBEBEB)),
+                        ),
+                        child: TextField(
+                          controller: _search,
+                          style: TextStyle(
+                            fontSize: context.scaled(14),
+                            color: kOrderTextDark,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search code or concrete grade',
+                            hintStyle: TextStyle(
+                              fontSize: context.scaled(13),
+                              color: kOrderLabelGrey,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              size: context.scaled(20),
+                              color: kOrderLabelGrey,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: context.scaled(16),
+                              vertical: context.scaledV(14),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Choose the concrete mix code for your project',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: kOrderTextGrey,
-                          height: 1.43,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      _MixCodeSelectorCard(
-                        selected: _selected,
-                        onTap: _openPicker,
-                      ),
+                      SizedBox(height: context.scaledV(24)),
+
+                      // List
+                      ...List.generate(_filtered.length, (i) {
+                        final item = _filtered[i];
+                        final isSelected = item.code == _selected?.code;
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: context.scaledV(12)),
+                          child: _MixCodeCard(
+                            item: item,
+                            isSelected: isSelected,
+                            onTap: () => setState(() => _selected = item),
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
               ),
             ),
-            OrderStepBottomBar(onContinue: _onContinue),
+            // Custom bottom bar with Right Chevron
+            _CustomBottomBar(
+              onContinue: _selected != null ? _onContinue : null,
+              label: 'Continue to Quantity',
+            ),
           ],
         ),
       ),
@@ -121,261 +212,10 @@ class _NewCashOrderMixCodeScreenState
   }
 }
 
-// ── Selector card (idle state) ────────────────────────────────────────────────
+// ── Mix code card ─────────────────────────────────────────────────────────────
 
-class _MixCodeSelectorCard extends StatelessWidget {
-  const _MixCodeSelectorCard({
-    required this.selected,
-    required this.onTap,
-  });
-
-  final MixCodeItem? selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: AppColors.primary.withValues(alpha: 0.06),
-        child: Container(
-          height: 80,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kOrderFieldBorder),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              // Icon box
-              Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEDE9FB),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.view_in_ar_outlined,
-                  size: 24,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Label
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      selected?.code ?? 'Select a mix code',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: kOrderTextDark,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      selected?.type ?? 'Browse available Mix',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: kOrderTextGrey,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Arrow button
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE0E0E0)),
-                ),
-                child: Transform.rotate(
-                  angle: math.pi / 4,
-                  child: const Icon(Icons.arrow_forward, size: 16, color: kOrderTextDark),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Picker bottom sheet ───────────────────────────────────────────────────────
-
-class _MixCodePickerSheet extends StatefulWidget {
-  const _MixCodePickerSheet({required this.items, required this.selected});
-
-  final List<MixCodeItem> items;
-  final MixCodeItem? selected;
-
-  @override
-  State<_MixCodePickerSheet> createState() => _MixCodePickerSheetState();
-}
-
-class _MixCodePickerSheetState extends State<_MixCodePickerSheet> {
-  late final TextEditingController _search;
-
-  @override
-  void initState() {
-    super.initState();
-    _search = TextEditingController()..addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
-  }
-
-  List<MixCodeItem> get _filtered {
-    final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return widget.items;
-    return widget.items
-        .where((m) =>
-            m.code.toLowerCase().contains(q) ||
-            m.type.toLowerCase().contains(q))
-        .toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-
-    return FractionallySizedBox(
-      heightFactor: 0.7,
-      alignment: Alignment.bottomCenter,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, bottom + 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD6D6D6),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                const Text(
-                  'Select Mix Code',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: kOrderTextDark,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Search
-                _SearchBar(controller: _search),
-                const SizedBox(height: 20),
-
-                // List
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: _filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (_, i) {
-                      final item = _filtered[i];
-                      return _MixCodeTile(
-                        item: item,
-                        isSelected: item.code == widget.selected?.code,
-                        onTap: () => Navigator.of(context).pop(item),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Search bar ────────────────────────────────────────────────────────────────
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.controller});
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      child: TextField(
-        controller: controller,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: kOrderTextDark,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Search Mix Codes..',
-          hintStyle: const TextStyle(fontSize: 16, color: kOrderTextGrey),
-          prefixIcon: const Icon(Icons.search_rounded,
-              size: 22, color: kOrderTextDark),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: const BorderSide(color: Color(0xFF111111), width: 1.5),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: const BorderSide(color: Color(0xFF111111), width: 1.5),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide:
-                const BorderSide(color: AppColors.primary, width: 1.5),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Mix code tile ─────────────────────────────────────────────────────────────
-
-class _MixCodeTile extends StatelessWidget {
-  const _MixCodeTile({
+class _MixCodeCard extends StatelessWidget {
+  const _MixCodeCard({
     required this.item,
     required this.isSelected,
     required this.onTap,
@@ -387,97 +227,179 @@ class _MixCodeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 72,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? AppColors.primary : kOrderFieldBorder,
-              width: isSelected ? 1.5 : 1.0,
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.all(context.scaled(14)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(context.scaled(16)),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : const Color(0xFFE5E7EB),
+            width: isSelected ? 1.5 : 1.0,
           ),
-          child: Row(
-            children: [
-              // Icon box
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEDE9FB),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.view_in_ar_outlined,
-                  size: 22,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Name + type
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      item.code,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: kOrderTextDark,
-                        height: 1.25,
-                      ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? AppColors.primary.withValues(alpha: 0.04)
+                  : Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Image Box
+            SizedBox(
+              width: context.scaled(72),
+              height: context.scaled(72),
+              child: Image.asset(
+                item.imagePath,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(context.scaled(12)),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.type,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: kOrderTextGrey,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
+                    child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF9CA3AF)),
+                  );
+                },
               ),
-
-              // Price
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisAlignment: MainAxisAlignment.center,
+            ),
+            SizedBox(width: context.scaled(14)),
+            
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'AED ${item.pricePerM3}',
-                    style: const TextStyle(
-                      fontSize: 16,
+                    item.code,
+                    style: TextStyle(
+                      fontSize: context.scaled(18),
                       fontWeight: FontWeight.w700,
-                      color: kOrderTextDark,
-                      height: 1.25,
+                      color: const Color(0xFF0F172A),
                     ),
                   ),
-                  const Text(
-                    'per m³',
+                  SizedBox(height: context.scaledV(2)),
+                  Text(
+                    item.type,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.scaled(13),
                       fontWeight: FontWeight.w400,
-                      color: kOrderTextGrey,
-                      height: 1.3,
+                      color: const Color(0xFF64748B),
                     ),
+                  ),
+                  SizedBox(height: context.scaledV(8)),
+                  Row(
+                    children: [
+                      _Badge(label: item.aggregateSize),
+                      SizedBox(width: context.scaled(6)),
+                      _Badge(label: item.slump),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            
+            // Radio button
+            Container(
+              width: context.scaled(22),
+              height: context.scaled(22),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : const Color(0xFFD1D5DB),
+                  width: isSelected ? 2.0 : 1.5,
+                ),
+              ),
+              child: isSelected
+                  ? Center(
+                      child: Container(
+                        width: context.scaled(10),
+                        height: context.scaled(10),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.scaled(10),
+        vertical: context.scaledV(4),
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEEDF7),
+        borderRadius: BorderRadius.circular(context.scaled(12)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: context.scaled(11.5),
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF1E1B4B),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Custom Bottom Bar ────────────────────────────────────────────────────────
+
+class _CustomBottomBar extends StatelessWidget {
+  const _CustomBottomBar({
+    required this.onContinue,
+    required this.label,
+  });
+
+  final VoidCallback? onContinue;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomPadding = bottomInset > 0
+        ? bottomInset + context.scaled(12)
+        : MediaQuery.paddingOf(context).bottom + context.scaled(20);
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: kOrderBorderSect, width: 1)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          context.scaled(16),
+          context.scaled(12),
+          context.scaled(16),
+          bottomPadding,
+        ),
+        child: PrimaryButton(
+          arrow: true,
+          label: label,
+          onPressed: onContinue,
         ),
       ),
     );

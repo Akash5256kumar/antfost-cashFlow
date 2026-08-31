@@ -4,16 +4,17 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
 import 'domain/entities/invoice.dart';
 import 'presentation/bloc/invoices_bloc.dart';
 import 'presentation/bloc/invoices_event.dart';
 import 'presentation/bloc/invoices_state.dart';
 
 // ── Local palette ─────────────────────────────────────────────────────────────
-const Color _textDark = Color(0xFF1A1A1A);
-const Color _textGrey = Color(0xFF9E9E9E);
-const Color _fieldBorder = Color(0xFFE8E8E8);
-const Color _bodyBg = Color(0xFFF2F2F7);
+const Color _textDark = AppColors.textPrimary;
+const Color _textGrey = AppColors.textSecondary;
+const Color _fieldBorder = AppColors.cardBorder;
+const Color _bodyBg = AppColors.background;
 const Color _iconBg = Color(0xFFF1F1F1);
 
 const _filters = ['All', 'Receipts', 'VAT Invoices', 'Ready'];
@@ -53,25 +54,28 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             if (state is InvoicesError) {
               ScaffoldMessenger.of(context)
                 ..clearSnackBars()
-                ..showSnackBar(SnackBar(
-                  content: Text(state.message),
-                  action: SnackBarAction(
-                    label: 'Retry',
-                    onPressed: () {
-                      context
-                          .read<InvoicesBloc>()
-                          .add(const RetryInvoicesEvent());
-                    },
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    action: SnackBarAction(
+                      label: 'Retry',
+                      onPressed: () {
+                        context.read<InvoicesBloc>().add(
+                          const RetryInvoicesEvent(),
+                        );
+                      },
+                    ),
                   ),
-                ));
+                );
             } else if (state is InvoicesInitial) {
               context.read<InvoicesBloc>().add(const FetchInvoicesEvent());
             }
           },
           builder: (context, state) {
             // Determine active filter index for chip highlighting.
-            final activeFilterIndex =
-                state is InvoicesSuccess ? state.filterIndex : 0;
+            final activeFilterIndex = state is InvoicesSuccess
+                ? state.filterIndex
+                : 0;
 
             return Column(
               children: [
@@ -80,47 +84,52 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
                 // Search
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  padding: EdgeInsets.fromLTRB(
+                    context.scaled(16),
+                    context.scaled(16),
+                    context.scaled(16),
+                    0,
+                  ),
                   child: _SearchBar(
                     controller: _searchController,
                     onChanged: (query) {
-                      context
-                          .read<InvoicesBloc>()
-                          .add(SearchInvoicesEvent(query));
+                      context.read<InvoicesBloc>().add(
+                        SearchInvoicesEvent(query),
+                      );
                     },
                   ),
                 ),
 
                 // Filter chips
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
+                  padding: EdgeInsets.fromLTRB(0, context.scaled(14), 0, 0),
                   child: SizedBox(
-                    height: 38,
+                    height: context.scaled(38),
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.scaled(16),
+                      ),
                       itemCount: _filters.length,
                       separatorBuilder: (context, index) =>
-                          const SizedBox(width: 8),
+                          SizedBox(width: context.scaled(8)),
                       itemBuilder: (_, i) => _FilterChip(
                         label: _filters[i],
                         isSelected: activeFilterIndex == i,
                         onTap: () {
-                          context
-                              .read<InvoicesBloc>()
-                              .add(FilterInvoicesEvent(i));
+                          context.read<InvoicesBloc>().add(
+                            FilterInvoicesEvent(i),
+                          );
                         },
                       ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: context.scaledV(16)),
 
                 // List area — driven by BLoC state
-                Expanded(
-                  child: _buildListArea(state),
-                ),
+                Expanded(child: _buildListArea(state)),
               ],
             );
           },
@@ -138,23 +147,28 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     if (state is InvoicesSuccess) {
       final items = state.filteredInvoices;
       if (items.isEmpty) {
-        return const Center(
+        return Center(
           child: Text(
             'No invoices found.',
-            style: TextStyle(fontSize: 15, color: _textGrey),
+            style: TextStyle(fontSize: context.scaled(15), color: _textGrey),
           ),
         );
       }
       return ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        padding: EdgeInsets.fromLTRB(
+          context.scaled(16),
+          0,
+          context.scaled(16),
+          context.scaled(32),
+        ),
         itemCount: items.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) =>
+            SizedBox(height: context.scaledV(12)),
         itemBuilder: (_, i) => _InvoiceCard(
           item: items[i],
-          onTap: () => Navigator.of(context).pushNamed(
-            AppRoutes.invoiceDetails,
-            arguments: items[i],
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).pushNamed(AppRoutes.invoiceDetails, arguments: items[i]),
         ),
       );
     }
@@ -169,17 +183,22 @@ class _ShimmerList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      padding: EdgeInsets.fromLTRB(
+        context.scaled(16),
+        0,
+        context.scaled(16),
+        context.scaled(32),
+      ),
       itemCount: 4,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => SizedBox(height: context.scaledV(12)),
       itemBuilder: (_, __) => Shimmer.fromColors(
         baseColor: const Color(0xFFE0E0E0),
         highlightColor: const Color(0xFFF5F5F5),
         child: Container(
-          height: 100,
+          height: context.scaled(100),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(context.scaled(16)),
           ),
         ),
       ),
@@ -193,26 +212,31 @@ class _InvoicesAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(
+        context.scaled(4),
+        context.scaled(8),
+        context.scaled(16),
+        context.scaled(8),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 44,
-            height: 44,
+            width: context.scaled(44),
+            height: context.scaled(44),
             child: IconButton(
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded, size: 24),
+              icon: Icon(Icons.arrow_back_rounded, size: context.scaled(24)),
               color: AppColors.textPrimary,
               padding: EdgeInsets.zero,
               splashRadius: 22,
             ),
           ),
-          const SizedBox(width: 4),
-          const Text(
+          SizedBox(width: context.scaled(4)),
+          Text(
             'Invoices',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: context.scaled(22),
               fontWeight: FontWeight.w600,
               color: _textDark,
               height: 1.2,
@@ -233,32 +257,41 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
+      height: context.scaled(56),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(0),
+        borderRadius: BorderRadius.circular(context.scaled(14)),
         border: Border.all(color: const Color(0xFF111111), width: 1.5),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 16),
-          const Icon(Icons.search_rounded, size: 22, color: _textDark),
-          const SizedBox(width: 10),
+          SizedBox(width: context.scaled(16)),
+          Icon(
+            Icons.search_rounded,
+            size: context.scaled(22),
+            color: _textDark,
+          ),
+          SizedBox(width: context.scaled(10)),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              style: const TextStyle(fontSize: 16, color: _textDark),
-              decoration: const InputDecoration(
+              style: TextStyle(fontSize: context.scaled(16), color: _textDark),
+              decoration: InputDecoration(
                 hintText: 'Search By Order ID or type',
-                hintStyle: TextStyle(fontSize: 16, color: _textGrey),
+                hintStyle: TextStyle(
+                  fontSize: context.scaled(16),
+                  color: _textGrey,
+                ),
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: context.scaled(10),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: context.scaled(16)),
         ],
       ),
     );
@@ -282,10 +315,13 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.scaled(18),
+          vertical: context.scaled(8),
+        ),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(context.scaled(20)),
           border: Border.all(
             color: isSelected ? AppColors.primary : _fieldBorder,
           ),
@@ -293,7 +329,7 @@ class _FilterChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: context.scaled(14),
             fontWeight: FontWeight.w500,
             color: isSelected ? Colors.white : _textDark,
           ),
@@ -316,10 +352,10 @@ class _InvoiceCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(context.scaled(13)),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(context.scaled(14)),
           border: Border.all(color: _fieldBorder),
         ),
         child: Column(
@@ -330,50 +366,50 @@ class _InvoiceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: context.scaled(34),
+                  height: context.scaled(34),
                   decoration: BoxDecoration(
                     color: _iconBg,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(context.scaled(8)),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.description_outlined,
-                    size: 22,
+                    size: context.scaled(18),
                     color: _textGrey,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: context.scaled(10)),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         item.id,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                        style: TextStyle(
+                          fontSize: context.scaled(13.5),
+                          fontWeight: FontWeight.w600,
                           color: _textDark,
-                          height: 1.3,
+                          height: 1.25,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: context.scaledV(2)),
                       Text(
                         'Order ID: ${item.orderId}',
-                        style: const TextStyle(
-                          fontSize: 13,
+                        style: TextStyle(
+                          fontSize: context.scaled(11.5),
                           color: _textGrey,
-                          height: 1.3,
+                          height: 1.25,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: context.scaled(8)),
                 _BadgesRow(types: item.types, status: item.status),
               ],
             ),
 
-            const SizedBox(height: 14),
+            SizedBox(height: context.scaledV(10)),
 
             // Total amount + date
             Row(
@@ -382,19 +418,19 @@ class _InvoiceCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Total Amount',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: context.scaled(11.5),
                         color: _textGrey,
-                        height: 1.3,
+                        height: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: context.scaledV(3)),
                     Text(
                       'AED ${_fmt(item.totalAmount)}',
-                      style: const TextStyle(
-                        fontSize: 22,
+                      style: TextStyle(
+                        fontSize: context.scaled(16),
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
                         height: 1.2,
@@ -405,10 +441,10 @@ class _InvoiceCard extends StatelessWidget {
                 const Spacer(),
                 Text(
                   item.date,
-                  style: const TextStyle(
-                    fontSize: 13,
+                  style: TextStyle(
+                    fontSize: context.scaled(11.5),
                     color: _textGrey,
-                    height: 1.3,
+                    height: 1.2,
                   ),
                 ),
               ],
@@ -445,7 +481,7 @@ class _BadgesRow extends StatelessWidget {
     if (status == InvoiceStatus.vatInvoiceReady) {
       return _Badge(
         label: 'VAT Invoice Ready',
-        bg: const Color(0xFFEDE9FB),
+        bg: AppColors.primaryContainer,
         fg: AppColors.primary,
       );
     }
@@ -455,10 +491,10 @@ class _BadgesRow extends StatelessWidget {
         if (types.contains(InvoiceType.vat)) ...[
           _Badge(
             label: 'VAT',
-            bg: const Color(0xFFEDE9FB),
+            bg: AppColors.primaryContainer,
             fg: AppColors.primary,
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: context.scaled(4)),
         ],
         _StatusBadge(status: status),
       ],
@@ -475,14 +511,21 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.scaled(8),
+        vertical: context.scaled(3),
+      ),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(context.scaled(16)),
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+        style: TextStyle(
+          fontSize: context.scaled(10.5),
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
       ),
     );
   }
@@ -508,7 +551,7 @@ class _StatusBadge extends StatelessWidget {
       InvoiceStatus.draft => ('Draft', const Color(0xFFF1F1F1), _textDark),
       InvoiceStatus.vatInvoiceReady => (
         'Ready',
-        const Color(0xFFEDE9FB),
+        AppColors.primaryContainer,
         AppColors.primary,
       ),
     };

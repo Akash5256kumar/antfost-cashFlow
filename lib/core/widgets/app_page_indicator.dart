@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/config/app_durations.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
+import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 
 class AppPageIndicator extends StatelessWidget {
@@ -23,11 +24,12 @@ class AppPageIndicator extends StatelessWidget {
         itemCount,
         (index) => AnimatedContainer(
           duration: AppDurations.indicatorAnimation,
-          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
+          // Figma: `gap-2.5` (10px) between dots — half that per side.
+          margin: EdgeInsets.symmetric(horizontal: context.scaled(5)),
           width: index == currentIndex
-              ? AppSpacing.indicatorActiveWidth
-              : AppSpacing.indicatorSize,
-          height: AppSpacing.indicatorSize,
+              ? AppSpacing.indicatorActiveWidth(context)
+              : AppSpacing.indicatorInactiveWidth(context),
+          height: AppSpacing.indicatorSize(context),
           decoration: BoxDecoration(
             color: index == currentIndex
                 ? AppColors.primary

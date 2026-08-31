@@ -20,24 +20,26 @@ class AppOutlineButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: AppSpacing.buttonHeight,
+      height: AppSpacing.buttonHeight(context),
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
           side: const BorderSide(color: AppColors.outlineBtnBorder, width: 1.2),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
+            borderRadius: BorderRadius.circular(
+              AppSpacing.buttonRadius(context),
+            ),
           ),
         ),
         child: icon == null
-            ? Text(label, style: AppTextStyles.outlineButton)
+            ? Text(label, style: AppTextStyles.outlineButton(context))
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(icon, size: 18),
                   const SizedBox(width: 8),
-                  Text(label, style: AppTextStyles.outlineButton),
+                  Text(label, style: AppTextStyles.outlineButton(context)),
                 ],
               ),
       ),

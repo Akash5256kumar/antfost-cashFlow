@@ -1,499 +1,228 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_text_styles.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/app_illustration_image.dart';
+import '../../core/widgets/primary_button.dart';
+import '../orders/loading_complete_screen.dart';
 
-// ── Colours ───────────────────────────────────────────────────────────────────
-const Color _textDark = Color(0xFF1A1A1A);
-const Color _textGrey = Color(0xFF9E9E9E);
-const Color _fieldBorder = Color(0xFFE8E8E8);
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-
+/// Ported from the new Figma design's `screens/PaymentConfirmed.tsx`.
 class PaymentSuccessScreen extends StatelessWidget {
-  const PaymentSuccessScreen({super.key});
+  const PaymentSuccessScreen({
+    super.key,
+    this.orderRef = 'AF-2057',
+    this.totalAmount = 29820.00,
+    this.paymentMethod = 'Card / Payment Link',
+    this.reference = 'ANT-849271',
+  });
+
+  final String orderRef;
+  final double totalAmount;
+  final String paymentMethod;
+  final String reference;
+
+  String _fmtAmount(double v) {
+    final s = v.toStringAsFixed(2);
+    final parts = s.split('.');
+    final buf = StringBuffer();
+    final d = parts[0];
+    for (var i = 0; i < d.length; i++) {
+      if (i > 0 && (d.length - i) % 3 == 0) buf.write(',');
+      buf.write(d[i]);
+    }
+    return 'AED $buf.${parts[1]}';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final rows = [
+      (Icons.receipt_long_rounded, 'Order', orderRef),
+      (Icons.credit_card_rounded, 'Payment Method', paymentMethod),
+      (Icons.description_outlined, 'Reference', reference),
+    ];
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        bottom: false,
+      backgroundColor: AppColors.background,
+      appBar: const AppBrandHeader(showBack: true),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // App bar
-            _SuccessAppBar(),
-
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Purple hero section
-                    _HeroSection(),
-
-                    // White body
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-                      child: Column(
-                        children: [
-                          // Order ID
-                          _OrderIdCard(orderId: 'ORD-548581'),
-                          const SizedBox(height: 12),
-                          // Order details
-                          _OrderDetailsCard(),
-                          const SizedBox(height: 16),
-                          // Preparing text
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Text('🚚', style: TextStyle(fontSize: 16)),
-                              SizedBox(width: 8),
-                              Text(
-                                "We're preparing your delivery",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: _textGrey,
-                                  height: 1.3,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          // Track Order button
-                          _GradientButton(
-                            label: 'Track Order',
-                            onPressed: () {},
-                          ),
-                          const SizedBox(height: 14),
-                          // Back to Home
-                          GestureDetector(
-                            onTap: () =>
-                                Navigator.of(
-                                  context,
-                                  rootNavigator: true,
-                                ).pushNamedAndRemoveUntil(
-                                  AppRoutes.home,
-                                  (_) => false,
-                                ),
-                            child: const Text(
-                              'Back to Home',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.primary,
-                                decoration: TextDecoration.underline,
-                                decorationColor: AppColors.primary,
-                                height: 1.3,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── App bar ───────────────────────────────────────────────────────────────────
-
-class _SuccessAppBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded, size: 24),
-              color: AppColors.textPrimary,
-              padding: EdgeInsets.zero,
-              splashRadius: 22,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Payment',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: _textDark,
-                  height: 1.2,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Order Status',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: _textGrey,
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Hero section (purple bg) ──────────────────────────────────────────────────
-
-class _HeroSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 36, 24, 40),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primaryGradientStart,
-            AppColors.primaryGradientEnd,
-          ],
-        ),
-      ),
-      child: Column(
-        children: [
-          // Badge
-          Container(
-            width: 72,
-            height: 72,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.verified_rounded,
-              size: 44,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Payment successful. Thank you\nfor trusting Antfast.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Estimated Waiting Time: ~30 minutes',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: Colors.white70,
-              height: 1.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Order ID card ─────────────────────────────────────────────────────────────
-
-class _OrderIdCard extends StatelessWidget {
-  const _OrderIdCard({required this.orderId});
-  final String orderId;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _fieldBorder),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Order ID',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _textGrey,
-                    height: 1.33,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  orderId,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: _textDark,
-                    height: 1.25,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: orderId));
-            },
-            icon: const Icon(Icons.copy_rounded, size: 20, color: _textGrey),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Order details card ────────────────────────────────────────────────────────
-
-class _OrderDetailsCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _fieldBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Status row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Status',
-                style: TextStyle(fontSize: 13, color: _textGrey),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 5,
-                ),
+            const SizedBox(height: 8),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(8), // Space for outer ring
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEDE9FB),
-                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.transparent, // Transparent background
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
                 ),
-                child: const Text(
-                  'Waiting for Processing',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.04), // Even lighter blue
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 38,
                     color: AppColors.primary,
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const _DashedDivider(),
-          const SizedBox(height: 10),
-
-          // Order info rows
-          _SuccessInfoRow(emoji: '📍', text: 'Downtown Project'),
-          const SizedBox(height: 8),
-          _SuccessInfoRow(emoji: '📦', text: 'C25/30 • 50 m³'),
-          const SizedBox(height: 8),
-          _SuccessInfoRow(emoji: '📅', text: 'Thu 10 Feb 2026'),
-          const SizedBox(height: 8),
-          _SuccessInfoRow(emoji: '⏰', text: '6 AM - 12 PM (±6 hrs)'),
-          const SizedBox(height: 8),
-          _SuccessInfoRow(emoji: '🚚', text: '25 m³ • 3 trips'),
-
-          const SizedBox(height: 10),
-          const _DashedDivider(),
-          const SizedBox(height: 10),
-
-          // Tags
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              _Tag(label: 'Technician Required'),
-              _Tag(label: 'Pump (42-52)'),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-          const _DashedDivider(),
-          const SizedBox(height: 10),
-
-          // Total
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
-                'Total Paid',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: _textDark,
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    'Payment Confirmed',
+                    style: AppTextStyles.authScreenTitle(context).copyWith(fontSize: 24),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.successContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        Text('Confirmed', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: AppIllustrationImage(
+                asset: AppAssets.artApprovedReceipt,
+                height: 150,
+                width: 280,
+                borderRadius: 0,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Column(
+                children: [
+                  Text('Total Amount', style: AppTextStyles.cardSubtitle(context)),
+                  Text(_fmtAmount(totalAmount), style: AppTextStyles.amountLarge(context).copyWith(fontSize: 32)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Column(
+                children: List.generate(rows.length, (i) {
+                  final r = rows[i];
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    decoration: BoxDecoration(
+                      border: i < rows.length - 1
+                          ? const Border(bottom: BorderSide(color: AppColors.cardBorder))
+                          : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F3FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(r.$1, size: 20, color: const Color(0xFF8B5CF6)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r.$2, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                              const SizedBox(height: 2),
+                              Text(r.$3, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F3FF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time_rounded, size: 15, color: Color(0xFF8B5CF6)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'ANTFAST is preparing your order proposal.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF8B5CF6)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            PrimaryButton(
+              arrow: true,
+              label: 'View Order Status',
+              onPressed: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => LoadingCompleteScreen(orderId: orderRef),
                 ),
               ),
-              Text(
-                'AED 11,962.50',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                  height: 1.2,
+            ),
+            const SizedBox(height: 10),
+            PrimaryButton(
+              variant: PrimaryButtonVariant.outline,
+              icon: const Icon(Icons.download_rounded, size: 18, color: AppColors.primary),
+              label: 'Download Receipt',
+              onPressed: () {},
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false),
+                child: Text(
+                  'Back to Home',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
                 ),
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SuccessInfoRow extends StatelessWidget {
-  const _SuccessInfoRow({required this.emoji, required this.text});
-  final String emoji;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(emoji, style: const TextStyle(fontSize: 15)),
-        const SizedBox(width: 8),
-        Text(
-          text,
-          style: const TextStyle(fontSize: 14, color: _textDark, height: 1.3),
-        ),
-      ],
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F1F1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _fieldBorder),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 13, color: _textDark, height: 1.2),
-      ),
-    );
-  }
-}
-
-// ── Gradient button ───────────────────────────────────────────────────────────
-
-class _GradientButton extends StatelessWidget {
-  const _GradientButton({required this.label, required this.onPressed});
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 58,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              AppColors.primaryGradientStart,
-              AppColors.primaryGradientEnd,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
             ),
-            padding: EdgeInsets.zero,
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-              letterSpacing: 0.2,
-            ),
-          ),
+            SizedBox(height: MediaQuery.paddingOf(context).bottom + 10), // Extra space to prevent bottom nav overlap
+          ],
         ),
       ),
-    );
-  }
-}
-
-// ── Dashed divider ────────────────────────────────────────────────────────────
-
-class _DashedDivider extends StatelessWidget {
-  const _DashedDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (_, constraints) {
-        const dashW = 8.0;
-        const dashGap = 5.0;
-        final count = (constraints.maxWidth / (dashW + dashGap)).floor();
-        return Row(
-          children: List.generate(
-            count,
-            (_) => Padding(
-              padding: const EdgeInsets.only(right: dashGap),
-              child: const SizedBox(
-                width: dashW,
-                height: 1,
-                child: ColoredBox(color: Color(0xFFE0E0E0)),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

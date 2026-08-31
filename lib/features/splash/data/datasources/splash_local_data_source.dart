@@ -25,7 +25,7 @@ class MockSplashLocalDataSource implements SplashLocalDataSource {
     // Simulate the splash screen display delay.
     await _fakeSplashDelay();
 
-    // Mock decision: no cached user, onboarding not yet shown → getStarted.
-    return const AppLaunchState(destination: AppLaunchDestination.getStarted);
+    // Mock decision: no cached user, onboarding not yet shown → onboarding.
+    return const AppLaunchState(destination: AppLaunchDestination.onboarding);
   }
 }

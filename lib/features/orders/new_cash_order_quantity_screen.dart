@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../app/config/app_assets.dart';
+import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_scale.dart';
+import '../../core/widgets/app_headers.dart';
+import '../../core/widgets/primary_button.dart';
+import 'agreement_summary_screen.dart';
+import 'operations_agreement_sheet.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_schedule_screen.dart';
 import 'order_step_widgets.dart';
@@ -19,10 +26,8 @@ class NewCashOrderQuantityScreen extends StatefulWidget {
 class _NewCashOrderQuantityScreenState
     extends State<NewCashOrderQuantityScreen> {
   int _quantity = 25;
+  bool _isAgreementAccepted = false;
 
-  static const List<int> _presets = [10, 25, 50, 100];
-
-  double get _total => widget.mixCode.pricePerM3 * _quantity * 1.05;
   bool get _needsReview => _quantity > 100;
 
   void _increment() => setState(() => _quantity++);
@@ -30,16 +35,32 @@ class _NewCashOrderQuantityScreenState
     if (_quantity > 1) setState(() => _quantity--);
   }
 
-  String _formatTotal(double amount) {
-    final s = amount.toStringAsFixed(1);
-    final parts = s.split('.');
-    final buf = StringBuffer();
-    final digits = parts[0];
-    for (var i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) buf.write(',');
-      buf.write(digits[i]);
+  Future<void> _handleViewAgreement() async {
+    if (_isAgreementAccepted) {
+      OperationsAgreementSheet.show(
+        context,
+        approvedQuantity: _quantity,
+      );
+      return;
     }
-    return 'AED $buf.${parts[1]}';
+
+    final accepted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AgreementSummaryScreen(
+          concreteGrade: widget.mixCode.code,
+          approvedVolume: _quantity,
+          buttonText: 'Accept Agreement',
+        ),
+      ),
+    );
+
+    if (accepted == true && mounted) {
+      setState(() => _isAgreementAccepted = true);
+      OperationsAgreementSheet.show(
+        context,
+        approvedQuantity: _quantity,
+      );
+    }
   }
 
   @override
@@ -48,41 +69,46 @@ class _NewCashOrderQuantityScreenState
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
-            const OrderStepAppBar(subtitle: 'Quantity'),
+            const AppBrandHeader(showBack: true),
             const OrderStepperSection(currentStep: 2),
 
             Expanded(
               child: ColoredBox(
                 color: kOrderBodyBg,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+                  padding: EdgeInsets.fromLTRB(
+                    context.scaled(20),
+                    context.scaled(20),
+                    context.scaled(20),
+                    context.scaled(32),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Section heading
-                      const Text(
-                        'Quantity',
+                      Text(
+                        'Enter Quantity',
                         style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: kOrderTextDark,
-                          height: 1.2,
+                          fontSize: context.scaled(24),
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F172A),
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Enter the volume you need in cubic meters',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: kOrderTextGrey,
-                          height: 1.43,
+                      SizedBox(height: context.scaledV(16)),
+
+                      // Hero illustration
+                      Center(
+                        child: SizedBox(
+                          height: context.scaled(200),
+                          child: Image.asset(
+                            AppAssets.artConcreteCube,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: context.scaledV(20)),
 
                       // ── +/- stepper card ──────────────────────────
                       _QuantityStepperCard(
@@ -90,53 +116,33 @@ class _NewCashOrderQuantityScreenState
                         onDecrement: _decrement,
                         onIncrement: _increment,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: context.scaledV(20)),
 
-                      // ── Preset chips ──────────────────────────────
-                      Row(
-                        children: _presets
-                            .map(
-                              (v) => Expanded(
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    right: v == _presets.last ? 0 : 8,
-                                  ),
-                                  child: _PresetChip(
-                                    value: v,
-                                    isSelected: _quantity == v,
-                                    onTap: () =>
-                                        setState(() => _quantity = v),
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
+                      // ── Inline Continue Button ────────────────────
+                      PrimaryButton(
+                        arrow: true,
+                        label: 'Continue to Schedule',
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => NewCashOrderScheduleScreen(
+                              mixCode: widget.mixCode,
+                              quantity: _quantity,
+                            ),
+                          ),
+                        ),
                       ),
 
                       // ── Manual review warning ─────────────────────
                       if (_needsReview) ...[
-                        const SizedBox(height: 16),
-                        const _ManualReviewBanner(),
+                        SizedBox(height: context.scaledV(20)),
+                        _ManualReviewBanner(
+                          mixCode: widget.mixCode.code,
+                          quantity: _quantity,
+                          isAccepted: _isAgreementAccepted,
+                          onTap: _handleViewAgreement,
+                        ),
                       ],
                     ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Estimated total bar ───────────────────────────────────
-            _EstimatedTotalBar(
-              formula:
-                  '${widget.mixCode.pricePerM3} × $_quantity m³ + 5% VAT',
-              total: _formatTotal(_total),
-            ),
-
-            OrderStepBottomBar(
-              onContinue: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => NewCashOrderScheduleScreen(
-                    mixCode: widget.mixCode,
-                    quantity: _quantity,
                   ),
                 ),
               ),
@@ -164,56 +170,91 @@ class _QuantityStepperCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 96,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kOrderFieldBorder),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: context.scaled(16),
+        vertical: context.scaledV(20),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
+      decoration: BoxDecoration(
+        color: Colors.transparent, // "ander bhi whi color rahga jo bahar j"
+        borderRadius: BorderRadius.circular(context.scaled(20)),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+      ),
+      child: Column(
         children: [
-          // Minus
-          _CircleButton(label: '−', onTap: onDecrement),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Minus
+              _StepperButton(
+                icon: Icons.remove_rounded,
+                onTap: onDecrement,
+              ),
 
-          // Quantity display
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '$quantity',
-                  style: const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w700,
-                    color: kOrderTextDark,
-                    height: 1.1,
+              // Quantity display
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$quantity',
+                    style: TextStyle(
+                      fontSize: context.scaled(64),
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                      height: 1.0,
+                      letterSpacing: -1.0,
+                    ),
                   ),
-                ),
-                const Text(
-                  'cubic meters',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: kOrderTextGrey,
-                    height: 1.3,
+                  SizedBox(height: context.scaledV(4)),
+                  Text(
+                    'm³',
+                    style: TextStyle(
+                      fontSize: context.scaled(15),
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF64748B),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+
+              // Plus
+              _StepperButton(
+                icon: Icons.add_rounded,
+                onTap: onIncrement,
+              ),
+            ],
           ),
+          SizedBox(height: context.scaledV(20)),
 
-          // Plus
-          _CircleButton(label: '+', onTap: onIncrement),
+          // Helper note inside card
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.edit_outlined,
+                size: context.scaled(16),
+                color: const Color(0xFF94A3B8),
+              ),
+              SizedBox(width: context.scaled(8)),
+              Text(
+                'Enter exact required volume',
+                style: TextStyle(
+                  fontSize: context.scaled(12.5),
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _CircleButton extends StatelessWidget {
-  const _CircleButton({required this.label, required this.onTap});
-  final String label;
+class _StepperButton extends StatelessWidget {
+  const _StepperButton({required this.icon, required this.onTap});
+  final IconData icon;
   final VoidCallback onTap;
 
   @override
@@ -221,188 +262,218 @@ class _CircleButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF1F1F1),
-          shape: BoxShape.circle,
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w300,
-            color: kOrderTextDark,
-            height: 1,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Preset chip ───────────────────────────────────────────────────────────────
-
-class _PresetChip extends StatelessWidget {
-  const _PresetChip({
-    required this.value,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final int value;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 44,
+        width: context.scaled(60),
+        height: context.scaled(48),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFE0E0E0),
-          ),
+          color: const Color(0xFFF0EEFE),
+          borderRadius: BorderRadius.circular(context.scaled(14)),
         ),
-        child: Text(
-          '$value m³',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : kOrderTextDark,
-            height: 1.2,
-          ),
+        child: Icon(
+          icon,
+          size: context.scaled(24),
+          color: AppColors.primary,
         ),
       ),
     );
   }
 }
+
+
 
 // ── Manual review banner ──────────────────────────────────────────────────────
 
 class _ManualReviewBanner extends StatelessWidget {
-  const _ManualReviewBanner();
+  const _ManualReviewBanner({
+    required this.mixCode,
+    required this.quantity,
+    this.isAccepted = false,
+    this.onTap,
+  });
+
+  final String mixCode;
+  final int quantity;
+  final bool isAccepted;
+  final VoidCallback? onTap;
 
   static const Color _warningColor = Color(0xFFFF5CA8);
-  static const Color _bgColor      = Color(0xFFFFF0F5);
+  static const Color _bgColor = Color(0xFFFFF0F5);
+  static const Color _acceptedColor = Color(0xFF5A45FF);
+  static const Color _acceptedBgColor = Color(0xFFF3F0FF);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            size: 20,
-            color: _warningColor,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
+    if (isAccepted) {
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(context.scaled(14)),
+        decoration: BoxDecoration(
+          color: _acceptedBgColor,
+          borderRadius: BorderRadius.circular(context.scaled(12)),
+          border: Border.all(color: _acceptedColor.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Manual Review Required',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _warningColor,
-                    height: 1.3,
-                  ),
+              children: [
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: context.scaled(20),
+                  color: const Color(0xFF22C55E),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Orders above 100 m³ require manual feasibility review. Our team will contact you.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF444444),
-                    height: 1.45,
+                SizedBox(width: context.scaled(10)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Feasibility Agreement Accepted',
+                        style: TextStyle(
+                          fontSize: context.scaled(14),
+                          fontWeight: FontWeight.w600,
+                          color: _acceptedColor,
+                          height: 1.3,
+                        ),
+                      ),
+                      SizedBox(height: context.scaledV(4)),
+                      Text(
+                        'Agreement approved for $quantity m³. Operations schedule is locked.',
+                        style: TextStyle(
+                          fontSize: context.scaled(13),
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF444444),
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            SizedBox(height: context.scaledV(10)),
+            GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.scaled(12),
+                  vertical: context.scaledV(6),
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(context.scaled(8)),
+                  border:
+                      Border.all(color: _acceptedColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View Operations Summary',
+                      style: TextStyle(
+                        fontSize: context.scaled(12.5),
+                        fontWeight: FontWeight.w600,
+                        color: _acceptedColor,
+                      ),
+                    ),
+                    SizedBox(width: context.scaled(4)),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: context.scaled(11),
+                      color: _acceptedColor,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(context.scaled(14)),
+      decoration: BoxDecoration(
+        color: _bgColor,
+        borderRadius: BorderRadius.circular(context.scaled(12)),
       ),
-    );
-  }
-}
-
-// ── Estimated total bar ───────────────────────────────────────────────────────
-
-class _EstimatedTotalBar extends StatelessWidget {
-  const _EstimatedTotalBar({
-    required this.formula,
-    required this.total,
-  });
-
-  final String formula;
-  final String total;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const DashedDivider(),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: context.scaled(20),
+                color: _warningColor,
+              ),
+              SizedBox(width: context.scaled(10)),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Estimated total',
+                    Text(
+                      'Manual Review Required',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: context.scaled(14),
                         fontWeight: FontWeight.w600,
-                        color: kOrderTextDark,
+                        color: _warningColor,
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: context.scaledV(4)),
                     Text(
-                      formula,
-                      style: const TextStyle(
-                        fontSize: 12,
+                      'Orders above 100 m³ require manual feasibility review. Our team will contact you.',
+                      style: TextStyle(
+                        fontSize: context.scaled(13),
                         fontWeight: FontWeight.w400,
-                        color: kOrderTextGrey,
-                        height: 1.3,
+                        color: const Color(0xFF444444),
+                        height: 1.45,
                       ),
                     ),
                   ],
                 ),
-                const Spacer(),
-                Text(
-                  total,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: kOrderTextDark,
-                    height: 1.2,
+              ),
+            ],
+          ),
+          SizedBox(height: context.scaledV(10)),
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.scaled(12),
+                vertical: context.scaledV(6),
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(context.scaled(8)),
+                border: Border.all(color: _warningColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View Feasibility Agreement',
+                    style: TextStyle(
+                      fontSize: context.scaled(12.5),
+                      fontWeight: FontWeight.w600,
+                      color: _warningColor,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(width: context.scaled(4)),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: context.scaled(11),
+                    color: _warningColor,
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -27,20 +27,20 @@ class AppGradientButton extends StatelessWidget {
             AppColors.primaryGradientEnd,
           ],
         ),
-        borderRadius: BorderRadius.circular(AppRadii.button),
+        borderRadius: BorderRadius.circular(AppRadii.button(context)),
       ),
       child: SizedBox(
         width: double.infinity,
-        height: AppSpacing.buttonHeight,
+        height: AppSpacing.buttonHeight(context),
         child: TextButton(
           onPressed: onPressed,
           style: TextButton.styleFrom(
             foregroundColor: AppColors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadii.button),
+              borderRadius: BorderRadius.circular(AppRadii.button(context)),
             ),
           ),
-          child: Text(label, style: AppTextStyles.primaryButton),
+          child: Text(label, style: AppTextStyles.primaryButton(context)),
         ),
       ),
     );
