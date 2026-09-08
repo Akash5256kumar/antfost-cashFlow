@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
-import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/app_outline_button.dart';
+import '../../core/uploads/document_picker_service.dart';
 
 class UploadPaymentProofScreen extends StatefulWidget {
   const UploadPaymentProofScreen({super.key, this.totalAmount = 29820.00});
@@ -20,7 +20,7 @@ class UploadPaymentProofScreen extends StatefulWidget {
 }
 
 class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
-  bool _uploaded = false;
+  SelectedDocument? _paymentProof;
 
   static const _bankDetails = [
     ('Bank', 'ANTFAST Bank', false),
@@ -28,12 +28,35 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
     ('Reference', 'AF-260803-014', true),
   ];
 
+  Future<void> _pickPaymentProof() async {
+    try {
+      final selected = await DocumentPickerService.pickDocument(
+        maxSizeBytes: 10 * 1024 * 1024,
+      );
+      if (selected == null || !mounted) return;
+      setState(() => _paymentProof = selected);
+    } on DocumentPickerException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  void _submitPaymentProof() {
+    if (_paymentProof == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Attach payment proof to continue.')),
+      );
+      return;
+    }
+    Navigator.of(context).pushNamed(AppRoutes.paymentSuccess);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final amount = 'AED ${widget.totalAmount.toStringAsFixed(2).replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (m) => '${m[1]},',
-        )}';
+    final amount =
+        'AED ${widget.totalAmount.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
@@ -55,7 +78,9 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                         // Image in background (right aligned)
                         Positioned(
                           top: 0,
-                          right: -context.scaled(30), // Push slightly out of bounds
+                          right: -context.scaled(
+                            30,
+                          ), // Push slightly out of bounds
                           child: Opacity(
                             opacity: 0.9,
                             child: Image.asset(
@@ -85,7 +110,9 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF5F3FF),
-                                borderRadius: BorderRadius.circular(context.scaled(16)),
+                                borderRadius: BorderRadius.circular(
+                                  context.scaled(16),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -107,9 +134,9 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                                 ],
                               ),
                             ),
-                            
+
                             SizedBox(height: context.scaledV(24)),
-                            
+
                             Text(
                               'Amount transferred',
                               style: TextStyle(
@@ -144,9 +171,9 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                         ),
                       ],
                     ),
-                    
+
                     SizedBox(height: context.scaledV(24)),
-                    
+
                     // Transfer Details Card
                     Container(
                       padding: EdgeInsets.all(context.scaled(16)),
@@ -169,9 +196,12 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                           SizedBox(height: context.scaledV(16)),
                           ..._bankDetails.map((detail) {
                             return Padding(
-                              padding: EdgeInsets.only(bottom: context.scaledV(12)),
+                              padding: EdgeInsets.only(
+                                bottom: context.scaledV(12),
+                              ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     detail.$1,
@@ -197,19 +227,19 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                                           size: context.scaled(16),
                                           color: const Color(0xFF64748B),
                                         ),
-                                      ]
+                                      ],
                                     ],
                                   ),
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                     ),
-                    
+
                     SizedBox(height: context.scaledV(16)),
-                    
+
                     // Upload Payment Proof Card
                     Container(
                       padding: EdgeInsets.all(context.scaled(16)),
@@ -231,7 +261,7 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                           ),
                           SizedBox(height: context.scaledV(16)),
                           GestureDetector(
-                            onTap: () => setState(() => _uploaded = true),
+                            onTap: _pickPaymentProof,
                             child: CustomPaint(
                               painter: _DottedBorderPainter(
                                 color: const Color(0xFF8B5CF6),
@@ -242,62 +272,75 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                               ),
                               child: Container(
                                 width: double.infinity,
-                                padding: EdgeInsets.symmetric(vertical: context.scaledV(24)),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: context.scaledV(24),
+                                ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F3FF).withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(context.scaled(12)),
+                                  color: const Color(
+                                    0xFFF5F3FF,
+                                  ).withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(
+                                    context.scaled(12),
+                                  ),
                                 ),
                                 child: Column(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(context.scaled(12)),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEAE5FF),
-                                      borderRadius: BorderRadius.circular(context.scaled(12)),
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(
+                                        context.scaled(12),
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEAE5FF),
+                                        borderRadius: BorderRadius.circular(
+                                          context.scaled(12),
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.image_outlined,
+                                        size: context.scaled(24),
+                                        color: const Color(0xFF4F46E5),
+                                      ),
                                     ),
-                                    child: Icon(
-                                      Icons.image_outlined,
-                                      size: context.scaled(24),
-                                      color: const Color(0xFF4F46E5),
+                                    SizedBox(height: context.scaledV(12)),
+                                    Text(
+                                      _paymentProof?.name ??
+                                          'Attach receipt or transfer screenshot',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: context.scaled(13),
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF1E1B4B),
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(height: context.scaledV(12)),
-                                  Text(
-                                    'Attach receipt or transfer screenshot',
-                                    style: TextStyle(
-                                      fontSize: context.scaled(13),
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF1E1B4B),
+                                    SizedBox(height: context.scaledV(4)),
+                                    Text(
+                                      'JPG, PNG or PDF • Max 10 MB',
+                                      style: TextStyle(
+                                        fontSize: context.scaled(11),
+                                        color: const Color(0xFF64748B),
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(height: context.scaledV(4)),
-                                  Text(
-                                    'JPG, PNG or PDF • Max 10 MB',
-                                    style: TextStyle(
-                                      fontSize: context.scaled(11),
-                                      color: const Color(0xFF64748B),
+                                    SizedBox(height: context.scaledV(8)),
+                                    Text(
+                                      'Choose File',
+                                      style: TextStyle(
+                                        fontSize: context.scaled(13),
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF4F46E5),
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(height: context.scaledV(8)),
-                                  Text(
-                                    'Choose File',
-                                    style: TextStyle(
-                                      fontSize: context.scaled(13),
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF4F46E5),
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
                         ],
                       ),
                     ),
-                    
+
                     SizedBox(height: context.scaledV(16)),
-                    
+
                     Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: context.scaled(12),
@@ -328,14 +371,15 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                       ),
                     ),
                     SizedBox(height: context.scaledV(32)),
-                    
+
                     // Bottom buttons
                     Container(
                       padding: EdgeInsets.fromLTRB(
                         0,
                         context.scaled(16),
                         0,
-                        MediaQuery.paddingOf(context).bottom + context.scaled(16),
+                        MediaQuery.paddingOf(context).bottom +
+                            context.scaled(16),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -343,9 +387,7 @@ class _UploadPaymentProofScreenState extends State<UploadPaymentProofScreen> {
                           PrimaryButton(
                             label: 'Submit Payment Proof',
                             arrow: true,
-                            onPressed: () {
-                              Navigator.of(context).pushNamed(AppRoutes.paymentSuccess);
-                            },
+                            onPressed: _submitPaymentProof,
                           ),
                           SizedBox(height: context.scaledV(12)),
                           AppOutlineButton(
@@ -422,4 +464,3 @@ class _DottedBorderPainter extends CustomPainter {
         oldDelegate.dashSpace != dashSpace;
   }
 }
-

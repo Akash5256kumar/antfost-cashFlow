@@ -7,10 +7,13 @@ import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/primary_button.dart';
-import '../orders/order_confirmed_screen.dart';
+import '../orders/order_details_screen.dart';
+import '../orders/confirmation_needed_screen.dart';
 
 /// Ported from the new Figma design's `screens/PaymentConfirmed.tsx`.
 class PaymentSuccessScreen extends StatelessWidget {
+  static int currentOrderQuantity = 0;
+
   const PaymentSuccessScreen({
     super.key,
     this.orderRef = 'AF-2057',
@@ -65,7 +68,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.04), // Even lighter blue
+                    color: const Color(0xFF10B981).withValues(alpha: 0.12), // Even lighter blue
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
@@ -196,7 +199,9 @@ class PaymentSuccessScreen extends StatelessWidget {
               label: 'View Order Status',
               onPressed: () => Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (_) => OrderConfirmedScreen(orderId: orderRef),
+                  builder: (_) => currentOrderQuantity > 100
+                      ? const ConfirmationNeededScreen()
+                      : const OrderDetailsScreen(),
                 ),
               ),
             ),

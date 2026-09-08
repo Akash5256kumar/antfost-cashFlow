@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import 'live_tracking_screen.dart';
@@ -33,7 +34,10 @@ class OrderConfirmedScreen extends StatefulWidget {
 
 class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
   // Countdown timer from 2h 45m 12s
-  int _remainingSeconds = (2 * 3600) + (45 * 60) + 12;
+  // For demo: short 10 second timer so you can see the transition.
+  // In prod, use the real remaining seconds from backend.
+  int _remainingSeconds = 10; // change to (2 * 3600) + (45 * 60) + 12 for real
+  bool _timerDone = false;
   Timer? _timer;
 
   @override
@@ -45,6 +49,9 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
           _remainingSeconds--;
         });
       } else {
+        setState(() {
+          _timerDone = true;
+        });
         _timer?.cancel();
       }
     });
@@ -116,6 +123,17 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                       ),
                     ],
                   ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.orderChat),
+                    icon: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: AppColors.primary,
+                      size: 24,
+                    ),
+                    tooltip: 'Dispatch Chat',
+                  ),
                 ],
               ),
             ),
@@ -176,7 +194,7 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                               ),
                             ),
                             child: Text(
-                              'CONFIRMED',
+                              'SCHEDULED',
                               style: TextStyle(
                                 fontSize: context.scaled(11.5),
                                 fontWeight: FontWeight.w700,
@@ -388,37 +406,47 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                         vertical: context.scaledV(20),
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEDE9FE),
+                        color: _timerDone
+                            ? const Color(0xFFECFDF5)
+                            : const Color(0xFFEDE9FE),
                         borderRadius: BorderRadius.circular(context.scaled(16)),
                       ),
                       child: Column(
                         children: [
                           Text(
-                            'DELIVERY STARTING IN',
+                            _timerDone ? 'DELIVERY IS STARTING NOW' : 'DELIVERY STARTING IN',
                             style: TextStyle(
                               fontSize: context.scaled(12),
                               fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
+                              color: _timerDone
+                                  ? const Color(0xFF16A34A)
+                                  : AppColors.primary,
                               letterSpacing: 0.6,
                             ),
                           ),
                           SizedBox(height: context.scaledV(8)),
                           Text(
-                            _formatTimer(),
+                            _timerDone ? '00:00:00' : _formatTimer(),
                             style: TextStyle(
                               fontSize: context.scaled(36),
                               fontWeight: FontWeight.w800,
-                              color: AppColors.primary,
+                              color: _timerDone
+                                  ? const Color(0xFF16A34A)
+                                  : AppColors.primary,
                               letterSpacing: 1.5,
                             ),
                           ),
                           SizedBox(height: context.scaledV(6)),
                           Text(
-                            'Estimated start: 06:00 AM',
+                            _timerDone
+                                ? 'Tap "Track Order" to follow your delivery live'
+                                : 'Estimated start: 06:00 AM',
                             style: TextStyle(
                               fontSize: context.scaled(13),
                               fontWeight: FontWeight.w500,
-                              color: const Color(0xFF6B7280),
+                              color: _timerDone
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF6B7280),
                             ),
                           ),
                         ],
@@ -447,30 +475,41 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                     height: context.scaled(52),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            AppColors.primaryGradientStart,
-                            AppColors.primaryGradientEnd,
-                          ],
-                        ),
+                        gradient: _timerDone
+                            ? const LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  Color(0xFF16A34A),
+                                  Color(0xFF22C55E),
+                                ],
+                              )
+                            : const LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  AppColors.primaryGradientStart,
+                                  AppColors.primaryGradientEnd,
+                                ],
+                              ),
                         borderRadius: BorderRadius.circular(
                           context.scaled(14),
                         ),
                       ),
                       child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => LiveTrackingScreen(
-                                orderId: widget.orderId,
-                                driverName: widget.driverName,
-                                truckId: widget.truckId,
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _timerDone
+                            ? () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => LiveTrackingScreen(
+                                      orderId: widget.orderId,
+                                      driverName: widget.driverName,
+                                      truckId: widget.truckId,
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
@@ -480,14 +519,23 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                           ),
                           padding: EdgeInsets.zero,
                         ),
-                        child: Text(
-                          'Track Order',
-                          style: TextStyle(
-                            fontSize: context.scaled(16),
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            letterSpacing: 0.2,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _timerDone ? 'Track Order Live' : 'Track Order',
+                              style: TextStyle(
+                                fontSize: context.scaled(16),
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            if (_timerDone) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.gps_fixed_rounded, size: 16, color: Colors.white),
+                            ],
+                          ],
                         ),
                       ),
                     ),
@@ -498,16 +546,23 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                   SizedBox(
                     width: double.infinity,
                     height: context.scaled(52),
-                    child: OutlinedButton(
+                    child: OutlinedButton.icon(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Connecting to 24/7 Dispatch Support...',
-                            ),
-                          ),
-                        );
+                        Navigator.of(context).pushNamed(AppRoutes.orderChat);
                       },
+                      icon: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      label: Text(
+                        'Chat with Dispatch Support',
+                        style: TextStyle(
+                          fontSize: context.scaled(15.5),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(
                           color: AppColors.primary,
@@ -517,14 +572,6 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                           borderRadius: BorderRadius.circular(
                             context.scaled(14),
                           ),
-                        ),
-                      ),
-                      child: Text(
-                        'Contact Support',
-                        style: TextStyle(
-                          fontSize: context.scaled(15.5),
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
                         ),
                       ),
                     ),

@@ -7,6 +7,8 @@ import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/app_outline_button.dart';
+import 'cash_payment_pending_screen.dart';
+import 'split_wallet_payment_screen.dart';
 
 enum _PayMethodId { wallet, card, bank, cash }
 
@@ -67,13 +69,43 @@ class _PaymentScreenState extends State<PaymentScreen> {
   void _continue() {
     switch (_selected) {
       case _PayMethodId.card:
-        Navigator.of(context).pushNamed(AppRoutes.completePayment);
+        Navigator.of(context).pushNamed(
+          AppRoutes.termsConditions,
+          arguments: AppRoutes.completePayment,
+        );
+        break;
       case _PayMethodId.bank:
-        Navigator.of(context).pushNamed(AppRoutes.uploadPaymentProof);
-      case _PayMethodId.wallet:
-        Navigator.of(context).pushNamed(AppRoutes.splitWalletPayment);
+        Navigator.of(context).pushNamed(
+          AppRoutes.termsConditions,
+          arguments: AppRoutes.uploadPaymentProof,
+        );
+        break;
       case _PayMethodId.cash:
-        Navigator.of(context).pushNamed(AppRoutes.priceBreakdown);
+        // Cash in Advance: payment happens outside the app, admin confirms manually
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const CashPaymentPendingScreen(),
+          ),
+        );
+        break;
+      case _PayMethodId.wallet:
+        const walletBalance = 24850.0;
+        if (widget.totalAmount > walletBalance) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SplitWalletPaymentScreen(
+                totalAmount: widget.totalAmount,
+                walletBalance: walletBalance,
+              ),
+            ),
+          );
+        } else {
+          Navigator.of(context).pushNamed(
+            AppRoutes.termsConditions,
+            arguments: AppRoutes.paymentSuccess,
+          );
+        }
+        break;
     }
   }
 
@@ -252,15 +284,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           PrimaryButton(
-                            label: 'Continue to Terms',
+                            label: 'Continue',
                             arrow: true,
-                            onPressed: () {
-                              Navigator.of(context).pushNamed(AppRoutes.termsConditions);
-                            },
+                            onPressed: _continue,
                           ),
                           SizedBox(height: context.scaledV(12)),
                           AppOutlineButton(
-                            label: 'Save and exit',
+                            label: 'Back to Price Breakdown',
                             onPressed: () => Navigator.of(context).pop(), // Or whatever logic
                           ),
                         ],

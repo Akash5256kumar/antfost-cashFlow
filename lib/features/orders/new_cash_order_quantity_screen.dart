@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../app/config/app_assets.dart';
-import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
-import 'agreement_summary_screen.dart';
-import 'operations_agreement_sheet.dart';
+import '../payment/payment_success_screen.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_schedule_screen.dart';
 import 'order_step_widgets.dart';
@@ -26,9 +24,6 @@ class NewCashOrderQuantityScreen extends StatefulWidget {
 class _NewCashOrderQuantityScreenState
     extends State<NewCashOrderQuantityScreen> {
   int _quantity = 25;
-  bool _isAgreementAccepted = false;
-
-  bool get _needsReview => _quantity > 100;
 
   void _increment() => setState(() => _quantity++);
   void _decrement() {
@@ -37,6 +32,8 @@ class _NewCashOrderQuantityScreenState
 
   Future<void> _enterExactQuantity() async {
     final controller = TextEditingController(text: _quantity.toString());
+    controller.selection =
+        TextSelection(baseOffset: 0, extentOffset: controller.text.length);
     final newQuantity = await showDialog<int>(
       context: context,
       builder: (context) {
@@ -46,6 +43,12 @@ class _NewCashOrderQuantityScreenState
             controller: controller,
             keyboardType: TextInputType.number,
             autofocus: true,
+            onSubmitted: (text) {
+              final val = int.tryParse(text);
+              if (val != null && val > 0) {
+                Navigator.of(context).pop(val);
+              }
+            },
             decoration: const InputDecoration(
               hintText: 'e.g. 50',
               suffixText: 'm³',
@@ -72,34 +75,6 @@ class _NewCashOrderQuantityScreenState
 
     if (newQuantity != null && mounted) {
       setState(() => _quantity = newQuantity);
-    }
-  }
-
-  Future<void> _handleViewAgreement() async {
-    if (_isAgreementAccepted) {
-      OperationsAgreementSheet.show(
-        context,
-        approvedQuantity: _quantity,
-      );
-      return;
-    }
-
-    final accepted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AgreementSummaryScreen(
-          concreteGrade: widget.mixCode.code,
-          approvedVolume: _quantity,
-          buttonText: 'Accept Agreement',
-        ),
-      ),
-    );
-
-    if (accepted == true && mounted) {
-      setState(() => _isAgreementAccepted = true);
-      OperationsAgreementSheet.show(
-        context,
-        approvedQuantity: _quantity,
-      );
     }
   }
 
@@ -163,26 +138,18 @@ class _NewCashOrderQuantityScreenState
                       PrimaryButton(
                         arrow: true,
                         label: 'Continue to Schedule',
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => NewCashOrderScheduleScreen(
-                              mixCode: widget.mixCode,
-                              quantity: _quantity,
+                        onPressed: () {
+                          PaymentSuccessScreen.currentOrderQuantity = _quantity;
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => NewCashOrderScheduleScreen(
+                                mixCode: widget.mixCode,
+                                quantity: _quantity,
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
-
-                      // ── Manual review warning ─────────────────────
-                      if (_needsReview) ...[
-                        SizedBox(height: context.scaledV(20)),
-                        _ManualReviewBanner(
-                          mixCode: widget.mixCode.code,
-                          quantity: _quantity,
-                          isAccepted: _isAgreementAccepted,
-                          onTap: _handleViewAgreement,
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -234,30 +201,34 @@ class _QuantityStepperCard extends StatelessWidget {
                 onTap: onDecrement,
               ),
 
-              // Quantity display
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '$quantity',
-                    style: TextStyle(
-                      fontSize: context.scaled(64),
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A),
-                      height: 1.0,
-                      letterSpacing: -1.0,
+              // Quantity display (tap to enter exact volume)
+              GestureDetector(
+                onTap: onEnterExact,
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$quantity',
+                      style: TextStyle(
+                        fontSize: context.scaled(64),
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                        height: 1.0,
+                        letterSpacing: -1.0,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: context.scaledV(4)),
-                  Text(
-                    'm³',
-                    style: TextStyle(
-                      fontSize: context.scaled(15),
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF64748B),
+                    SizedBox(height: context.scaledV(4)),
+                    Text(
+                      'm³',
+                      style: TextStyle(
+                        fontSize: context.scaled(15),
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF64748B),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               // Plus
@@ -324,206 +295,6 @@ class _StepperButton extends StatelessWidget {
           size: context.scaled(24),
           color: AppColors.primary,
         ),
-      ),
-    );
-  }
-}
-
-
-
-// ── Manual review banner ──────────────────────────────────────────────────────
-
-class _ManualReviewBanner extends StatelessWidget {
-  const _ManualReviewBanner({
-    required this.mixCode,
-    required this.quantity,
-    this.isAccepted = false,
-    this.onTap,
-  });
-
-  final String mixCode;
-  final int quantity;
-  final bool isAccepted;
-  final VoidCallback? onTap;
-
-  static const Color _warningColor = Color(0xFFFF5CA8);
-  static const Color _bgColor = Color(0xFFFFF0F5);
-  static const Color _acceptedColor = Color(0xFF5A45FF);
-  static const Color _acceptedBgColor = Color(0xFFF3F0FF);
-
-  @override
-  Widget build(BuildContext context) {
-    if (isAccepted) {
-      return Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(context.scaled(14)),
-        decoration: BoxDecoration(
-          color: _acceptedBgColor,
-          borderRadius: BorderRadius.circular(context.scaled(12)),
-          border: Border.all(color: _acceptedColor.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.check_circle_rounded,
-                  size: context.scaled(20),
-                  color: const Color(0xFF22C55E),
-                ),
-                SizedBox(width: context.scaled(10)),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Feasibility Agreement Accepted',
-                        style: TextStyle(
-                          fontSize: context.scaled(14),
-                          fontWeight: FontWeight.w600,
-                          color: _acceptedColor,
-                          height: 1.3,
-                        ),
-                      ),
-                      SizedBox(height: context.scaledV(4)),
-                      Text(
-                        'Agreement approved for $quantity m³. Operations schedule is locked.',
-                        style: TextStyle(
-                          fontSize: context.scaled(13),
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF444444),
-                          height: 1.45,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: context.scaledV(10)),
-            GestureDetector(
-              onTap: onTap,
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.scaled(12),
-                  vertical: context.scaledV(6),
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(context.scaled(8)),
-                  border:
-                      Border.all(color: _acceptedColor.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'View Operations Summary',
-                      style: TextStyle(
-                        fontSize: context.scaled(12.5),
-                        fontWeight: FontWeight.w600,
-                        color: _acceptedColor,
-                      ),
-                    ),
-                    SizedBox(width: context.scaled(4)),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: context.scaled(11),
-                      color: _acceptedColor,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.scaled(14)),
-      decoration: BoxDecoration(
-        color: _bgColor,
-        borderRadius: BorderRadius.circular(context.scaled(12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                size: context.scaled(20),
-                color: _warningColor,
-              ),
-              SizedBox(width: context.scaled(10)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Manual Review Required',
-                      style: TextStyle(
-                        fontSize: context.scaled(14),
-                        fontWeight: FontWeight.w600,
-                        color: _warningColor,
-                        height: 1.3,
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(4)),
-                    Text(
-                      'Orders above 100 m³ require manual feasibility review. Our team will contact you.',
-                      style: TextStyle(
-                        fontSize: context.scaled(13),
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF444444),
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.scaledV(10)),
-          GestureDetector(
-            onTap: onTap,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.scaled(12),
-                vertical: context.scaledV(6),
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(context.scaled(8)),
-                border: Border.all(color: _warningColor.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View Feasibility Agreement',
-                    style: TextStyle(
-                      fontSize: context.scaled(12.5),
-                      fontWeight: FontWeight.w600,
-                      color: _warningColor,
-                    ),
-                  ),
-                  SizedBox(width: context.scaled(4)),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: context.scaled(11),
-                    color: _warningColor,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

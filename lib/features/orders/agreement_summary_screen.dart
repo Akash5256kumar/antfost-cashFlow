@@ -159,31 +159,7 @@ class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
 
                     SizedBox(height: context.scaledV(18)),
 
-                    // ── Section 2: DELIVERY DETAILS ─────────────────
-                    _SectionTitle(title: 'DELIVERY DETAILS'),
-                    SizedBox(height: context.scaledV(8)),
-                    _InfoCard(
-                      rows: [
-                        _InfoRowData(
-                          label: 'Date',
-                          value: widget.deliveryDate,
-                        ),
-                        _InfoRowData(
-                          label: 'Time Window',
-                          value: widget.timeWindow,
-                        ),
-                        _InfoRowData(
-                          label: 'Fleet Size',
-                          value: widget.fleetSize,
-                        ),
-                        _InfoRowData(
-                          label: 'Interval',
-                          value: widget.interval,
-                        ),
-                      ],
-                    ),
 
-                    SizedBox(height: context.scaledV(18)),
 
                     // ── Section 3: EQUIPMENT & PUMPS ────────────────
                     _SectionTitle(title: 'EQUIPMENT & PUMPS'),

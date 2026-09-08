@@ -16,6 +16,10 @@ class AppTextField extends StatefulWidget {
   final Widget? prefixWidget;
   final List<TextInputFormatter>? inputFormatters;
   final int? maxLines;
+  final String? Function(String?)? validator;
+  final AutovalidateMode? autovalidateMode;
+  final ValueChanged<String>? onChanged;
+  final TextInputAction? textInputAction;
 
   /// Small leading icon shown inline with the text field itself (Figma's
   /// `Field` component). Distinct from [prefixWidget], which replaces the
@@ -37,6 +41,10 @@ class AppTextField extends StatefulWidget {
     this.prefixWidget,
     this.inputFormatters,
     this.maxLines = 1,
+    this.validator,
+    this.autovalidateMode,
+    this.onChanged,
+    this.textInputAction,
     this.leadingIcon,
     this.leadingWidget,
     this.trailingIcon,
@@ -119,7 +127,9 @@ class _AppTextFieldState extends State<AppTextField> {
                       widget.label,
                       style: TextStyle(
                         fontSize: context.scaled(12),
-                        color: _active ? AppColors.primary : AppColors.textSecondary,
+                        color: _active
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -127,12 +137,16 @@ class _AppTextFieldState extends State<AppTextField> {
                   ],
                   widget.prefixWidget!,
                 ] else
-                  TextField(
+                  TextFormField(
                     controller: widget.controller,
                     focusNode: _focus,
                     obscureText: widget.obscureText ? _hidden : false,
                     keyboardType: widget.keyboardType,
                     inputFormatters: widget.inputFormatters,
+                    validator: widget.validator,
+                    autovalidateMode: widget.autovalidateMode,
+                    onChanged: widget.onChanged,
+                    textInputAction: widget.textInputAction,
                     maxLines: widget.obscureText ? 1 : widget.maxLines,
                     style: TextStyle(
                       fontSize: context.scaled(15),
@@ -160,14 +174,14 @@ class _AppTextFieldState extends State<AppTextField> {
                       ),
                       prefixIcon: widget.leadingWidget == null
                           ? (widget.leadingIcon == null
-                              ? null
-                              : Icon(
-                                  widget.leadingIcon,
-                                  size: context.scaled(20),
-                                  color: _active
-                                      ? AppColors.primary
-                                      : AppColors.iconMuted,
-                                ))
+                                ? null
+                                : Icon(
+                                    widget.leadingIcon,
+                                    size: context.scaled(20),
+                                    color: _active
+                                        ? AppColors.primary
+                                        : AppColors.iconMuted,
+                                  ))
                           : UnconstrainedBox(
                               child: SizedBox(
                                 width: context.scaled(28),

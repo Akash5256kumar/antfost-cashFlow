@@ -77,6 +77,8 @@ class OrderModel extends Order {
         return OrderStatusType.scheduled;
       case 'completed':
         return OrderStatusType.completed;
+      case 'draft':
+        return OrderStatusType.draft;
       default:
         return OrderStatusType.scheduled;
     }
@@ -90,6 +92,8 @@ class OrderModel extends Order {
         return 'scheduled';
       case OrderStatusType.completed:
         return 'completed';
+      case OrderStatusType.draft:
+        return 'draft';
     }
   }
 }

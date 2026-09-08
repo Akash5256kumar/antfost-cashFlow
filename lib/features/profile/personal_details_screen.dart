@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/utils/input_validators.dart';
 import 'domain/entities/user_profile.dart';
 import 'presentation/bloc/profile_bloc.dart';
 import 'presentation/bloc/profile_event.dart';
@@ -106,7 +107,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
         }
       },
       builder: (context, state) {
-        UserProfile? profile;
+        late final UserProfile profile;
         if (state is ProfileSuccess) {
           profile = state.profile;
           _populateData(profile);
@@ -180,11 +181,11 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                               ],
                             ),
                             child: ClipOval(
-                              child: profile?.avatarUrl != null
+                              child: profile.avatarUrl != null
                                   ? Image.network(
-                                      profile!.avatarUrl!,
+                                      profile.avatarUrl!,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
+                                      errorBuilder: (_, _, _) =>
                                           _avatarFallback(),
                                     )
                                   : _avatarFallback(),
@@ -235,7 +236,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                         vertical: context.scaledV(6),
                       ),
                       decoration: BoxDecoration(
-                        color: (profile?.isKycVerified ?? false)
+                        color: profile.isKycVerified
                             ? AppColors.successContainer
                             : AppColors.warningContainer,
                         borderRadius: BorderRadius.circular(context.scaled(20)),
@@ -244,18 +245,18 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            (profile?.isKycVerified ?? false)
+                            profile.isKycVerified
                                 ? Icons.verified_rounded
                                 : Icons.info_outline_rounded,
                             size: context.scaled(16),
-                            color: (profile?.isKycVerified ?? false)
+                            color: profile.isKycVerified
                                 ? AppColors.success
                                 : AppColors.warning,
                           ),
                           SizedBox(width: context.scaled(6)),
                           Flexible(
                             child: Text(
-                              (profile?.isKycVerified ?? false)
+                              profile.isKycVerified
                                   ? 'KYC Verified Account'
                                   : 'KYC Verification Pending',
                               maxLines: 1,
@@ -263,7 +264,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                               style: TextStyle(
                                 fontSize: context.scaled(12),
                                 fontWeight: FontWeight.w600,
-                                color: (profile?.isKycVerified ?? false)
+                                color: profile.isKycVerified
                                     ? AppColors.success
                                     : AppColors.warning,
                               ),
@@ -289,9 +290,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                             label: 'Full Name',
                             controller: _nameController,
                             icon: Icons.person_outline_rounded,
-                            validator: (v) => v == null || v.trim().isEmpty
-                                ? 'Name is required'
-                                : null,
+                            validator: InputValidators.fullName,
                           ),
                           SizedBox(height: context.scaledV(16)),
                           _buildTextField(
@@ -299,9 +298,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                             controller: _emailController,
                             icon: Icons.mail_outline_rounded,
                             keyboardType: TextInputType.emailAddress,
-                            validator: (v) => v == null || !v.contains('@')
-                                ? 'Valid email required'
-                                : null,
+                            validator: InputValidators.email,
                           ),
                           SizedBox(height: context.scaledV(16)),
                           _buildTextField(
@@ -309,12 +306,17 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                             controller: _phoneController,
                             icon: Icons.phone_outlined,
                             keyboardType: TextInputType.phone,
+                            validator: InputValidators.phone,
                           ),
                           SizedBox(height: context.scaledV(16)),
                           _buildTextField(
                             label: 'Company Name',
                             controller: _companyController,
                             icon: Icons.business_rounded,
+                            validator: (value) => InputValidators.fullName(
+                              value,
+                              fieldName: 'Company name',
+                            ),
                           ),
                         ],
                       ),
@@ -338,7 +340,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
               child: PrimaryButton(
                 label: 'Save Changes',
                 isLoading: isSaving,
-                onPressed: profile != null ? () => _handleSave(profile!) : null,
+                onPressed: () => _handleSave(profile),
               ),
             ),
           ),
@@ -383,6 +385,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           style: TextStyle(
             fontSize: context.scaled(15),
             fontWeight: FontWeight.w500,

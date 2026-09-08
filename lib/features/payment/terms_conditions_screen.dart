@@ -5,6 +5,8 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
+import '../orders/agreement_summary_screen.dart';
+import 'payment_success_screen.dart';
 
 class _TermsSection {
   const _TermsSection(this.icon, this.title, this.desc);
@@ -42,18 +44,21 @@ const _sections = [
 ];
 
 /// Ported from the new Figma design's `screens/TermsConditions.tsx` — a
-/// general order T&Cs screen shown after price acceptance. Distinct from
-/// `OperationsAgreementSheet`, which covers the >100 m³ feasibility
-/// agreement earlier in the order-creation wizard.
+/// general order T&Cs screen shown after price acceptance. For orders >100 m³,
+/// navigates to `AgreementSummaryScreen` for feasibility agreement before payment.
 class TermsConditionsScreen extends StatefulWidget {
   const TermsConditionsScreen({
     super.key,
     this.orderRef = 'AF-2057',
     this.totalAmount = 29820.00,
+    this.quantity,
+    this.nextRoute,
   });
 
   final String orderRef;
   final double totalAmount;
+  final int? quantity;
+  final String? nextRoute;
 
   @override
   State<TermsConditionsScreen> createState() => _TermsConditionsScreenState();
@@ -194,9 +199,32 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
             const SizedBox(height: 18),
             PrimaryButton(
               arrow: true,
-              label: 'Continue to Payment',
+              label: ((widget.quantity ?? PaymentSuccessScreen.currentOrderQuantity) > 100)
+                  ? 'Review Feasibility Agreement'
+                  : 'Continue to Payment',
               onPressed: _agreed
-                  ? () => Navigator.of(context).pushNamed(AppRoutes.completePayment)
+                  ? () {
+                      final qty = widget.quantity ?? PaymentSuccessScreen.currentOrderQuantity;
+                      if (qty > 100) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AgreementSummaryScreen(
+                              approvedVolume: qty,
+                              buttonText: 'Accept Agreement & Continue',
+                              onAccept: () {
+                                Navigator.of(context).pushNamed(
+                                  widget.nextRoute ?? AppRoutes.completePayment,
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.of(context).pushNamed(
+                          widget.nextRoute ?? AppRoutes.completePayment,
+                        );
+                      }
+                    }
                   : null,
             ),
             const SizedBox(height: 16),

@@ -1,4 +1,4 @@
-package com.example.antfost
+package com.antfast.app
 
 import io.flutter.embedding.android.FlutterActivity
 

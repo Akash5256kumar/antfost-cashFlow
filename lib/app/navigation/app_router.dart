@@ -36,7 +36,6 @@ import '../../features/orders/order_status_screen.dart';
 import '../../features/orders/pouring_screen.dart';
 import '../../features/orders/project_details_screen.dart';
 import '../../features/orders/schedule_proposed_screen.dart';
-import '../../features/orders/order_confirmed_screen.dart';
 import '../../features/orders/live_tracking_screen.dart';
 import '../../features/orders/order_complete_screen.dart';
 import '../../features/orders/rate_delivery_screen.dart';
@@ -70,6 +69,9 @@ class AppRouter {
 
   static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
+
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -267,9 +269,10 @@ class AppRouter {
           builder: (_) => const PaymentScreen(totalAmount: 11962.50),
         );
       case AppRoutes.priceBreakdown:
+        final nextRoute = settings.arguments as String?;
         return _materialRoute(
           settings: settings,
-          builder: (_) => const PriceBreakdownScreen(),
+          builder: (_) => PriceBreakdownScreen(nextRoute: nextRoute),
         );
       case AppRoutes.completePayment:
         return _materialRoute(
@@ -277,9 +280,10 @@ class AppRouter {
           builder: (_) => const CompletePaymentScreen(),
         );
       case AppRoutes.termsConditions:
+        final nextRoute = settings.arguments as String?;
         return _materialRoute(
           settings: settings,
-          builder: (_) => const TermsConditionsScreen(),
+          builder: (_) => TermsConditionsScreen(nextRoute: nextRoute),
         );
       case AppRoutes.paymentSuccess:
         return _materialRoute(
@@ -347,7 +351,7 @@ class AppRouter {
       case AppRoutes.orderConfirmed:
         return _materialRoute(
           settings: settings,
-          builder: (_) => const OrderConfirmedScreen(),
+          builder: (_) => const OrderDetailsScreen(),
         );
       case AppRoutes.liveTracking:
         return _materialRoute(

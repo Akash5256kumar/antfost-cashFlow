@@ -254,10 +254,25 @@ class _SplitWalletPaymentScreenState extends State<SplitWalletPaymentScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           PrimaryButton(
-                            label: 'Review Price Breakdown',
+                            label: 'Continue',
                             arrow: true,
                             onPressed: () {
-                              Navigator.of(context).pushNamed(AppRoutes.priceBreakdown);
+                              String nextRoute;
+                              switch (_selected) {
+                                case _SecondaryMethod.card:
+                                  nextRoute = AppRoutes.completePayment;
+                                  break;
+                                case _SecondaryMethod.bank:
+                                  nextRoute = AppRoutes.uploadPaymentProof;
+                                  break;
+                                case _SecondaryMethod.cash:
+                                  nextRoute = AppRoutes.paymentSuccess;
+                                  break;
+                              }
+                              Navigator.of(context).pushNamed(
+                                AppRoutes.termsConditions,
+                                arguments: nextRoute,
+                              );
                             },
                           ),
                           SizedBox(height: context.scaledV(12)),

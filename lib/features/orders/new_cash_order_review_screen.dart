@@ -5,11 +5,15 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
-import '../payment/payment_screen.dart';
 import '../payment/price_breakdown_screen.dart';
+import '../payment/payment_success_screen.dart';
 import 'order_saved_screen.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'order_step_widgets.dart';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../features/profile/presentation/bloc/profile_bloc.dart';
+import '../../features/profile/presentation/bloc/profile_state.dart';
 
 class NewCashOrderReviewScreen extends StatefulWidget {
   const NewCashOrderReviewScreen({
@@ -281,27 +285,41 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                 color: Colors.white,
                 border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
               ),
-              child: PrimaryButton(
-                label: 'Continue',
-                arrow: true,
-                onPressed: () {
-                  if (widget.quantity > 100) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => OrderSavedScreen(
-                          quantity: widget.quantity,
-                          mixCode: widget.mixCode.code,
-                          reason: OrderSavedReason.scheduleApproval,
-                        ),
-                      ),
-                    );
-                  } else {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PriceBreakdownScreen(totalAmount: _total),
-                      ),
-                    );
-                  }
+              child: BlocBuilder<ProfileBloc, ProfileState>(
+                builder: (context, state) {
+                  // Default to true so it doesn't block if profile is missing
+                  final isKycVerified = state is ProfileSuccess 
+                      ? state.profile.isKycVerified 
+                      : true;
+
+                  return PrimaryButton(
+                    label: 'Continue',
+                    arrow: true,
+                    onPressed: () {
+                      if (!isKycVerified) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => OrderSavedScreen(
+                              quantity: widget.quantity,
+                              mixCode: widget.mixCode.code,
+                              reason: OrderSavedReason.kyc,
+                            ),
+                          ),
+                        );
+                      } else {
+                        PaymentSuccessScreen.currentOrderQuantity = widget.quantity;
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PriceBreakdownScreen(
+                              mixCode: widget.mixCode.code,
+                              quantity: widget.quantity,
+                              totalAmount: _total,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  );
                 },
               ),
             ),

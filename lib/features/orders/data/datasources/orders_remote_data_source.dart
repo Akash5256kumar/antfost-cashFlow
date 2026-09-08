@@ -86,6 +86,18 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
       'delivered': 18,
       'total': 18,
     },
+    {
+      'orderId': 'AF-2065',
+      'status': 'draft',
+      'grade': 'C30/37',
+      'location': 'Palm Jumeirah Villa',
+      'timeSlot': '6 AM - 12 PM (±6 hrs)',
+      'volume': '120 m³',
+      'date': 'May 17, 2025',
+      'amount': 25000.0,
+      'delivered': 0,
+      'total': 120,
+    },
   ];
 
   // ── Dummy mix codes ───────────────────────────────────────────────────────

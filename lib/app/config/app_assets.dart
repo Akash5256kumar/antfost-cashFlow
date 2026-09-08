@@ -38,6 +38,9 @@ abstract final class AppAssets {
   /// exactly as rendered in the Figma reference design (Downloads/35.jpg).
   static const String artHomeHero = 'assets/images/35.jpg';
 
+  /// Seamlessly blended batching plant and mixer truck illustration for Price Breakdown header.
+  static const String artBreakdownHero = 'assets/images/art_breakdown_hero.png';
+
   /// Soft/faded plant scene (`art.plantSceneSoft`) — decorative footer
   /// illustration on the Schedule step.
   static const String artPlantSceneSoft =

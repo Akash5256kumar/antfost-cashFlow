@@ -41,7 +41,9 @@ class OrderSavedScreen extends StatelessWidget {
             Text(
               'Order Saved',
               textAlign: TextAlign.center,
-              style: AppTextStyles.authScreenTitle(context).copyWith(fontSize: 28),
+              style: AppTextStyles.authScreenTitle(
+                context,
+              ).copyWith(fontSize: 28),
             ),
             const SizedBox(height: 8),
             Container(
@@ -54,19 +56,29 @@ class OrderSavedScreen extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.access_time_rounded, size: 14, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.access_time_rounded,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    reason == OrderSavedReason.kyc ? 'Verification in review' : 'Schedule under review',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                    reason == OrderSavedReason.kyc
+                        ? 'Verification in review'
+                        : 'Schedule under review',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             if (reason == OrderSavedReason.kyc) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: -20),
+              SizedBox(
+                width: double.infinity,
                 child: AppIllustrationImage(
                   asset: AppAssets.artKycShield,
                   height: 200,
@@ -76,9 +88,11 @@ class OrderSavedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Your order has been saved.',
+                'Your order has been saved as a Draft.',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.authScreenTitle(context).copyWith(fontSize: 22),
+                style: AppTextStyles.authScreenTitle(
+                  context,
+                ).copyWith(fontSize: 22),
               ),
               const SizedBox(height: 6),
               Text(
@@ -87,12 +101,18 @@ class OrderSavedScreen extends StatelessWidget {
                 style: AppTextStyles.cardSubtitle(context),
               ),
             ] else ...[
-              Icon(Icons.calendar_today_rounded, size: 80, color: AppColors.primary.withOpacity(0.8)),
+              Icon(
+                Icons.calendar_today_rounded,
+                size: 80,
+                color: AppColors.primary.withOpacity(0.8),
+              ),
               const SizedBox(height: 24),
               Text(
                 'Order Submitted',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.authScreenTitle(context).copyWith(fontSize: 22),
+                style: AppTextStyles.authScreenTitle(
+                  context,
+                ).copyWith(fontSize: 22),
               ),
               const SizedBox(height: 6),
               Text(
@@ -115,7 +135,8 @@ class OrderSavedScreen extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.asset(
-                      AppAssets.photoForLocation(projectName) ?? AppAssets.figmaVilla,
+                      AppAssets.photoForLocation(projectName) ??
+                          AppAssets.figmaVilla,
                       width: 56,
                       height: 56,
                       fit: BoxFit.cover,
@@ -128,16 +149,28 @@ class OrderSavedScreen extends StatelessWidget {
                       children: [
                         Text(
                           '$projectName · $quantity m³ · $mixCode',
-                          style: AppTextStyles.cardTitle(context).copyWith(fontSize: 13.5),
+                          style: AppTextStyles.cardTitle(
+                            context,
+                          ).copyWith(fontSize: 13.5),
                         ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(Icons.access_time_rounded, size: 13, color: AppColors.textSecondary),
+                            const Icon(
+                              Icons.access_time_rounded,
+                              size: 13,
+                              color: AppColors.textSecondary,
+                            ),
                             const SizedBox(width: 6),
                             Text(
-                              reason == OrderSavedReason.kyc ? 'Waiting for KYC Approval' : 'Waiting for Schedule Approval',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                              reason == OrderSavedReason.kyc
+                                  ? 'Waiting for KYC Approval'
+                                  : 'Waiting for Schedule Approval',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ],
                         ),
@@ -151,7 +184,8 @@ class OrderSavedScreen extends StatelessWidget {
             PrimaryButton(
               arrow: true,
               label: 'View Saved Order',
-              onPressed: () => Navigator.of(context).pushNamed(AppRoutes.myOrders),
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.myOrders),
             ),
             const SizedBox(height: 10),
             PrimaryButton(
@@ -167,7 +201,11 @@ class OrderSavedScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Developer Options',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
@@ -175,7 +213,9 @@ class OrderSavedScreen extends StatelessWidget {
                 variant: PrimaryButtonVariant.ghost,
                 label: 'Simulate Admin Approval ->',
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ConfirmationNeededScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const ConfirmationNeededScreen(),
+                  ),
                 ),
               ),
             ],

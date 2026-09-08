@@ -186,31 +186,7 @@ class OperationsAgreementSheet extends StatelessWidget {
                       ],
                     ),
 
-                    SizedBox(height: context.scaledV(18)),
 
-                    // 2. DELIVERY SCHEDULE
-                    _SectionHeader(title: 'DELIVERY SCHEDULE'),
-                    SizedBox(height: context.scaledV(8)),
-                    _SheetCard(
-                      children: [
-                        _SheetRow(
-                          label: 'Delivery Date',
-                          value: deliveryDate,
-                        ),
-                        const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                        _SheetRow(
-                          label: 'Delivery Shift',
-                          value: deliveryShift,
-                        ),
-                        const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                        _SheetRow(
-                          label: 'Delivery Interval',
-                          value: deliveryInterval,
-                        ),
-                      ],
-                    ),
-
-                    SizedBox(height: context.scaledV(18)),
 
                     // 3. SERVICE REQUIREMENTS
                     _SectionHeader(title: 'SERVICE REQUIREMENTS'),

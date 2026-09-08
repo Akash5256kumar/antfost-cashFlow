@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "947698509551",
+    "project_id": "antfast-30ba2",
+    "storage_bucket": "antfast-30ba2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:947698509551:android:c3120fce19c8e9ddb7dd1a",
+        "android_client_info": {
+          "package_name": "com.antfast.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCYIE3MHgdbcMsnCu8seIT-HvIvIG1DWTU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

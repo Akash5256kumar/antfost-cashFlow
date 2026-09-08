@@ -86,6 +86,9 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
   void _handleContinue() {
     if (_code.length != _otpLength) {
       _otpFocusNode.requestFocus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter the 6-digit verification code.')),
+      );
       return;
     }
     context.read<AuthBloc>().add(
@@ -130,7 +133,9 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   AppRoutes.home,
                   (route) => false,
-                  arguments: const HomeRouteArgs(verificationUnderReview: false),
+                  arguments: const HomeRouteArgs(
+                    verificationUnderReview: false,
+                  ),
                 );
               }
             case VerifyAccountFlow.passwordRecovery:
@@ -288,10 +293,7 @@ class _ContactCard extends StatelessWidget {
                     size: context.scaled(22),
                     color: AppColors.primary,
                   )
-                : const AppSvgPhoneIcon(
-                    color: AppColors.primary,
-                    size: 22,
-                  ),
+                : const AppSvgPhoneIcon(color: AppColors.primary, size: 22),
             SizedBox(width: context.scaled(16)),
             Flexible(
               child: Text(

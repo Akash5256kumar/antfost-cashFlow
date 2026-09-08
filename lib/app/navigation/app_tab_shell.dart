@@ -26,7 +26,6 @@ import '../../features/orders/new_cash_order_review_screen.dart';
 import '../../features/orders/new_cash_order_schedule_screen.dart';
 import '../../features/orders/new_cash_order_screen.dart';
 import '../../features/orders/order_complete_screen.dart';
-import '../../features/orders/order_confirmed_screen.dart';
 import '../../features/orders/order_details_screen.dart';
 import '../../features/orders/order_guide_screen.dart';
 import '../../features/orders/order_project_summary.dart';
@@ -355,9 +354,10 @@ Route<dynamic> _buildRouteForTab(
         builder: (_) => const CompletePaymentScreen(),
       );
     case AppRoutes.termsConditions:
+      final nextRoute = settings.arguments as String?;
       return _materialRoute(
         settings: settings,
-        builder: (_) => const TermsConditionsScreen(),
+        builder: (_) => TermsConditionsScreen(nextRoute: nextRoute),
       );
     case AppRoutes.uploadPaymentProof:
       return _materialRoute(
@@ -496,7 +496,7 @@ Route<dynamic> _buildRouteForTab(
     case AppRoutes.orderConfirmed:
       return _materialRoute(
         settings: settings,
-        builder: (_) => const OrderConfirmedScreen(),
+        builder: (_) => const OrderDetailsScreen(),
       );
     case AppRoutes.orderComplete:
       return _materialRoute(

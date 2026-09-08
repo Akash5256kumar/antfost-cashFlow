@@ -7,7 +7,7 @@ import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/primary_button.dart';
-import '../payment/price_breakdown_screen.dart';
+import 'schedule_proposed_screen.dart';
 
 /// Ported from the new Figma design's `screens/ConfirmationNeeded.tsx` —
 /// shown when ANTFAST proposes a different schedule/service mix than what
@@ -100,7 +100,7 @@ class ConfirmationNeededScreen extends StatelessWidget {
                           children: [
                             const _HeaderCell('You Requested'),
                             const Divider(height: 1, color: AppColors.cardBorder),
-                            const _ValueCell('Morning'),
+                            const _ValueCell('Morning\n06:00 - 12:00'),
                             const Divider(height: 1, color: AppColors.cardBorder),
                             const _ValueCell('Medium Pump\n43–52 m'),
                           ],
@@ -115,7 +115,7 @@ class ConfirmationNeededScreen extends StatelessWidget {
                         children: [
                           const _HeaderCell('ANTFAST Proposal', isBlue: true),
                           const Divider(height: 1, color: AppColors.cardBorder),
-                          const _ValueCell('Morning'),
+                          const _ValueCell('Midday\n12:00 - 16:00'),
                           const Divider(height: 1, color: AppColors.cardBorder),
                           const _ValueCell('Medium Pump\n43–52 m'),
                         ],
@@ -213,9 +213,9 @@ class ConfirmationNeededScreen extends StatelessWidget {
               arrow: true,
               label: 'Accept Proposal',
               onPressed: () {
-                Navigator.of(context).push(
+                Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
-                    builder: (_) => const PriceBreakdownScreen(),
+                    builder: (_) => const ScheduleProposedScreen(),
                   ),
                 );
               },

@@ -14,15 +14,10 @@ import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_status_badge.dart';
 import '../../core/widgets/svg_embedded_raster_image.dart';
 import 'domain/entities/order.dart' as order_entity;
-import 'order_confirmed_screen.dart';
-import 'order_complete_screen.dart';
 import 'order_details_screen.dart';
-import 'live_tracking_screen.dart';
 import 'presentation/bloc/orders_bloc.dart';
 import 'presentation/bloc/orders_event.dart';
 import 'presentation/bloc/orders_state.dart';
-import 'schedule_proposed_screen.dart';
-import 'order_details_screen.dart';
 
 /// Ported from the new Figma design's `screens/Orders.tsx` — a search bar,
 /// filter chips, and a compact single-tap order list (the whole row routes
@@ -379,6 +374,10 @@ class _OrderRow extends StatelessWidget {
             order_entity.OrderStatusType.completed => (
               AppStatusTone.completed,
               'Completed',
+            ),
+            order_entity.OrderStatusType.draft => (
+              AppStatusTone.review,
+              'Draft',
             ),
           };
     final thumbnail = AppAssets.orderThumbnailFor(

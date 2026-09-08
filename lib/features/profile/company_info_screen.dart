@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/utils/input_validators.dart';
 
 class CompanyInfoScreen extends StatefulWidget {
   const CompanyInfoScreen({super.key});
@@ -222,6 +223,10 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                         controller: _legalNameController,
                         icon: Icons.business_rounded,
                         isEditing: _isEditing,
+                        validator: (value) => InputValidators.fullName(
+                          value,
+                          fieldName: 'Legal entity name',
+                        ),
                       ),
                       _divider(),
                       _buildInfoField(
@@ -229,6 +234,10 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                         controller: _tradeNameController,
                         icon: Icons.storefront_rounded,
                         isEditing: _isEditing,
+                        validator: (value) => InputValidators.fullName(
+                          value,
+                          fieldName: 'Commercial trade name',
+                        ),
                       ),
                       _divider(),
                       _buildInfoField(
@@ -236,6 +245,10 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                         controller: _licenseNoController,
                         icon: Icons.assignment_outlined,
                         isEditing: _isEditing,
+                        validator: (value) => InputValidators.tradeRegistration(
+                          value,
+                          'Trade license number',
+                        ),
                       ),
                       _divider(),
                       _buildInfoField(
@@ -243,6 +256,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                         controller: _trnController,
                         icon: Icons.receipt_long_outlined,
                         isEditing: _isEditing,
+                        validator: InputValidators.trn,
                       ),
                     ],
                   ),
@@ -266,6 +280,8 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                         controller: _addressController,
                         icon: Icons.location_on_outlined,
                         isEditing: _isEditing,
+                        validator: (value) =>
+                            InputValidators.required(value, 'Office address'),
                       ),
                       _divider(),
                       _buildInfoField(
@@ -273,6 +289,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                         controller: _emailController,
                         icon: Icons.mail_outline_rounded,
                         isEditing: _isEditing,
+                        validator: InputValidators.email,
                       ),
                       _divider(),
                       _buildInfoField(
@@ -280,6 +297,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                         controller: _phoneController,
                         icon: Icons.phone_outlined,
                         isEditing: _isEditing,
+                        validator: InputValidators.phone,
                       ),
                       _divider(),
                       _buildInfoField(
@@ -287,6 +305,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                         controller: _websiteController,
                         icon: Icons.language_rounded,
                         isEditing: _isEditing,
+                        validator: InputValidators.website,
                       ),
                     ],
                   ),
@@ -341,12 +360,15 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
     required TextEditingController controller,
     required IconData icon,
     required bool isEditing,
+    String? Function(String?)? validator,
   }) {
     if (isEditing) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: TextFormField(
           controller: controller,
+          validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           style: TextStyle(
             fontSize: context.scaled(14),
             fontWeight: FontWeight.w500,

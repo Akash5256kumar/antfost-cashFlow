@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 /// Represents the current lifecycle state of an order.
-enum OrderStatusType { inProgress, scheduled, completed }
+enum OrderStatusType { inProgress, scheduled, completed, draft }
 
 /// Domain entity representing a concrete delivery order.
 /// Pure Dart — no Flutter or external framework imports.

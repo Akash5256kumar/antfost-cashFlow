@@ -8,6 +8,7 @@ import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/utils/route_feedback.dart';
+import '../../core/utils/input_validators.dart';
 import '../../core/widgets/app_tab_toggle.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/primary_button.dart';
@@ -23,6 +24,7 @@ class ForgotPasscodeScreen extends StatefulWidget {
 }
 
 class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
+  final _formKey = GlobalKey<FormState>();
   int _tabIndex = 0; // 0 = Email, 1 = Phone
   final _controller = TextEditingController();
 
@@ -37,6 +39,7 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
 
   /// Dispatches [ForgotPasscodeEvent] with the current contact value.
   void _onSendOtp() {
+    if (!_formKey.currentState!.validate()) return;
     context.read<AuthBloc>().add(
       ForgotPasscodeEvent(contact: _controller.text.trim(), isEmail: _isEmail),
     );
@@ -78,70 +81,79 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
             scrolledUnderElevation: 0,
             leading: const BackButton(color: AppColors.textPrimary),
           ),
-          body: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl(context)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(height: context.scaledV(12)),
+          body: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.xxl(context),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(height: context.scaledV(12)),
 
-                // ── Heading ──────────────────────────────────────────────────
-                Text(
-                  'Forgot passcode?',
-                  style: AppTextStyles.authScreenTitle(context),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: context.scaledV(4)),
+                  // ── Heading ──────────────────────────────────────────────────
+                  Text(
+                    'Forgot passcode?',
+                    style: AppTextStyles.authScreenTitle(context),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: context.scaledV(4)),
 
-                // ── Subtitle ─────────────────────────────────────────────────
-                Text(
-                  'Choose your recovery method',
-                  style: AppTextStyles.authScreenSubtitle(context),
-                  textAlign: TextAlign.center,
-                ),
+                  // ── Subtitle ─────────────────────────────────────────────────
+                  Text(
+                    'Choose your recovery method',
+                    style: AppTextStyles.authScreenSubtitle(context),
+                    textAlign: TextAlign.center,
+                  ),
 
-                SizedBox(height: context.scaledV(28)),
+                  SizedBox(height: context.scaledV(28)),
 
-                // ── Tab toggle ────────────────────────────────────────────────
-                AppTabToggle(
-                  tabs: const ['Email', 'Phone'],
-                  selectedIndex: _tabIndex,
-                  onChanged: (i) => setState(() {
-                    _tabIndex = i;
-                    _controller.clear();
-                  }),
-                ),
+                  // ── Tab toggle ────────────────────────────────────────────────
+                  AppTabToggle(
+                    tabs: const ['Email', 'Phone'],
+                    selectedIndex: _tabIndex,
+                    onChanged: (i) => setState(() {
+                      _tabIndex = i;
+                      _controller.clear();
+                    }),
+                  ),
 
-                SizedBox(height: context.scaledV(16)),
+                  SizedBox(height: context.scaledV(16)),
 
-                // ── Input field ───────────────────────────────────────────────
-                AppTextField(
-                  label: _tabIndex == 0 ? 'Email' : 'Phone Number',
-                  hint: _tabIndex == 0 ? 'Sample.email@.com' : '501 234 567',
-                  controller: _controller,
-                  keyboardType: _tabIndex == 0
-                      ? TextInputType.emailAddress
-                      : TextInputType.phone,
-                ),
+                  // ── Input field ───────────────────────────────────────────────
+                  AppTextField(
+                    label: _tabIndex == 0 ? 'Email' : 'Phone Number',
+                    hint: _tabIndex == 0 ? 'Sample.email@.com' : '501 234 567',
+                    controller: _controller,
+                    keyboardType: _tabIndex == 0
+                        ? TextInputType.emailAddress
+                        : TextInputType.phone,
+                    validator: _isEmail
+                        ? InputValidators.email
+                        : InputValidators.mobile,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                  ),
 
-                SizedBox(height: context.scaledV(28)),
+                  SizedBox(height: context.scaledV(28)),
 
-                // ── Send OTP ──────────────────────────────────────────────────
-                PrimaryButton(
-                  label: 'Send OTP',
-                  onPressed: isLoading ? null : _onSendOtp,
-                  isLoading: isLoading,
-                ),
+                  // ── Send OTP ──────────────────────────────────────────────────
+                  PrimaryButton(
+                    label: 'Send OTP',
+                    onPressed: isLoading ? null : _onSendOtp,
+                    isLoading: isLoading,
+                  ),
 
-                SizedBox(height: context.scaledV(16)),
+                  SizedBox(height: context.scaledV(16)),
 
-                // ── Expiry note ───────────────────────────────────────────────
-                Text(
-                  'OTP expires in 5 minutes.',
-                  style: AppTextStyles.authNote(context),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  // ── Expiry note ───────────────────────────────────────────────
+                  Text(
+                    'OTP expires in 5 minutes.',
+                    style: AppTextStyles.authNote(context),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
         );

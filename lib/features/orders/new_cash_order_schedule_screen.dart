@@ -32,19 +32,44 @@ class _NewCashOrderScheduleScreenState
   int _selectedTimeWindowIndex = 0;
   int _intervalMinutes = 15;
   final TextEditingController _notesController = TextEditingController();
+  late final TextEditingController _intervalController;
 
   final List<DateTime> _dates = List.generate(
       14, (i) => DateTime.now().add(Duration(days: i))); 
 
   @override
+  void initState() {
+    super.initState();
+    _intervalController = TextEditingController(text: '$_intervalMinutes');
+    _intervalController.addListener(() {
+      final val = int.tryParse(_intervalController.text);
+      if (val != null) {
+        _intervalMinutes = val;
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _notesController.dispose();
+    _intervalController.dispose();
     super.dispose();
   }
 
-  void _incrementInterval() => setState(() => _intervalMinutes += 5);
+  void _incrementInterval() {
+    setState(() {
+      _intervalMinutes += 5;
+      _intervalController.text = '$_intervalMinutes';
+    });
+  }
+
   void _decrementInterval() {
-    if (_intervalMinutes > 5) setState(() => _intervalMinutes -= 5);
+    if (_intervalMinutes > 5) {
+      setState(() {
+        _intervalMinutes -= 5;
+        _intervalController.text = '$_intervalMinutes';
+      });
+    }
   }
 
   void _onContinue() {
@@ -123,7 +148,7 @@ class _NewCashOrderScheduleScreenState
                     ),
                     SizedBox(height: context.scaledV(16)),
                     _IntervalStepper(
-                      minutes: _intervalMinutes,
+                      controller: _intervalController,
                       onDecrement: _decrementInterval,
                       onIncrement: _incrementInterval,
                     ),
@@ -461,12 +486,12 @@ class _TimeWindowGrid extends StatelessWidget {
 
 class _IntervalStepper extends StatelessWidget {
   const _IntervalStepper({
-    required this.minutes,
+    required this.controller,
     required this.onDecrement,
     required this.onIncrement,
   });
 
-  final int minutes;
+  final TextEditingController controller;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
 
@@ -486,12 +511,28 @@ class _IntervalStepper extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _IntervalButton(icon: Icons.remove, onTap: onDecrement),
-          Text(
-            '$minutes min',
-            style: TextStyle(
-              fontSize: context.scaled(16),
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF0F172A),
+          SizedBox(
+            width: context.scaled(100),
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                suffixText: ' min',
+                suffixStyle: TextStyle(
+                  fontSize: context.scaled(16),
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              style: TextStyle(
+                fontSize: context.scaled(16),
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF0F172A),
+              ),
             ),
           ),
           _IntervalButton(icon: Icons.add, onTap: onIncrement),

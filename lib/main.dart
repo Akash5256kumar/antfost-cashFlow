@@ -1,9 +1,13 @@
 import 'package:device_preview/device_preview.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'app/di/injection.dart';
 import 'app/navigation/app_router.dart';
 import 'app/navigation/app_routes.dart';
+import 'core/notifications/firebase_notification_service.dart';
 import 'app/config/app_breakpoints.dart';
 import 'app/config/app_strings.dart';
 import 'app/theme/app_colors.dart';
@@ -21,12 +25,21 @@ import 'features/payment/presentation/bloc/payment_bloc.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 import 'features/splash/presentation/bloc/splash_bloc.dart';
 import 'features/wallet/presentation/bloc/wallet_bloc.dart';
+import 'firebase_options.dart';
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await FirebaseNotificationService.instance.initialize();
   await initDependencies();
   runApp(
-    AntfostApp()
+    DevicePreview(enabled: !kReleaseMode, builder: (_) => const AntfostApp()),
   );
 }
 
@@ -54,6 +67,7 @@ class AntfostApp extends StatelessWidget {
       child: MaterialApp(
         title: AppStrings.appTitle,
         debugShowCheckedModeBanner: false,
+        navigatorKey: AppRouter.navigatorKey,
         scaffoldMessengerKey: AppRouter.scaffoldMessengerKey,
         theme: AppTheme.light(),
         initialRoute: AppRoutes.splash,
