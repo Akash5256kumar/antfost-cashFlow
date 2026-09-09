@@ -1,7 +1,5 @@
 enum VerifyAccountFlow { signUp, passwordRecovery }
 
-enum CreateAccountEntryPoint { getStarted, signIn }
-
 class VerifyAccountRouteArgs {
   const VerifyAccountRouteArgs({
     required this.contact,
@@ -17,12 +15,6 @@ class VerifyAccountRouteArgs {
   /// Which account type is being registered. Business KYC lands on Home with
   /// the verification state shown there.
   final bool isBusiness;
-}
-
-class CreateAccountRouteArgs {
-  const CreateAccountRouteArgs({required this.entryPoint});
-
-  final CreateAccountEntryPoint entryPoint;
 }
 
 class HomeRouteArgs {

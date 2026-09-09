@@ -1,9 +1,9 @@
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/mock_api/local_api_fixtures.dart';
 import '../models/mix_code_model.dart';
 import '../models/order_model.dart';
 import '../models/project_model.dart';
 import '../../domain/entities/new_cash_order_request.dart';
-import '../../domain/entities/order.dart';
 
 /// Contract for the remote data source used by [OrdersRepositoryImpl].
 abstract class OrdersRemoteDataSource {
@@ -100,30 +100,6 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
     },
   ];
 
-  // ── Dummy mix codes ───────────────────────────────────────────────────────
-
-  static const List<Map<String, dynamic>> _mixCodesJson = [
-    {'code': 'C20/25', 'type': 'Standard Mix', 'pricePerM3': 380.0},
-    {'code': 'C25/30', 'type': 'Standard Mix', 'pricePerM3': 450.0},
-    {'code': 'C30/37', 'type': 'High Strength', 'pricePerM3': 520.0},
-    {'code': 'C35/45', 'type': 'High Strength', 'pricePerM3': 610.0},
-  ];
-
-  // ── Dummy projects ────────────────────────────────────────────────────────
-
-  static const List<Map<String, dynamic>> _projectsJson = [
-    {'id': 'p1', 'name': 'Marina Tower', 'location': 'Dubai Marina'},
-    {'id': 'p2', 'name': 'Palm Villa', 'location': 'Palm Jumeirah'},
-    {'id': 'p3', 'name': 'Creek Residence', 'location': 'Dubai Creek'},
-    {
-      'id': 'p4',
-      'name': 'JVC Townhouse',
-      'location': 'Jumeirah Village Circle',
-    },
-    {'id': 'p5', 'name': 'Neighborhood Center', 'location': 'Dubai Hills'},
-    {'id': 'p6', 'name': 'Downtown Apartment', 'location': 'Downtown Dubai'},
-  ];
-
   // ── Helper ────────────────────────────────────────────────────────────────
 
   /// Simulates network latency.
@@ -150,13 +126,21 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
   @override
   Future<List<MixCodeModel>> getMixCodes() async {
     await _delay();
-    return _mixCodesJson.map(MixCodeModel.fromJson).toList();
+    final items = LocalApiFixtures.mixCodesResponse['items'] as List<dynamic>;
+    return items
+        .cast<Map<String, dynamic>>()
+        .map(MixCodeModel.fromJson)
+        .toList();
   }
 
   @override
   Future<List<ProjectModel>> getProjects() async {
     await _delay();
-    return _projectsJson.map(ProjectModel.fromJson).toList();
+    final items = LocalApiFixtures.projectsResponse['items'] as List<dynamic>;
+    return items
+        .cast<Map<String, dynamic>>()
+        .map(ProjectModel.fromJson)
+        .toList();
   }
 
   @override
@@ -170,15 +154,6 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
   @override
   Future<OrderModel> createCashOrder(NewCashOrderRequest request) async {
     await _delay();
-    return const OrderModel(
-      orderId: 'AF-NEW-001',
-      status: OrderStatusType.scheduled,
-      grade: 'C25/30',
-      location: 'New Project Site',
-      timeSlot: '6 AM - 10 AM',
-      volume: '0 m³',
-      date: 'Pending',
-      amount: 0.0,
-    );
+    return OrderModel.fromJson(LocalApiFixtures.createDraftOrder(request));
   }
 }

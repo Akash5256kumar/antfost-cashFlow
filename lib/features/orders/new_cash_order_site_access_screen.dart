@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
@@ -7,6 +6,7 @@ import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_review_screen.dart';
+import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
 
 // ── Site condition model (Figma's `CONDITIONS` on SiteAccess.tsx) ────────────
@@ -20,10 +20,30 @@ class _Condition {
 }
 
 const _conditions = [
-  _Condition('narrow', Icons.alt_route_rounded, 'Narrow Access', 'Limited access for large vehicles.'),
-  _Condition('permit', Icons.description_outlined, 'Road Permit Required', 'A road permit is required for delivery.'),
-  _Condition('boom', Icons.local_shipping_outlined, 'Boom Reach Restriction', 'Limited pump boom reach on site.'),
-  _Condition('night', Icons.nightlight_round, 'Night Delivery Access', 'Access available during night hours.'),
+  _Condition(
+    'narrow',
+    Icons.alt_route_rounded,
+    'Narrow Access',
+    'Limited access for large vehicles.',
+  ),
+  _Condition(
+    'permit',
+    Icons.description_outlined,
+    'Road Permit Required',
+    'A road permit is required for delivery.',
+  ),
+  _Condition(
+    'boom',
+    Icons.local_shipping_outlined,
+    'Boom Reach Restriction',
+    'Limited pump boom reach on site.',
+  ),
+  _Condition(
+    'night',
+    Icons.nightlight_round,
+    'Night Delivery Access',
+    'Access available during night hours.',
+  ),
 ];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -41,6 +61,7 @@ class NewCashOrderSiteAccessScreen extends StatefulWidget {
     this.pumpName,
     required this.cubeMould,
     required this.numMoulds,
+    this.draft,
   });
 
   final MixCodeItem mixCode;
@@ -53,6 +74,7 @@ class NewCashOrderSiteAccessScreen extends StatefulWidget {
   final String? pumpName;
   final bool cubeMould;
   final int numMoulds;
+  final NewCashOrderDraft? draft;
 
   @override
   State<NewCashOrderSiteAccessScreen> createState() =>
@@ -83,7 +105,8 @@ class _NewCashOrderSiteAccessScreenState
         .map((c) => c.label)
         .toList();
     final attachmentsCount =
-        (_answers['narrow'] == true ? 1 : 0) + (_answers['permit'] == true ? 1 : 0);
+        (_answers['narrow'] == true ? 1 : 0) +
+        (_answers['permit'] == true ? 1 : 0);
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -101,6 +124,10 @@ class _NewCashOrderSiteAccessScreenState
           siteAccessRequirements: selectedReqs,
           siteAccessNotes: null,
           siteAttachmentsCount: attachmentsCount,
+          draft: widget.draft?.copyWith(
+            siteAccessRequirements: selectedReqs,
+            siteAttachmentsCount: attachmentsCount,
+          ),
         ),
       ),
     );
@@ -132,8 +159,7 @@ class _NewCashOrderSiteAccessScreenState
                     children: [
                       const OrderStepHeading(
                         title: 'Site Access Requirements',
-                        subtitle:
-                            'Answer Yes or No for every site condition.',
+                        subtitle: 'Answer Yes or No for every site condition.',
                       ),
                       SizedBox(height: context.scaledV(16)),
 
@@ -142,12 +168,15 @@ class _NewCashOrderSiteAccessScreenState
                         final c = _conditions[i];
                         return Padding(
                           padding: EdgeInsets.only(
-                            bottom: i == _conditions.length - 1 ? 0 : context.scaledV(12),
+                            bottom: i == _conditions.length - 1
+                                ? 0
+                                : context.scaledV(12),
                           ),
                           child: _ConditionCard(
                             condition: c,
                             value: _answers[c.id],
-                            onChanged: (v) => setState(() => _answers[c.id] = v),
+                            onChanged: (v) =>
+                                setState(() => _answers[c.id] = v),
                           ),
                         );
                       }),
@@ -155,16 +184,14 @@ class _NewCashOrderSiteAccessScreenState
 
                       // ── Confirm checkbox ───────────────────────────────
                       GestureDetector(
-                        onTap: () =>
-                            setState(() => _confirmed = !_confirmed),
+                        onTap: () => setState(() => _confirmed = !_confirmed),
                         behavior: HitTestBehavior.opaque,
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _CustomCheckbox(
                               value: _confirmed,
-                              onChanged: (v) =>
-                                  setState(() => _confirmed = v),
+                              onChanged: (v) => setState(() => _confirmed = v),
                             ),
                             SizedBox(width: context.scaled(12)),
                             Expanded(
@@ -234,9 +261,7 @@ class _ConditionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.scaled(16)),
-        border: Border.all(
-          color: const Color(0xFFE2E8F0),
-        ),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,7 +472,9 @@ class _ConditionCard extends StatelessWidget {
                           height: context.scaled(32),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFEE2E2),
-                            borderRadius: BorderRadius.circular(context.scaled(6)),
+                            borderRadius: BorderRadius.circular(
+                              context.scaled(6),
+                            ),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -501,14 +528,10 @@ class _ConditionCard extends StatelessWidget {
   }
 }
 
-
 // ── Custom Checkbox ───────────────────────────────────────────────────────────
 
 class _CustomCheckbox extends StatelessWidget {
-  const _CustomCheckbox({
-    required this.value,
-    required this.onChanged,
-  });
+  const _CustomCheckbox({required this.value, required this.onChanged});
 
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -540,4 +563,3 @@ class _CustomCheckbox extends StatelessWidget {
     );
   }
 }
-

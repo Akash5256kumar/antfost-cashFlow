@@ -7,6 +7,7 @@ import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_other_screen.dart';
+import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -16,10 +17,12 @@ class NewCashOrderScheduleScreen extends StatefulWidget {
     super.key,
     required this.mixCode,
     required this.quantity,
+    this.draft,
   });
 
   final MixCodeItem mixCode;
   final int quantity;
+  final NewCashOrderDraft? draft;
 
   @override
   State<NewCashOrderScheduleScreen> createState() =>
@@ -28,18 +31,27 @@ class NewCashOrderScheduleScreen extends StatefulWidget {
 
 class _NewCashOrderScheduleScreenState
     extends State<NewCashOrderScheduleScreen> {
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  late DateTime _selectedDate;
   int _selectedTimeWindowIndex = 0;
-  int _intervalMinutes = 15;
-  final TextEditingController _notesController = TextEditingController();
+  late int _intervalMinutes;
+  late final TextEditingController _notesController;
   late final TextEditingController _intervalController;
 
   final List<DateTime> _dates = List.generate(
-      14, (i) => DateTime.now().add(Duration(days: i))); 
+    14,
+    (i) => DateTime.now().add(Duration(days: i)),
+  );
 
   @override
   void initState() {
     super.initState();
+    _selectedDate =
+        widget.draft?.scheduledDate ??
+        DateTime.now().add(const Duration(days: 1));
+    _intervalMinutes = widget.draft?.intervalMinutes ?? 15;
+    _notesController = TextEditingController(
+      text: widget.draft?.scheduleNotes ?? '',
+    );
     _intervalController = TextEditingController(text: '$_intervalMinutes');
     _intervalController.addListener(() {
       final val = int.tryParse(_intervalController.text);
@@ -73,11 +85,19 @@ class _NewCashOrderScheduleScreenState
   }
 
   void _onContinue() {
+    const windows = ['Morning', 'Midday', 'Afternoon', 'Early Night'];
+    final updatedDraft = widget.draft?.copyWith(
+      scheduledDate: _selectedDate,
+      timeWindow: windows[_selectedTimeWindowIndex],
+      intervalMinutes: _intervalMinutes,
+      scheduleNotes: _notesController.text.trim(),
+    );
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => NewCashOrderOtherScreen(
           mixCode: widget.mixCode,
           quantity: widget.quantity,
+          draft: updatedDraft,
         ),
       ),
     );
@@ -181,7 +201,7 @@ class _NewCashOrderScheduleScreenState
                       label: 'Continue to Services',
                       onPressed: _onContinue,
                     ),
-                    
+
                     SizedBox(height: context.scaledV(32)),
 
                     // ── Footer Illustration ─────────────────────────
@@ -196,7 +216,11 @@ class _NewCashOrderScheduleScreenState
                               Colors.white,
                               Colors.white,
                             ],
-                            stops: [0.0, 0.25, 1.0], // Fade the top 25% smoothly
+                            stops: [
+                              0.0,
+                              0.25,
+                              1.0,
+                            ], // Fade the top 25% smoothly
                           ).createShader(bounds);
                         },
                         blendMode: BlendMode.dstIn,
@@ -207,9 +231,13 @@ class _NewCashOrderScheduleScreenState
                         ),
                       ),
                     ),
-                    
+
                     // Extra padding for bottom safe area
-                    SizedBox(height: MediaQuery.paddingOf(context).bottom + context.scaledV(20)),
+                    SizedBox(
+                      height:
+                          MediaQuery.paddingOf(context).bottom +
+                          context.scaledV(20),
+                    ),
                   ],
                 ),
               ),
@@ -242,7 +270,7 @@ class _HorizontalDateSlider extends StatelessWidget {
     'Thu',
     'Fri',
     'Sat',
-    'Sun'
+    'Sun',
   ];
   static const List<String> _months = [
     '',
@@ -257,7 +285,7 @@ class _HorizontalDateSlider extends StatelessWidget {
     'Sep',
     'Oct',
     'Nov',
-    'Dec'
+    'Dec',
   ];
 
   @override
@@ -273,7 +301,11 @@ class _HorizontalDateSlider extends StatelessWidget {
             borderRadius: BorderRadius.circular(context.scaled(10)),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-          child: Icon(Icons.chevron_left, color: kOrderTextDark, size: context.scaled(18)),
+          child: Icon(
+            Icons.chevron_left,
+            color: kOrderTextDark,
+            size: context.scaled(18),
+          ),
         ),
         SizedBox(width: context.scaled(8)),
         Expanded(
@@ -281,7 +313,8 @@ class _HorizontalDateSlider extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: dates.map((d) {
-                final isSelected = d.year == selectedDate.year &&
+                final isSelected =
+                    d.year == selectedDate.year &&
                     d.month == selectedDate.month &&
                     d.day == selectedDate.day;
                 return Padding(
@@ -295,7 +328,9 @@ class _HorizontalDateSlider extends StatelessWidget {
                         vertical: context.scaledV(12),
                       ),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFFF6F8FF) : Colors.white,
+                        color: isSelected
+                            ? const Color(0xFFF6F8FF)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(context.scaled(12)),
                         border: Border.all(
                           color: isSelected
@@ -311,8 +346,12 @@ class _HorizontalDateSlider extends StatelessWidget {
                             _weekdays[d.weekday],
                             style: TextStyle(
                               fontSize: context.scaled(12.5),
-                              color: isSelected ? AppColors.primary : kOrderTextDark,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : kOrderTextDark,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                             ),
                           ),
                           SizedBox(height: context.scaledV(4)),
@@ -321,8 +360,12 @@ class _HorizontalDateSlider extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: context.scaled(12.5),
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                              color: isSelected ? AppColors.primary : kOrderTextDark,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : kOrderTextDark,
                               height: 1.1,
                             ),
                           ),
@@ -336,7 +379,11 @@ class _HorizontalDateSlider extends StatelessWidget {
                                 color: AppColors.primary,
                               ),
                               alignment: Alignment.center,
-                              child: Icon(Icons.check, size: context.scaled(12), color: Colors.white),
+                              child: Icon(
+                                Icons.check,
+                                size: context.scaled(12),
+                                color: Colors.white,
+                              ),
                             )
                           else
                             Container(
@@ -344,7 +391,9 @@ class _HorizontalDateSlider extends StatelessWidget {
                               height: context.scaled(18),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                             ),
                         ],
@@ -366,7 +415,11 @@ class _HorizontalDateSlider extends StatelessWidget {
             borderRadius: BorderRadius.circular(context.scaled(10)),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-          child: Icon(Icons.chevron_right, color: kOrderTextDark, size: context.scaled(18)),
+          child: Icon(
+            Icons.chevron_right,
+            color: kOrderTextDark,
+            size: context.scaled(18),
+          ),
         ),
       ],
     );
@@ -376,10 +429,7 @@ class _HorizontalDateSlider extends StatelessWidget {
 // ── Time Window Grid ─────────────────────────────────────────────────────────
 
 class _TimeWindowGrid extends StatelessWidget {
-  const _TimeWindowGrid({
-    required this.selectedIndex,
-    required this.onSelect,
-  });
+  const _TimeWindowGrid({required this.selectedIndex, required this.onSelect});
 
   final int selectedIndex;
   final ValueChanged<int> onSelect;
@@ -387,8 +437,16 @@ class _TimeWindowGrid extends StatelessWidget {
   static const List<Map<String, dynamic>> _windows = [
     {'title': 'Morning', 'time': '06:00-12:00', 'icon': Icons.wb_twilight},
     {'title': 'Midday', 'time': '12:00-16:00', 'icon': Icons.wb_sunny_outlined},
-    {'title': 'Afternoon', 'time': '16:00-00:00', 'icon': Icons.wb_sunny_outlined},
-    {'title': 'Early Night', 'time': '00:00-06:00', 'icon': Icons.nights_stay_outlined},
+    {
+      'title': 'Afternoon',
+      'time': '16:00-00:00',
+      'icon': Icons.wb_sunny_outlined,
+    },
+    {
+      'title': 'Early Night',
+      'time': '00:00-06:00',
+      'icon': Icons.nights_stay_outlined,
+    },
   ];
 
   @override
@@ -401,7 +459,9 @@ class _TimeWindowGrid extends StatelessWidget {
           children: List.generate(_windows.length, (i) {
             final isSelected = selectedIndex == i;
             return Padding(
-              padding: EdgeInsets.only(right: i == _windows.length - 1 ? 0 : gap),
+              padding: EdgeInsets.only(
+                right: i == _windows.length - 1 ? 0 : gap,
+              ),
               child: GestureDetector(
                 onTap: () => onSelect(i),
                 child: Container(
@@ -411,9 +471,7 @@ class _TimeWindowGrid extends StatelessWidget {
                     vertical: context.scaledV(12),
                   ),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFFF6F8FF)
-                        : Colors.white,
+                    color: isSelected ? const Color(0xFFF6F8FF) : Colors.white,
                     borderRadius: BorderRadius.circular(context.scaled(12)),
                     border: Border.all(
                       color: isSelected
@@ -428,7 +486,9 @@ class _TimeWindowGrid extends StatelessWidget {
                       Icon(
                         _windows[i]['icon'] as IconData,
                         size: context.scaled(24),
-                        color: isSelected ? AppColors.primary : const Color(0xFF64748B),
+                        color: isSelected
+                            ? AppColors.primary
+                            : const Color(0xFF64748B),
                       ),
                       SizedBox(height: context.scaledV(8)),
                       Text(
@@ -436,8 +496,12 @@ class _TimeWindowGrid extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: context.scaled(11.5),
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                          color: isSelected ? AppColors.primary : kOrderTextDark,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? AppColors.primary
+                              : kOrderTextDark,
                         ),
                       ),
                       SizedBox(height: context.scaledV(2)),
@@ -446,7 +510,9 @@ class _TimeWindowGrid extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: context.scaled(9.5),
-                          color: isSelected ? AppColors.primary.withValues(alpha: 0.8) : kOrderTextGrey,
+                          color: isSelected
+                              ? AppColors.primary.withValues(alpha: 0.8)
+                              : kOrderTextGrey,
                         ),
                       ),
                       SizedBox(height: context.scaledV(12)),
@@ -459,7 +525,11 @@ class _TimeWindowGrid extends StatelessWidget {
                             color: AppColors.primary,
                           ),
                           alignment: Alignment.center,
-                          child: Icon(Icons.check, size: context.scaled(12), color: Colors.white),
+                          child: Icon(
+                            Icons.check,
+                            size: context.scaled(12),
+                            color: Colors.white,
+                          ),
                         )
                       else
                         Container(
@@ -560,7 +630,11 @@ class _IntervalButton extends StatelessWidget {
           border: Border.all(color: const Color(0xFFE2E8F0)),
           borderRadius: BorderRadius.circular(context.scaled(10)),
         ),
-        child: Icon(icon, size: context.scaled(18), color: const Color(0xFF64748B)),
+        child: Icon(
+          icon,
+          size: context.scaled(18),
+          color: const Color(0xFF64748B),
+        ),
       ),
     );
   }

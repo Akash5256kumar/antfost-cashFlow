@@ -15,13 +15,8 @@ import '../../core/uploads/document_picker_service.dart';
 import '../../core/utils/input_validators.dart';
 
 /// Ported from the new Figma design's `screens/VerifyBusiness.tsx`. The
-/// Figma flow shows this same screen after OTP regardless of account type
-/// and hands off straight to Home (no separate pending/status screen) —
-/// [isBusiness] only swaps the copy/field labels between the business and
-/// individual document sets, since the old app's richer status screens
-/// (`KycPendingScreen`, `VerificationStatusScreen`) aren't part of that flow
-/// anymore but stay in the codebase, restyled, in case something still
-/// links to them directly.
+/// Business accounts reach this screen after OTP verification. Individual
+/// accounts continue directly to Home.
 class KycVerificationScreen extends StatefulWidget {
   final bool isBusiness;
 

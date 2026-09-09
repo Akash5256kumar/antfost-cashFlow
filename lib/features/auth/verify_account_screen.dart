@@ -139,10 +139,9 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
                 );
               }
             case VerifyAccountFlow.passwordRecovery:
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                AppRoutes.signIn,
-                (route) => route.settings.name == AppRoutes.getStarted,
-              );
+              Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil(AppRoutes.signIn, (route) => false);
           }
         } else if (state is AuthOtpSent) {
           showSingleSnackBar(

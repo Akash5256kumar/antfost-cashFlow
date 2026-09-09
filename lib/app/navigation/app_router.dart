@@ -6,14 +6,11 @@ import '../../features/invoices/invoice_details_screen.dart';
 import '../../features/invoices/invoices_screen.dart';
 import '../../features/invoices/qc_checkpoint_screen.dart';
 import '../../features/auth/account_type_screen.dart';
-import '../../features/auth/create_account_screen.dart';
 import '../../features/auth/create_business_screen.dart';
 import '../../features/auth/create_individual_screen.dart';
 import '../../features/auth/forgot_passcode_screen.dart';
-import '../../features/auth/get_started_screen.dart';
 import '../../features/auth/sign_in_screen.dart';
 import '../../features/auth/verify_account_screen.dart';
-import '../../features/kyc/kyc_pending_screen.dart';
 import '../../features/kyc/kyc_verification_screen.dart';
 import '../../features/kyc/verification_status_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
@@ -89,11 +86,6 @@ class AppRouter {
               FadeTransition(opacity: animation, child: child),
           transitionDuration: AppDurations.splashTransition,
         );
-      case AppRoutes.getStarted:
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => const GetStartedScreen(),
-        );
       case AppRoutes.signIn:
         return _materialRoute(
           settings: settings,
@@ -103,16 +95,6 @@ class AppRouter {
         return _materialRoute(
           settings: settings,
           builder: (_) => const AccountTypeScreen(),
-        );
-      case AppRoutes.createAccount:
-        final args = settings.arguments is CreateAccountRouteArgs
-            ? settings.arguments as CreateAccountRouteArgs
-            : const CreateAccountRouteArgs(
-                entryPoint: CreateAccountEntryPoint.getStarted,
-              );
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => CreateAccountScreen(entryPoint: args.entryPoint),
         );
       case AppRoutes.createIndividual:
         return _materialRoute(
@@ -153,11 +135,6 @@ class AppRouter {
         return _materialRoute(
           settings: settings,
           builder: (_) => KycVerificationScreen(isBusiness: isBusiness),
-        );
-      case AppRoutes.kycPending:
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => const KycPendingScreen(),
         );
       case AppRoutes.kycVerificationStatus:
         return _materialRoute(

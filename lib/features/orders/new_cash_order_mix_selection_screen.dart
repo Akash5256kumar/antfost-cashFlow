@@ -6,6 +6,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import 'new_cash_order_mix_code_screen.dart';
+import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
 
 /// First screen of the "Mix Code" step — lets the user choose between
@@ -13,7 +14,9 @@ import 'order_step_widgets.dart';
 /// opens the mix-code picker directly as a bottom sheet (no intermediate
 /// full-page navigation) and proceeds to Quantity once a mix is chosen.
 class NewCashOrderMixSelectionScreen extends StatefulWidget {
-  const NewCashOrderMixSelectionScreen({super.key});
+  const NewCashOrderMixSelectionScreen({super.key, required this.draft});
+
+  final NewCashOrderDraft draft;
 
   @override
   State<NewCashOrderMixSelectionScreen> createState() =>
@@ -33,7 +36,7 @@ class _NewCashOrderMixSelectionScreenState
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const NewCashOrderMixCodeScreen(),
+        builder: (_) => NewCashOrderMixCodeScreen(draft: widget.draft),
       ),
     );
   }

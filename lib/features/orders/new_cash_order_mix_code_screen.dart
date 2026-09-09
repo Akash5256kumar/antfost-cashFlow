@@ -6,10 +6,10 @@ import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import 'new_cash_order_quantity_screen.dart';
+import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
 
 // ── Data model ────────────────────────────────────────────────────────────────
-
 
 class MixCodeItem {
   const MixCodeItem({
@@ -71,7 +71,9 @@ const kSampleMixCodes = [
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class NewCashOrderMixCodeScreen extends StatefulWidget {
-  const NewCashOrderMixCodeScreen({super.key});
+  const NewCashOrderMixCodeScreen({super.key, this.draft});
+
+  final NewCashOrderDraft? draft;
 
   @override
   State<NewCashOrderMixCodeScreen> createState() =>
@@ -86,7 +88,7 @@ class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
   void initState() {
     super.initState();
     _search = TextEditingController()..addListener(() => setState(() {}));
-    _selected = kSampleMixCodes.first;
+    _selected = widget.draft?.mixCode;
   }
 
   @override
@@ -111,7 +113,10 @@ class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
     if (_selected == null) return;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => NewCashOrderQuantityScreen(mixCode: _selected!),
+        builder: (_) => NewCashOrderQuantityScreen(
+          mixCode: _selected!,
+          draft: widget.draft?.copyWith(mixCode: _selected!),
+        ),
       ),
     );
   }
@@ -146,13 +151,15 @@ class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
                             'Choose the right concrete mix for your project.',
                       ),
                       SizedBox(height: context.scaledV(16)),
-                      
+
                       // Search Bar
                       Container(
                         height: context.scaled(52),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(context.scaled(14)),
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(14),
+                          ),
                           border: Border.all(color: const Color(0xFFEBEBEB)),
                         ),
                         child: TextField(
@@ -236,9 +243,7 @@ class _MixCodeCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(context.scaled(16)),
           border: Border.all(
-            color: isSelected
-                ? AppColors.primary
-                : const Color(0xFFE5E7EB),
+            color: isSelected ? AppColors.primary : const Color(0xFFE5E7EB),
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: [
@@ -266,13 +271,16 @@ class _MixCodeCard extends StatelessWidget {
                       color: const Color(0xFFF3F4F6),
                       borderRadius: BorderRadius.circular(context.scaled(12)),
                     ),
-                    child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF9CA3AF)),
+                    child: const Icon(
+                      Icons.inventory_2_outlined,
+                      color: Color(0xFF9CA3AF),
+                    ),
                   );
                 },
               ),
             ),
             SizedBox(width: context.scaled(14)),
-            
+
             // Details
             Expanded(
               child: Column(
@@ -307,7 +315,7 @@ class _MixCodeCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Radio button
             Container(
               width: context.scaled(22),
@@ -315,7 +323,9 @@ class _MixCodeCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : const Color(0xFFD1D5DB),
+                  color: isSelected
+                      ? AppColors.primary
+                      : const Color(0xFFD1D5DB),
                   width: isSelected ? 2.0 : 1.5,
                 ),
               ),
@@ -369,10 +379,7 @@ class _Badge extends StatelessWidget {
 // ── Custom Bottom Bar ────────────────────────────────────────────────────────
 
 class _CustomBottomBar extends StatelessWidget {
-  const _CustomBottomBar({
-    required this.onContinue,
-    required this.label,
-  });
+  const _CustomBottomBar({required this.onContinue, required this.label});
 
   final VoidCallback? onContinue;
   final String label;
@@ -396,11 +403,7 @@ class _CustomBottomBar extends StatelessWidget {
           context.scaled(16),
           bottomPadding,
         ),
-        child: PrimaryButton(
-          arrow: true,
-          label: label,
-          onPressed: onContinue,
-        ),
+        child: PrimaryButton(arrow: true, label: label, onPressed: onContinue),
       ),
     );
   }

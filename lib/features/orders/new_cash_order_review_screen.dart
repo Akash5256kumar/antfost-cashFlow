@@ -10,6 +10,7 @@ import '../payment/payment_success_screen.dart';
 import 'order_saved_screen.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'order_step_widgets.dart';
+import 'new_cash_order_draft.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart';
@@ -31,6 +32,7 @@ class NewCashOrderReviewScreen extends StatefulWidget {
     this.siteAccessRequirements,
     this.siteAccessNotes,
     this.siteAttachmentsCount,
+    this.draft,
   });
 
   final MixCodeItem mixCode;
@@ -46,6 +48,7 @@ class NewCashOrderReviewScreen extends StatefulWidget {
   final List<String>? siteAccessRequirements;
   final String? siteAccessNotes;
   final int? siteAttachmentsCount;
+  final NewCashOrderDraft? draft;
 
   @override
   State<NewCashOrderReviewScreen> createState() =>
@@ -53,16 +56,37 @@ class NewCashOrderReviewScreen extends StatefulWidget {
 }
 
 class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
-  // Existing calculation logic for next screen compatibility
-  double get _subtotal =>
-      widget.mixCode.pricePerM3 * widget.quantity.toDouble();
-  double get _pumpFee => widget.pumpRequired ? 600.0 : 0.0;
-  double get _vat => (_subtotal + _pumpFee) * 0.05;
-  double get _total => _subtotal + _pumpFee + _vat;
-
   @override
   Widget build(BuildContext context) {
-    final hasSiteAccess = widget.siteAccessRequirements?.isNotEmpty ?? false;
+    final draft = widget.draft;
+    final mixCode = draft?.mixCode ?? widget.mixCode;
+    final quantity = draft?.quantity ?? widget.quantity;
+    final siteAccessRequirements =
+        draft?.siteAccessRequirements ??
+        widget.siteAccessRequirements ??
+        const [];
+    final siteAttachmentsCount =
+        draft?.siteAttachmentsCount ?? widget.siteAttachmentsCount ?? 0;
+    final pumpRequired = draft?.pumpRequired ?? widget.pumpRequired;
+    final technicianRequired =
+        draft?.technicianRequired ?? widget.technicianRequired;
+    final numMoulds = draft?.numMoulds ?? widget.numMoulds;
+    final services = [
+      if (pumpRequired) 'Pump',
+      if (technicianRequired) 'Technician',
+      if (numMoulds > 0) '$numMoulds cube moulds',
+      if (draft?.temperatureControl ?? widget.temperatureControl)
+        'Temperature control',
+      if (draft?.labTesting ?? false) 'Laboratory testing',
+      if (draft?.otherService ?? false) 'Other service',
+    ];
+    final subtotal = mixCode.pricePerM3 * quantity.toDouble();
+    final pumpFee = pumpRequired ? 600.0 : 0.0;
+    final total = (subtotal + pumpFee) * 1.05;
+    final scheduleDate = draft?.scheduledDate;
+    final scheduleLabel = scheduleDate == null
+        ? 'Schedule not selected'
+        : '${MaterialLocalizations.of(context).formatMediumDate(scheduleDate)} • ${draft?.timeWindow ?? 'Time window not selected'} • requested interval ${draft?.intervalMinutes ?? 15} min';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
@@ -96,7 +120,7 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                         fit: BoxFit.contain,
                       ),
                     ),
-                    
+
                     Padding(
                       padding: EdgeInsets.all(context.scaled(16)),
                       child: Column(
@@ -104,28 +128,32 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                           _ReviewRow(
                             icon: Icons.location_city_outlined,
                             title: 'Project & Location',
-                            subtitle: 'Palm Jumeirah Villa • Main Villa Entrance',
+                            subtitle: draft?.project == null
+                                ? 'Project and location not selected'
+                                : '${draft!.project!.projectName} • ${draft.project!.locationLabel}',
                             onEdit: () {},
                           ),
                           SizedBox(height: context.scaledV(6)),
                           _ReviewRow(
                             icon: Icons.local_shipping_outlined,
                             title: 'Mix & Quantity',
-                            subtitle: '${widget.mixCode.code} • ${widget.quantity} m³',
+                            subtitle: '${mixCode.code} • $quantity m³',
                             onEdit: () {},
                           ),
                           SizedBox(height: context.scaledV(6)),
                           _ReviewRow(
                             icon: Icons.calendar_today_outlined,
                             title: 'Schedule',
-                            subtitle: 'Tue 12 Aug • Morning • 08:00 • requested interval 15 min',
+                            subtitle: scheduleLabel,
                             onEdit: () {},
                           ),
                           SizedBox(height: context.scaledV(6)),
                           _ReviewRow(
                             icon: Icons.person_outline,
                             title: 'Services',
-                            subtitle: '${widget.pumpRequired ? 'Pump + ' : ''}${widget.technicianRequired ? 'Technician • ' : ''}${widget.numMoulds > 0 ? '${widget.numMoulds} cube moulds' : ''}',
+                            subtitle: services.isEmpty
+                                ? 'No additional services selected'
+                                : services.join(' • '),
                             onEdit: () {},
                           ),
                           SizedBox(height: context.scaledV(6)),
@@ -137,19 +165,39 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                             isExpanded: true,
                             child: Column(
                               children: [
-                                _SiteAccessPill(title: 'Narrow Access', yes: widget.siteAccessRequirements?.contains('Narrow Access') ?? true),
+                                _SiteAccessPill(
+                                  title: 'Narrow Access',
+                                  yes: siteAccessRequirements.contains(
+                                    'Narrow Access',
+                                  ),
+                                ),
                                 SizedBox(height: context.scaledV(8)),
-                                _SiteAccessPill(title: 'Road Permit Required', yes: widget.siteAccessRequirements?.contains('Road Permit Required') ?? true),
+                                _SiteAccessPill(
+                                  title: 'Road Permit Required',
+                                  yes: siteAccessRequirements.contains(
+                                    'Road Permit Required',
+                                  ),
+                                ),
                                 SizedBox(height: context.scaledV(8)),
-                                _SiteAccessPill(title: 'Boom Reach Restriction', yes: widget.siteAccessRequirements?.contains('Boom Reach Restriction') ?? false),
+                                _SiteAccessPill(
+                                  title: 'Boom Reach Restriction',
+                                  yes: siteAccessRequirements.contains(
+                                    'Boom Reach Restriction',
+                                  ),
+                                ),
                                 SizedBox(height: context.scaledV(8)),
-                                _SiteAccessPill(title: 'Night Delivery Access', yes: widget.siteAccessRequirements?.contains('Night Delivery Access') ?? false),
-                                if ((widget.siteAttachmentsCount ?? 0) > 0) ...[
+                                _SiteAccessPill(
+                                  title: 'Night Delivery Access',
+                                  yes: siteAccessRequirements.contains(
+                                    'Night Delivery Access',
+                                  ),
+                                ),
+                                if (siteAttachmentsCount > 0) ...[
                                   SizedBox(height: context.scaledV(12)),
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: Text(
-                                      'Attachments (${widget.siteAttachmentsCount})',
+                                      'Attachments ($siteAttachmentsCount)',
                                       style: TextStyle(
                                         fontSize: context.scaled(12),
                                         fontWeight: FontWeight.w600,
@@ -158,11 +206,15 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                                     ),
                                   ),
                                   SizedBox(height: context.scaledV(8)),
-                                  if (widget.siteAccessRequirements?.contains('Narrow Access') ?? true) ...[
+                                  if (siteAccessRequirements.contains(
+                                    'Narrow Access',
+                                  )) ...[
                                     Row(
                                       children: [
                                         ClipRRect(
-                                          borderRadius: BorderRadius.circular(context.scaled(8)),
+                                          borderRadius: BorderRadius.circular(
+                                            context.scaled(8),
+                                          ),
                                           child: Image.asset(
                                             AppAssets.mixThumb8,
                                             width: context.scaled(48),
@@ -182,13 +234,21 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                                     ),
                                     SizedBox(height: context.scaledV(8)),
                                   ],
-                                  if (widget.siteAccessRequirements?.contains('Road Permit Required') ?? true) ...[
+                                  if (siteAccessRequirements.contains(
+                                    'Road Permit Required',
+                                  )) ...[
                                     Container(
-                                      padding: EdgeInsets.all(context.scaled(10)),
+                                      padding: EdgeInsets.all(
+                                        context.scaled(10),
+                                      ),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        borderRadius: BorderRadius.circular(context.scaled(8)),
-                                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                                        borderRadius: BorderRadius.circular(
+                                          context.scaled(8),
+                                        ),
+                                        border: Border.all(
+                                          color: const Color(0xFFE2E8F0),
+                                        ),
                                       ),
                                       child: Row(
                                         children: [
@@ -197,7 +257,10 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                                             height: context.scaled(32),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFFEE2E2),
-                                              borderRadius: BorderRadius.circular(context.scaled(6)),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    context.scaled(6),
+                                                  ),
                                             ),
                                             alignment: Alignment.center,
                                             child: Text(
@@ -212,20 +275,27 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                                           SizedBox(width: context.scaled(10)),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   'Road_Permit_AF-2048.pdf',
                                                   style: TextStyle(
-                                                    fontSize: context.scaled(12),
+                                                    fontSize: context.scaled(
+                                                      12,
+                                                    ),
                                                     fontWeight: FontWeight.w600,
-                                                    color: const Color(0xFF1F2533),
+                                                    color: const Color(
+                                                      0xFF1F2533,
+                                                    ),
                                                   ),
                                                 ),
                                                 Text(
                                                   '1.2 MB',
                                                   style: TextStyle(
-                                                    fontSize: context.scaled(10),
+                                                    fontSize: context.scaled(
+                                                      10,
+                                                    ),
                                                     color: kOrderTextGrey,
                                                   ),
                                                 ),
@@ -243,9 +313,11 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                         ],
                       ),
                     ),
-                    
+
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: context.scaled(20)),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.scaled(20),
+                      ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -272,7 +344,7 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                 ),
               ),
             ),
-            
+
             // Bottom button
             Container(
               padding: EdgeInsets.fromLTRB(
@@ -288,8 +360,8 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
               child: BlocBuilder<ProfileBloc, ProfileState>(
                 builder: (context, state) {
                   // Default to true so it doesn't block if profile is missing
-                  final isKycVerified = state is ProfileSuccess 
-                      ? state.profile.isKycVerified 
+                  final isKycVerified = state is ProfileSuccess
+                      ? state.profile.isKycVerified
                       : true;
 
                   return PrimaryButton(
@@ -300,20 +372,20 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => OrderSavedScreen(
-                              quantity: widget.quantity,
-                              mixCode: widget.mixCode.code,
+                              quantity: quantity,
+                              mixCode: mixCode.code,
                               reason: OrderSavedReason.kyc,
                             ),
                           ),
                         );
                       } else {
-                        PaymentSuccessScreen.currentOrderQuantity = widget.quantity;
+                        PaymentSuccessScreen.currentOrderQuantity = quantity;
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => PriceBreakdownScreen(
-                              mixCode: widget.mixCode.code,
-                              quantity: widget.quantity,
-                              totalAmount: _total,
+                              mixCode: mixCode.code,
+                              quantity: quantity,
+                              totalAmount: total,
                             ),
                           ),
                         );
@@ -401,7 +473,7 @@ class _ReviewRow extends StatelessWidget {
                           color: kOrderTextGrey,
                         ),
                       ),
-                    ]
+                    ],
                   ],
                 ),
               ),
@@ -460,7 +532,11 @@ class _SiteAccessPill extends StatelessWidget {
           child: Row(
             children: [
               if (yes) ...[
-                Icon(Icons.check_rounded, size: context.scaled(12), color: Colors.white),
+                Icon(
+                  Icons.check_rounded,
+                  size: context.scaled(12),
+                  color: Colors.white,
+                ),
                 SizedBox(width: context.scaled(4)),
               ],
               Text(

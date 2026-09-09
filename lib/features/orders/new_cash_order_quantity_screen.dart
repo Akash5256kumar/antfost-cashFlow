@@ -8,13 +8,19 @@ import '../../core/widgets/primary_button.dart';
 import '../payment/payment_success_screen.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_schedule_screen.dart';
+import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class NewCashOrderQuantityScreen extends StatefulWidget {
-  const NewCashOrderQuantityScreen({super.key, required this.mixCode});
+  const NewCashOrderQuantityScreen({
+    super.key,
+    required this.mixCode,
+    this.draft,
+  });
   final MixCodeItem mixCode;
+  final NewCashOrderDraft? draft;
 
   @override
   State<NewCashOrderQuantityScreen> createState() =>
@@ -23,7 +29,13 @@ class NewCashOrderQuantityScreen extends StatefulWidget {
 
 class _NewCashOrderQuantityScreenState
     extends State<NewCashOrderQuantityScreen> {
-  int _quantity = 25;
+  late int _quantity;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantity = widget.draft?.quantity ?? 25;
+  }
 
   void _increment() => setState(() => _quantity++);
   void _decrement() {
@@ -32,8 +44,10 @@ class _NewCashOrderQuantityScreenState
 
   Future<void> _enterExactQuantity() async {
     final controller = TextEditingController(text: _quantity.toString());
-    controller.selection =
-        TextSelection(baseOffset: 0, extentOffset: controller.text.length);
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: controller.text.length,
+    );
     final newQuantity = await showDialog<int>(
       context: context,
       builder: (context) {
@@ -145,6 +159,9 @@ class _NewCashOrderQuantityScreenState
                               builder: (_) => NewCashOrderScheduleScreen(
                                 mixCode: widget.mixCode,
                                 quantity: _quantity,
+                                draft: widget.draft?.copyWith(
+                                  quantity: _quantity,
+                                ),
                               ),
                             ),
                           );
@@ -196,10 +213,7 @@ class _QuantityStepperCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Minus
-              _StepperButton(
-                icon: Icons.remove_rounded,
-                onTap: onDecrement,
-              ),
+              _StepperButton(icon: Icons.remove_rounded, onTap: onDecrement),
 
               // Quantity display (tap to enter exact volume)
               GestureDetector(
@@ -232,10 +246,7 @@ class _QuantityStepperCard extends StatelessWidget {
               ),
 
               // Plus
-              _StepperButton(
-                icon: Icons.add_rounded,
-                onTap: onIncrement,
-              ),
+              _StepperButton(icon: Icons.add_rounded, onTap: onIncrement),
             ],
           ),
           SizedBox(height: context.scaledV(20)),
@@ -290,11 +301,7 @@ class _StepperButton extends StatelessWidget {
           color: const Color(0xFFF0EEFE),
           borderRadius: BorderRadius.circular(context.scaled(14)),
         ),
-        child: Icon(
-          icon,
-          size: context.scaled(24),
-          color: AppColors.primary,
-        ),
+        child: Icon(icon, size: context.scaled(24), color: AppColors.primary),
       ),
     );
   }

@@ -8,6 +8,7 @@ import '../../core/widgets/common_input_field.dart';
 import '../../core/widgets/order_stepper_widget.dart';
 import '../../core/widgets/primary_button.dart';
 import 'new_cash_order_mix_selection_screen.dart';
+import 'new_cash_order_draft.dart';
 import 'order_project_summary.dart';
 
 // ── Colour palette (local, matches Figma) ──────────────────────────────────
@@ -86,8 +87,10 @@ class _NewCashOrderScreenState extends State<NewCashOrderScreen> {
   }
 
   Future<void> _openAddNewProject() async {
-    final result = await Navigator.of(context, rootNavigator: true)
-        .pushNamed<OrderProjectSummary>(AppRoutes.addNewProject, arguments: true);
+    final result = await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).pushNamed<OrderProjectSummary>(AppRoutes.addNewProject, arguments: true);
     if (result != null && mounted) {
       setState(() => _selectedProject = result);
     }
@@ -130,14 +133,26 @@ class _NewCashOrderScreenState extends State<NewCashOrderScreen> {
             ),
 
             // ── Bottom CTA (white card shadow above body) ──────────────
-            _BottomBar(
-              onContinue: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const NewCashOrderMixSelectionScreen(),
-                ),
-              ),
-            ),
+            _BottomBar(onContinue: _continueToMixSelection),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _continueToMixSelection() {
+    if (_selectedProject == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select a project and delivery site to continue.'),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NewCashOrderMixSelectionScreen(
+          draft: NewCashOrderDraft(project: _selectedProject),
         ),
       ),
     );

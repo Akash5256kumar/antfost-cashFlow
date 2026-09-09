@@ -9,7 +9,6 @@ import '../../features/invoices/qc_checkpoint_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/chat/order_chat_screen.dart';
 import '../../features/auth/forgot_passcode_screen.dart';
-import '../../features/kyc/kyc_pending_screen.dart';
 import '../../features/kyc/kyc_verification_screen.dart';
 import '../../features/kyc/verification_status_screen.dart';
 import '../../features/orders/add_location_screen.dart';
@@ -467,11 +466,6 @@ Route<dynamic> _buildRouteForTab(
       return _materialRoute(
         settings: settings,
         builder: (_) => KycVerificationScreen(isBusiness: isBusiness),
-      );
-    case AppRoutes.kycPending:
-      return _materialRoute(
-        settings: settings,
-        builder: (_) => const KycPendingScreen(),
       );
     case AppRoutes.kycVerificationStatus:
       return _materialRoute(

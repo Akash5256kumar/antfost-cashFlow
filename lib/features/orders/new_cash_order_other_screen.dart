@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../app/config/app_assets.dart';
-import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_site_access_screen.dart';
+import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
 
 // ── Pump option enum ─────────────────────────────────────────────────────────
@@ -28,10 +28,12 @@ class NewCashOrderOtherScreen extends StatefulWidget {
     super.key,
     required this.mixCode,
     required this.quantity,
+    this.draft,
   });
 
   final MixCodeItem mixCode;
   final int quantity;
+  final NewCashOrderDraft? draft;
 
   @override
   State<NewCashOrderOtherScreen> createState() =>
@@ -87,6 +89,17 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
           pumpName: pumpName,
           cubeMould: _technician,
           numMoulds: _technician ? _cubeMoulds : 0,
+          draft: widget.draft?.copyWith(
+            structureRef: _structureRef,
+            technicianRequired: _technician,
+            temperatureControl: _temperature,
+            pumpRequired: _pump,
+            pumpName: pumpName,
+            cubeMould: _technician,
+            numMoulds: _technician ? _cubeMoulds : 0,
+            labTesting: _labTesting,
+            otherService: _otherService,
+          ),
         ),
       ),
     );
@@ -187,7 +200,8 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                                   subtitle: 'Up to 42 m',
                                   isSelected: _pumpSize == _PumpSize.small,
                                   onTap: () => setState(
-                                      () => _pumpSize = _PumpSize.small),
+                                    () => _pumpSize = _PumpSize.small,
+                                  ),
                                 ),
                               ),
                               SizedBox(width: context.scaled(8)),
@@ -197,7 +211,8 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                                   subtitle: '43–52 m',
                                   isSelected: _pumpSize == _PumpSize.medium,
                                   onTap: () => setState(
-                                      () => _pumpSize = _PumpSize.medium),
+                                    () => _pumpSize = _PumpSize.medium,
+                                  ),
                                 ),
                               ),
                               SizedBox(width: context.scaled(8)),
@@ -223,9 +238,11 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                       onToggleCheck: (v) => setState(() => _technician = v),
                       isExpanded: _technicianExpanded,
                       onToggleExpand: () => setState(
-                          () => _technicianExpanded = !_technicianExpanded),
+                        () => _technicianExpanded = !_technicianExpanded,
+                      ),
                       title: 'Technician',
-                      subtitle: 'On-site support for sampling and quality control',
+                      subtitle:
+                          'On-site support for sampling and quality control',
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(context.scaled(8)),
                         child: Image.asset(
@@ -242,7 +259,9 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(context.scaled(12)),
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(12),
+                          ),
                           border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
                         child: Row(
@@ -270,8 +289,12 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                                  borderRadius: BorderRadius.circular(context.scaled(8)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    context.scaled(8),
+                                  ),
                                 ),
                                 child: Text(
                                   '−',
@@ -315,8 +338,12 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                                  borderRadius: BorderRadius.circular(context.scaled(8)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    context.scaled(8),
+                                  ),
                                 ),
                                 child: Text(
                                   '+',
@@ -339,10 +366,13 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                       onToggleCheck: (v) => setState(() => _temperature = v),
                       isExpanded: _temperatureExpanded,
                       onToggleExpand: () => setState(
-                          () => _temperatureExpanded = !_temperatureExpanded),
+                        () => _temperatureExpanded = !_temperatureExpanded,
+                      ),
                       title: 'Temperature Control',
                       subtitle: 'Special temperature requirement',
-                      leading: const _ServiceIcon(icon: Icons.light_mode_outlined),
+                      leading: const _ServiceIcon(
+                        icon: Icons.light_mode_outlined,
+                      ),
                     ),
                     SizedBox(height: context.scaledV(10)),
 
@@ -352,7 +382,8 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                       onToggleCheck: (v) => setState(() => _labTesting = v),
                       isExpanded: _labTestingExpanded,
                       onToggleExpand: () => setState(
-                          () => _labTestingExpanded = !_labTestingExpanded),
+                        () => _labTestingExpanded = !_labTestingExpanded,
+                      ),
                       title: 'Laboratory Testing',
                       subtitle: 'Testing to meet project specifications',
                       leading: const _ServiceIcon(icon: Icons.science_outlined),
@@ -365,10 +396,13 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                       onToggleCheck: (v) => setState(() => _otherService = v),
                       isExpanded: _otherServiceExpanded,
                       onToggleExpand: () => setState(
-                          () => _otherServiceExpanded = !_otherServiceExpanded),
+                        () => _otherServiceExpanded = !_otherServiceExpanded,
+                      ),
                       title: 'Other Approved Service',
                       subtitle: 'Add a service request',
-                      leading: const _ServiceIcon(icon: Icons.inventory_2_outlined),
+                      leading: const _ServiceIcon(
+                        icon: Icons.inventory_2_outlined,
+                      ),
                     ),
                     SizedBox(height: context.scaledV(28)),
 
@@ -405,15 +439,18 @@ class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedItem =
-        _structureRefs.firstWhere((e) => e['title'] == widget.value);
+    final selectedItem = _structureRefs.firstWhere(
+      (e) => e['title'] == widget.value,
+    );
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.scaled(16)),
-        border: Border.all(color: _isExpanded ? AppColors.primary : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: _isExpanded ? AppColors.primary : const Color(0xFFE2E8F0),
+        ),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A1E1946),
@@ -495,14 +532,15 @@ class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
                         height: context.scaled(34),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(context.scaled(10)),
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(10),
+                          ),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(context.scaled(10)),
-                          child: Image.asset(
-                            item['image']!,
-                            fit: BoxFit.cover,
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(10),
                           ),
+                          child: Image.asset(item['image']!, fit: BoxFit.cover),
                         ),
                       ),
                       SizedBox(width: context.scaled(14)),
@@ -522,7 +560,10 @@ class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.primary, width: 2),
+                            border: Border.all(
+                              color: AppColors.primary,
+                              width: 2,
+                            ),
                             color: AppColors.primary,
                           ),
                           child: Container(
@@ -540,7 +581,10 @@ class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
                           height: context.scaled(22),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFFD3D1E4), width: 2),
+                            border: Border.all(
+                              color: const Color(0xFFD3D1E4),
+                              width: 2,
+                            ),
                           ),
                         ),
                     ],
@@ -604,10 +648,7 @@ class _ServiceCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                _FigmaCheckbox(
-                  value: isSelected,
-                  onChanged: onToggleCheck,
-                ),
+                _FigmaCheckbox(value: isSelected, onChanged: onToggleCheck),
                 SizedBox(width: context.scaled(12)),
                 leading,
                 SizedBox(width: context.scaled(12)),
@@ -739,7 +780,9 @@ class _PumpSizeCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : const Color(0xFFD3D1E4),
+                  color: isSelected
+                      ? AppColors.primary
+                      : const Color(0xFFD3D1E4),
                   width: 1.5,
                 ),
                 color: isSelected ? AppColors.primary : Colors.white,
@@ -794,11 +837,7 @@ class _ServiceIcon extends StatelessWidget {
         color: const Color(0xFFF1F5F9), // var(--muted)
         borderRadius: BorderRadius.circular(context.scaled(10)),
       ),
-      child: Icon(
-        icon,
-        size: context.scaled(18),
-        color: AppColors.primary,
-      ),
+      child: Icon(icon, size: context.scaled(18), color: AppColors.primary),
     );
   }
 }

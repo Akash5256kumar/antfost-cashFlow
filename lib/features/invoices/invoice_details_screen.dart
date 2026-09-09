@@ -486,9 +486,6 @@ class _AmountBreakdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const subtotal = 21700.00;
-    const vat = 1085.00;
-
     return _WhiteCard(
       child: Column(
         children: [

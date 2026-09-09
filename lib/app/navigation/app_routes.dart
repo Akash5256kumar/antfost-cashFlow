@@ -1,16 +1,13 @@
 abstract final class AppRoutes {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
-  static const String getStarted = '/get-started';
   static const String signIn = '/auth/sign-in';
   static const String accountType = '/auth/account-type';
-  static const String createAccount = '/auth/create-account';
   static const String createIndividual = '/auth/create-individual';
   static const String createBusiness = '/auth/create-business';
   static const String forgotPasscode = '/auth/forgot-passcode';
   static const String verifyAccount = '/auth/verify-account';
   static const String kycVerification = '/kyc/verification';
-  static const String kycPending = '/kyc/pending';
   static const String kycVerificationStatus = '/kyc/verification-status';
   static const String orderGuide = '/orders/guide';
   static const String newCashOrder = '/orders/new-cash-order';

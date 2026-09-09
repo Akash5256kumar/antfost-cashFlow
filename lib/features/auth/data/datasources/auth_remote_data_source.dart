@@ -28,10 +28,7 @@ abstract class AuthRemoteDataSource {
   });
 
   /// Returns `true` when the OTP has been dispatched to [contact].
-  Future<bool> forgotPasscode({
-    required String contact,
-    required bool isEmail,
-  });
+  Future<bool> forgotPasscode({required String contact, required bool isEmail});
 
   /// Returns `true` when the passcode has been reset successfully.
   Future<bool> resetPasscode({
@@ -53,7 +50,6 @@ abstract class AuthRemoteDataSource {
 ///   - phone  : 0501234567     | passcode: 123456
 const _mockEmail = 'test@test.com';
 const _mockPhone = '0501234567';
-const _mockPasscode = '123456';
 
 /// Simulates a 300 ms network round-trip.
 Future<void> _fakeDelay() => Future.delayed(const Duration(milliseconds: 300));

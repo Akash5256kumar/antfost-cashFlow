@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
-import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
@@ -22,10 +21,8 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final amount = 'AED ${widget.totalAmount.toStringAsFixed(2).replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (m) => '${m[1]},',
-        )}';
+    final amount =
+        'AED ${widget.totalAmount.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
@@ -47,7 +44,9 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
                         // Image in background (right aligned)
                         Positioned(
                           top: 0,
-                          right: -context.scaled(30), // Push slightly out of bounds
+                          right: -context.scaled(
+                            30,
+                          ), // Push slightly out of bounds
                           child: Opacity(
                             opacity: 0.9,
                             child: Image.asset(
@@ -77,7 +76,9 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF5F3FF),
-                                borderRadius: BorderRadius.circular(context.scaled(16)),
+                                borderRadius: BorderRadius.circular(
+                                  context.scaled(16),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -99,9 +100,9 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
                                 ],
                               ),
                             ),
-                            
+
                             SizedBox(height: context.scaledV(24)),
-                            
+
                             Text(
                               'Amount to be paid',
                               style: TextStyle(
@@ -136,9 +137,9 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
                         ),
                       ],
                     ),
-                    
+
                     SizedBox(height: context.scaledV(24)),
-                    
+
                     // Segmented Control
                     Container(
                       padding: EdgeInsets.all(context.scaled(4)),
@@ -166,9 +167,9 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
                         ],
                       ),
                     ),
-                    
+
                     SizedBox(height: context.scaledV(24)),
-                    
+
                     if (_tab == 0) ...[
                       // Card Form
                       _CustomTextField(hint: 'Cardholder Name'),
@@ -180,9 +181,7 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
                       SizedBox(height: context.scaledV(16)),
                       Row(
                         children: [
-                          Expanded(
-                            child: _CustomTextField(hint: 'MM/YY'),
-                          ),
+                          Expanded(child: _CustomTextField(hint: 'MM/YY')),
                           SizedBox(width: context.scaled(16)),
                           Expanded(
                             child: _CustomTextField(
@@ -193,7 +192,7 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
                         ],
                       ),
                       SizedBox(height: context.scaledV(24)),
-                      
+
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -213,25 +212,32 @@ class _CompletePaymentScreenState extends State<CompletePaymentScreen> {
                         ],
                       ),
                     ],
-                    
+
                     SizedBox(height: context.scaledV(32)),
-                    
+
                     // Bottom buttons
                     Container(
                       padding: EdgeInsets.fromLTRB(
                         0,
                         context.scaled(16),
                         0,
-                        MediaQuery.paddingOf(context).bottom + context.scaled(16),
+                        MediaQuery.paddingOf(context).bottom +
+                            context.scaled(16),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           PrimaryButton(
                             label: 'Pay $amount',
-                            icon: Icon(Icons.lock_outline_rounded, size: 18, color: Colors.white),
+                            icon: Icon(
+                              Icons.lock_outline_rounded,
+                              size: 18,
+                              color: Colors.white,
+                            ),
                             onPressed: () {
-                              Navigator.of(context).pushNamed(AppRoutes.paymentSuccess);
+                              Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.paymentSuccess);
                             },
                           ),
                           SizedBox(height: context.scaledV(12)),
@@ -280,7 +286,7 @@ class _TabButton extends StatelessWidget {
                     color: Colors.black.withOpacity(0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
-                  )
+                  ),
                 ]
               : null,
         ),
@@ -325,7 +331,11 @@ class _CustomTextField extends StatelessWidget {
             color: const Color(0xFF94A3B8),
           ),
           suffixIcon: suffixIcon != null
-              ? Icon(suffixIcon, color: const Color(0xFF94A3B8), size: context.scaled(20))
+              ? Icon(
+                  suffixIcon,
+                  color: const Color(0xFF94A3B8),
+                  size: context.scaled(20),
+                )
               : null,
         ),
         style: TextStyle(

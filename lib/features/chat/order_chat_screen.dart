@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text_styles.dart';
 
 class OrderChatScreen extends StatefulWidget {
-  const OrderChatScreen({
-    super.key,
-    this.orderId = 'AF-2057',
-  });
+  const OrderChatScreen({super.key, this.orderId = 'AF-2057'});
 
   final String orderId;
 
@@ -19,7 +15,8 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
   final List<Map<String, dynamic>> _messages = [
     {
-      'text': 'Hello, the driver is arriving in 15 minutes. Please ensure the gate is open.',
+      'text':
+          'Hello, the driver is arriving in 15 minutes. Please ensure the gate is open.',
       'isMe': false,
       'time': '09:42 AM',
     },
@@ -51,7 +48,11 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1E1B4B)),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: Color(0xFF1E1B4B),
+          ),
         ),
         title: Column(
           children: [
@@ -76,10 +77,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
         centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(
-            color: const Color(0xFFE2E8F0),
-            height: 1,
-          ),
+          child: Container(color: const Color(0xFFE2E8F0), height: 1),
         ),
       ),
       body: Column(
@@ -108,9 +106,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
             ),
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(
-                top: BorderSide(color: Color(0xFFE2E8F0)),
-              ),
+              border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
             ),
             child: Row(
               children: [
@@ -126,7 +122,10 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
                       style: const TextStyle(fontSize: 14),
                       decoration: const InputDecoration(
                         hintText: 'Type a message...',
-                        hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                        hintStyle: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 14,
+                        ),
                         border: InputBorder.none,
                       ),
                       onSubmitted: (_) => _sendMessage(),
@@ -180,7 +179,9 @@ class _ChatBubble extends StatelessWidget {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -192,7 +193,9 @@ class _ChatBubble extends StatelessWidget {
                   bottomLeft: Radius.circular(isMe ? 16 : 4),
                   bottomRight: Radius.circular(isMe ? 4 : 16),
                 ),
-                border: isMe ? null : Border.all(color: const Color(0xFFE2E8F0)),
+                border: isMe
+                    ? null
+                    : Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Text(
                 text,
@@ -206,10 +209,7 @@ class _ChatBubble extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               time,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF94A3B8),
-              ),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],
         ),
