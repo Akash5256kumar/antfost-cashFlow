@@ -22,18 +22,15 @@ class InputValidators {
     return null;
   }
 
-  /// Development validation accepts UAE and Indian mobile formats so the app
-  /// can be tested locally. The production backend remains responsible for
-  /// applying its final country/OTP eligibility rules.
+  /// Development validation accepts supported mobile formats until backend
+  /// validation is available.
   static String? mobile(String? value, {String fieldName = 'Mobile number'}) {
     final requiredError = required(value, fieldName);
     if (requiredError != null) return requiredError;
     final digits = value!.replaceAll(RegExp(r'[^0-9]'), '');
     final isUae = RegExp(r'^(?:9715\d{8}|05\d{8}|5\d{8})$').hasMatch(digits);
     final isIndia = RegExp(r'^(?:91)?[6-9]\d{9}$').hasMatch(digits);
-    return isUae || isIndia
-        ? null
-        : 'Enter a valid Indian or UAE mobile number.';
+    return isUae || isIndia ? null : 'Enter a valid phone number.';
   }
 
   static String? email(String? value, {String fieldName = 'Email address'}) {
@@ -83,10 +80,11 @@ class InputValidators {
   }
 
   static String? confirmPassword(String? value, String password) {
-    final passwordError = password == value ? null : 'Passwords do not match.';
-    return value == null || value.isEmpty
-        ? 'Confirm your password.'
-        : passwordError;
+    if (value == null || value.isEmpty) return 'Confirm your password.';
+    // Wait until the user has entered a complete password before showing a
+    // mismatch error; this avoids flashing an error on the first character.
+    if (value.length < 8) return null;
+    return password == value ? null : 'Passwords do not match.';
   }
 
   static String? loginIdentifier(String? value, {required bool isBusiness}) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/config/app_assets.dart';
@@ -13,6 +14,9 @@ import '../../core/utils/input_validators.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/svg_embedded_raster_image.dart';
+import 'presentation/bloc/auth_bloc.dart';
+import 'presentation/bloc/auth_event.dart';
+import 'presentation/bloc/auth_state.dart';
 
 /// Ported from the new Figma design's `screens/CreateBusiness.tsx`.
 class CreateBusinessScreen extends StatefulWidget {
@@ -42,133 +46,152 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
 
   void _createAccount() {
     if (!_formKey.currentState!.validate()) return;
-    final contact = _mobileController.text.trim();
-    Navigator.of(context).pushNamed(
-      AppRoutes.verifyAccount,
-      arguments: VerifyAccountRouteArgs(
-        contact: contact,
-        isEmail: false,
-        flow: VerifyAccountFlow.signUp,
-        isBusiness: true,
+    context.read<AuthBloc>().add(
+      SignUpBusinessEvent(
+        companyName: _companyNameController.text.trim(),
+        username: _usernameController.text.trim(),
+        registeredMobile: _mobileController.text.trim(),
+        password: _passwordController.text,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: context.scaledV(8)),
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthOtpSent) {
+          Navigator.of(context).pushNamed(
+            AppRoutes.verifyAccount,
+            arguments: VerifyAccountRouteArgs(
+              contact: state.challenge.contact,
+              isEmail: false,
+              flow: VerifyAccountFlow.signUp,
+              isBusiness: true,
+              verificationId: state.challenge.verificationId,
+            ),
+          );
+        } else if (state is AuthError) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(height: context.scaledV(8)),
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                        ),
                       ),
+                      SvgPicture.asset(
+                        AppAssets.antfostLogo,
+                        width: context.scaled(140),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.scaledV(12)),
+                  SizedBox(
+                    height: context.scaledV(170),
+                    child: SvgEmbeddedRasterImage(
+                      assetPath: AppAssets.figmaPlant,
+                      width: double.infinity,
+                      fit: BoxFit.contain,
                     ),
-                    SvgPicture.asset(
-                      AppAssets.antfostLogo,
-                      width: context.scaled(140),
+                  ),
+                  SizedBox(height: context.scaledV(10)),
+                  Text(
+                    'Create Business Account',
+                    style: AppTextStyles.authScreenTitle(context),
+                  ),
+                  SizedBox(height: context.scaledV(4)),
+                  Text(
+                    'Set up your company access',
+                    style: AppTextStyles.cardSubtitle(context),
+                  ),
+                  SizedBox(height: context.scaledV(16)),
+                  AppTextField(
+                    label: 'COMPANY NAME',
+                    controller: _companyNameController,
+                    leadingWidget: const AppSvgBusinessIcon(),
+                    validator: (value) => InputValidators.fullName(
+                      value,
+                      fieldName: 'Company name',
                     ),
-                  ],
-                ),
-                SizedBox(height: context.scaledV(12)),
-                SizedBox(
-                  height: context.scaledV(170),
-                  child: SvgEmbeddedRasterImage(
-                    assetPath: AppAssets.figmaPlant,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
+                    // Confirm-password validation runs on submit so users can
+                    // enter the full value without an error on every key.
                   ),
-                ),
-                SizedBox(height: context.scaledV(10)),
-                Text(
-                  'Create Business Account',
-                  style: AppTextStyles.authScreenTitle(context),
-                ),
-                SizedBox(height: context.scaledV(4)),
-                Text(
-                  'Set up your company access',
-                  style: AppTextStyles.cardSubtitle(context),
-                ),
-                SizedBox(height: context.scaledV(16)),
-                AppTextField(
-                  label: 'COMPANY NAME',
-                  controller: _companyNameController,
-                  leadingWidget: const AppSvgBusinessIcon(),
-                  validator: (value) => InputValidators.fullName(
-                    value,
-                    fieldName: 'Company name',
+                  SizedBox(height: context.scaledV(12)),
+                  AppTextField(
+                    label: 'BUSINESS USERNAME',
+                    controller: _usernameController,
+                    leadingWidget: const AppSvgUserIcon(),
+                    validator: (value) => InputValidators.username(
+                      value,
+                      fieldName: 'Business username',
+                    ),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                ),
-                SizedBox(height: context.scaledV(12)),
-                AppTextField(
-                  label: 'BUSINESS USERNAME',
-                  controller: _usernameController,
-                  leadingWidget: const AppSvgUserIcon(),
-                  validator: (value) => InputValidators.username(
-                    value,
-                    fieldName: 'Business username',
+                  SizedBox(height: context.scaledV(12)),
+                  AppTextField(
+                    label: 'REGISTERED MOBILE',
+                    controller: _mobileController,
+                    keyboardType: TextInputType.phone,
+                    leadingWidget: const AppSvgPhoneIcon(),
+                    validator: InputValidators.mobile,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                ),
-                SizedBox(height: context.scaledV(12)),
-                AppTextField(
-                  label: 'REGISTERED MOBILE',
-                  controller: _mobileController,
-                  keyboardType: TextInputType.phone,
-                  leadingWidget: const AppSvgPhoneIcon(),
-                  validator: InputValidators.mobile,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                ),
-                SizedBox(height: context.scaledV(12)),
-                AppTextField(
-                  label: 'PASSWORD',
-                  obscureText: true,
-                  controller: _passwordController,
-                  leadingWidget: const AppSvgLockIcon(),
-                  validator: InputValidators.password,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                ),
-                SizedBox(height: context.scaledV(12)),
-                AppTextField(
-                  label: 'CONFIRM PASSWORD',
-                  obscureText: true,
-                  controller: _confirmPasswordController,
-                  leadingWidget: const AppSvgLockIcon(),
-                  validator: (value) => InputValidators.confirmPassword(
-                    value,
-                    _passwordController.text,
+                  SizedBox(height: context.scaledV(12)),
+                  AppTextField(
+                    label: 'PASSWORD',
+                    obscureText: true,
+                    controller: _passwordController,
+                    leadingWidget: const AppSvgLockIcon(),
+                    validator: InputValidators.password,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                ),
-                SizedBox(height: context.scaledV(16)),
-                Text(
-                  'You can plan an order while verification is in progress.\n'
-                  'Payment activates after approval.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.authNote(context),
-                ),
-                SizedBox(height: context.scaledV(16)),
-                PrimaryButton(
-                  onPressed: _createAccount,
-                  arrow: true,
-                  label: 'Create Account',
-                ),
-                SizedBox(height: context.scaledV(16)),
-              ],
+                  SizedBox(height: context.scaledV(12)),
+                  AppTextField(
+                    label: 'CONFIRM PASSWORD',
+                    obscureText: true,
+                    controller: _confirmPasswordController,
+                    leadingWidget: const AppSvgLockIcon(),
+                    validator: (value) => InputValidators.confirmPassword(
+                      value,
+                      _passwordController.text,
+                    ),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                  ),
+                  SizedBox(height: context.scaledV(16)),
+                  Text(
+                    'You can plan an order while verification is in progress.\n'
+                    'Payment activates after approval.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.authNote(context),
+                  ),
+                  SizedBox(height: context.scaledV(16)),
+                  PrimaryButton(
+                    onPressed: _createAccount,
+                    arrow: true,
+                    label: 'Create Account',
+                  ),
+                  SizedBox(height: context.scaledV(16)),
+                ],
+              ),
             ),
           ),
         ),

@@ -119,12 +119,13 @@ class InvoiceModel extends Invoice {
     final rawTypes = json['types'] as List<dynamic>? ?? [];
     return InvoiceModel(
       id: json['id'] as String? ?? '',
-      orderId: json['order_id'] as String? ?? '',
-      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      orderId: json['orderId'] as String? ?? json['order_id'] as String? ?? '',
+      totalAmount:
+          (json['totalAmount'] as num? ?? json['total_amount'] as num?)
+              ?.toDouble() ??
+          0.0,
       date: json['date'] as String? ?? '',
-      types: rawTypes
-          .map((t) => _invoiceTypeFromJson(t as String))
-          .toList(),
+      types: rawTypes.map((t) => _invoiceTypeFromJson(t as String)).toList(),
       status: _invoiceStatusFromJson(json['status'] as String? ?? 'paid'),
     );
   }
@@ -176,23 +177,35 @@ class InvoiceDetailModel extends InvoiceDetail {
   /// Deserialises from a JSON map.
   factory InvoiceDetailModel.fromJson(Map<String, dynamic> json) {
     final rawTypes = json['types'] as List<dynamic>? ?? [];
-    final rawLineItems = json['line_items'] as List<dynamic>? ?? [];
+    final rawLineItems =
+        json['lineItems'] as List<dynamic>? ??
+        json['line_items'] as List<dynamic>? ??
+        [];
     return InvoiceDetailModel(
       id: json['id'] as String? ?? '',
-      orderId: json['order_id'] as String? ?? '',
-      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      orderId: json['orderId'] as String? ?? json['order_id'] as String? ?? '',
+      totalAmount:
+          (json['totalAmount'] as num? ?? json['total_amount'] as num?)
+              ?.toDouble() ??
+          0.0,
       date: json['date'] as String? ?? '',
-      types: rawTypes
-          .map((t) => _invoiceTypeFromJson(t as String))
-          .toList(),
+      types: rawTypes.map((t) => _invoiceTypeFromJson(t as String)).toList(),
       status: _invoiceStatusFromJson(json['status'] as String? ?? 'paid'),
-      customerName: json['customer_name'] as String? ?? '',
-      customerAddress: json['customer_address'] as String? ?? '',
-      vatNumber: json['vat_number'] as String? ?? '',
+      customerName:
+          json['customerName'] as String? ??
+          json['customer_name'] as String? ??
+          '',
+      customerAddress:
+          json['customerAddress'] as String? ??
+          json['customer_address'] as String? ??
+          '',
+      vatNumber:
+          json['vatNumber'] as String? ?? json['vat_number'] as String? ?? '',
       lineItems: rawLineItems
-          .map((item) => InvoiceLineItemModel.fromJson(
-                item as Map<String, dynamic>,
-              ))
+          .map(
+            (item) =>
+                InvoiceLineItemModel.fromJson(item as Map<String, dynamic>),
+          )
           .toList(),
     );
   }
@@ -209,9 +222,7 @@ class InvoiceDetailModel extends InvoiceDetail {
       customerName: detail.customerName,
       customerAddress: detail.customerAddress,
       vatNumber: detail.vatNumber,
-      lineItems: detail.lineItems
-          .map(InvoiceLineItemModel.fromEntity)
-          .toList(),
+      lineItems: detail.lineItems.map(InvoiceLineItemModel.fromEntity).toList(),
     );
   }
 

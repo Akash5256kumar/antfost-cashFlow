@@ -1,4 +1,6 @@
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/api_client.dart';
+import 'package:dio/dio.dart';
 import '../../domain/entities/transaction.dart';
 import '../models/wallet_balance_model.dart';
 import '../models/wallet_transaction_model.dart';
@@ -23,8 +25,7 @@ abstract class WalletRemoteDataSource {
 // ---------------------------------------------------------------------------
 
 /// Simulates a 300 ms network round-trip.
-Future<void> _fakeDelay() =>
-    Future.delayed(const Duration(milliseconds: 300));
+Future<void> _fakeDelay() => Future.delayed(const Duration(milliseconds: 300));
 
 /// Simulates a slower 500 ms operation for fund additions.
 Future<void> _fakeFundsDelay() =>
@@ -114,5 +115,65 @@ class MockWalletRemoteDataSource implements WalletRemoteDataSource {
   Future<bool> addFunds(double amount) async {
     await _fakeFundsDelay();
     return true;
+  }
+}
+
+class ApiWalletRemoteDataSource implements WalletRemoteDataSource {
+  ApiWalletRemoteDataSource(this._client);
+  final ApiClient _client;
+
+  @override
+  Future<WalletBalanceModel> getWalletBalance() => _request(() async {
+    final response = await _client.get<Map<String, dynamic>>('/wallet/balance');
+    if (response.data == null)
+      throw const ServerException('Wallet balance response is invalid.');
+    return WalletBalanceModel.fromJson(response.data!);
+  });
+
+  @override
+  Future<List<WalletTransactionModel>> getTransactions() => _request(() async {
+    final response = await _client.get<Map<String, dynamic>>(
+      '/wallet/transactions',
+      queryParameters: const {'page': 1, 'pageSize': 100},
+    );
+    final items = response.data?['items'];
+    if (items is! List)
+      throw const ServerException('Wallet transactions response is invalid.');
+    return items
+        .whereType<Map>()
+        .map(
+          (item) =>
+              WalletTransactionModel.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList();
+  });
+
+  @override
+  Future<bool> addFunds(double amount) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/wallet/top-ups',
+      data: {'amountAed': amount},
+    );
+    if (response.data?['topUpId'] == null)
+      throw const ServerException('Top-up response is invalid.');
+    return true;
+  });
+
+  Future<T> _request<T>(Future<T> Function() callback) async {
+    try {
+      return await callback();
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      final message = data is Map && data['message'] is String
+          ? data['message'] as String
+          : error.message ?? 'Unable to reach the wallet service.';
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout)
+        throw TimeoutException(message);
+      if (error.type == DioExceptionType.connectionError)
+        throw NetworkException(message);
+      throw ServerException(message);
+    }
   }
 }

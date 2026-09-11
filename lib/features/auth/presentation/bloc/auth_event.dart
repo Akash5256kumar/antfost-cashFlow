@@ -1,132 +1,103 @@
 import 'package:equatable/equatable.dart';
 
-/// Sealed base class for all auth-related BLoC events.
 sealed class AuthEvent extends Equatable {
   const AuthEvent();
-
   @override
   List<Object?> get props => [];
 }
 
-// ---------------------------------------------------------------------------
-// Sign in
-// ---------------------------------------------------------------------------
-
-/// Dispatched when the user submits the sign-in form.
 final class SignInEvent extends AuthEvent {
-  /// Email address or phone number, depending on [isEmail].
-  final String contact;
-  final String passcode;
-
-  /// `true` when [contact] is an email, `false` when it is a phone number.
-  final bool isEmail;
-
-  const SignInEvent({
-    required this.contact,
-    required this.passcode,
-    required this.isEmail,
-  });
-
+  const SignInEvent({required this.usernameOrMobile, required this.password});
+  final String usernameOrMobile;
+  final String password;
   @override
-  List<Object?> get props => [contact, passcode, isEmail];
+  List<Object?> get props => [usernameOrMobile, password];
 }
 
-// ---------------------------------------------------------------------------
-// Sign up
-// ---------------------------------------------------------------------------
-
-/// Dispatched when the user submits the registration form.
-final class SignUpEvent extends AuthEvent {
-  final String name;
-  final String email;
-  final String phone;
-  final String company;
-  final String passcode;
-
-  const SignUpEvent({
-    required this.name,
-    required this.email,
-    required this.phone,
-    required this.company,
-    required this.passcode,
+final class SignUpBusinessEvent extends AuthEvent {
+  const SignUpBusinessEvent({
+    required this.companyName,
+    required this.username,
+    required this.registeredMobile,
+    required this.password,
   });
-
+  final String companyName, username, registeredMobile, password;
   @override
-  List<Object?> get props => [name, email, phone, company, passcode];
+  List<Object?> get props => [
+    companyName,
+    username,
+    registeredMobile,
+    password,
+  ];
 }
 
-// ---------------------------------------------------------------------------
-// Verify OTP
-// ---------------------------------------------------------------------------
-
-/// Dispatched when the user submits the OTP entry screen.
-final class VerifyOtpEvent extends AuthEvent {
-  final String contact;
-  final String otp;
-  final bool isEmail;
-
-  const VerifyOtpEvent({
-    required this.contact,
-    required this.otp,
-    required this.isEmail,
+final class SignUpIndividualEvent extends AuthEvent {
+  const SignUpIndividualEvent({
+    required this.fullName,
+    required this.mobile,
+    required this.username,
+    required this.password,
+    required this.termsAccepted,
   });
-
+  final String fullName, mobile, username, password;
+  final bool termsAccepted;
   @override
-  List<Object?> get props => [contact, otp, isEmail];
+  List<Object?> get props => [
+    fullName,
+    mobile,
+    username,
+    password,
+    termsAccepted,
+  ];
 }
 
-// ---------------------------------------------------------------------------
-// Forgot passcode
-// ---------------------------------------------------------------------------
+final class VerifySignUpOtpEvent extends AuthEvent {
+  const VerifySignUpOtpEvent({required this.verificationId, required this.otp});
+  final String verificationId, otp;
+  @override
+  List<Object?> get props => [verificationId, otp];
+}
 
-/// Dispatched when the user requests a passcode reset OTP.
+final class ResendSignUpOtpEvent extends AuthEvent {
+  const ResendSignUpOtpEvent(this.verificationId);
+  final String verificationId;
+  @override
+  List<Object?> get props => [verificationId];
+}
+
 final class ForgotPasscodeEvent extends AuthEvent {
+  const ForgotPasscodeEvent({required this.contact, required this.isEmail});
   final String contact;
   final bool isEmail;
-
-  const ForgotPasscodeEvent({
-    required this.contact,
-    required this.isEmail,
-  });
-
   @override
   List<Object?> get props => [contact, isEmail];
 }
 
-// ---------------------------------------------------------------------------
-// Reset passcode
-// ---------------------------------------------------------------------------
-
-/// Dispatched when the user submits the new passcode after OTP verification.
-final class ResetPasscodeEvent extends AuthEvent {
-  final String contact;
-  final String otp;
-  final String newPasscode;
-
-  const ResetPasscodeEvent({
+final class VerifyPasscodeOtpEvent extends AuthEvent {
+  const VerifyPasscodeOtpEvent({
+    required this.verificationId,
     required this.contact,
     required this.otp,
-    required this.newPasscode,
   });
-
+  final String verificationId, contact, otp;
   @override
-  List<Object?> get props => [contact, otp, newPasscode];
+  List<Object?> get props => [verificationId, contact, otp];
 }
 
-// ---------------------------------------------------------------------------
-// Sign out
-// ---------------------------------------------------------------------------
+final class ResetPasscodeEvent extends AuthEvent {
+  const ResetPasscodeEvent({
+    required this.resetToken,
+    required this.newPasscode,
+  });
+  final String resetToken, newPasscode;
+  @override
+  List<Object?> get props => [resetToken, newPasscode];
+}
 
-/// Dispatched when the user taps the sign-out button.
 final class SignOutEvent extends AuthEvent {
   const SignOutEvent();
 }
 
-// ---------------------------------------------------------------------------
-// Check cached user
-// ---------------------------------------------------------------------------
-
-/// Dispatched on app start to restore a previously authenticated session.
 final class CheckCachedUserEvent extends AuthEvent {
   const CheckCachedUserEvent();
 }

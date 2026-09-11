@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_api_service.dart';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +48,29 @@ class AgreementSummaryScreen extends StatefulWidget {
 }
 
 class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
+  bool _accepting = false;
+
+  Future<void> _accept() async {
+    if (widget.onAccept != null) {
+      widget.onAccept!();
+      return;
+    }
+    setState(() => _accepting = true);
+    try {
+      await sl<OrderApiService>().acceptOperationsAgreement(widget.orderId);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -159,8 +184,6 @@ class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
 
                     SizedBox(height: context.scaledV(18)),
 
-
-
                     // ── Section 3: EQUIPMENT & PUMPS ────────────────
                     _SectionTitle(title: 'EQUIPMENT & PUMPS'),
                     SizedBox(height: context.scaledV(8)),
@@ -215,13 +238,7 @@ class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
                     borderRadius: BorderRadius.circular(context.scaled(14)),
                   ),
                   child: TextButton(
-                    onPressed: () {
-                      if (widget.onAccept != null) {
-                        widget.onAccept!();
-                      } else {
-                        Navigator.of(context).pop(true);
-                      }
-                    },
+                    onPressed: _accepting ? null : _accept,
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
@@ -271,10 +288,7 @@ class _SectionTitle extends StatelessWidget {
 // ── Info Row Data ─────────────────────────────────────────────────────────────
 
 class _InfoRowData {
-  const _InfoRowData({
-    required this.label,
-    required this.value,
-  });
+  const _InfoRowData({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -337,11 +351,7 @@ class _InfoCard extends StatelessWidget {
               ),
             ),
             if (i < rows.length - 1)
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFF3F4F6),
-              ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFF3F4F6)),
           ],
         ],
       ),

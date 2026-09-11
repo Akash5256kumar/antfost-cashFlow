@@ -4,6 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_feedback_api_service.dart';
 
 class RateDeliveryScreen extends StatefulWidget {
   const RateDeliveryScreen({super.key, this.orderId = 'AF-2057'});
@@ -16,7 +18,7 @@ class RateDeliveryScreen extends StatefulWidget {
 
 class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
   int _overall = 5;
-  
+
   // Storing individual ratings
   final Map<String, int> _ratings = {
     'On-time Delivery': 5,
@@ -27,6 +29,7 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
   };
 
   final _commentController = TextEditingController();
+  bool _submitting = false;
 
   static const _categories = [
     (Icons.access_time_rounded, 'On-time Delivery'),
@@ -51,14 +54,21 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textPrimary,
+          ),
         ),
         title: SvgPicture.asset(AppAssets.antfostLogo, height: 26),
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
-            icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary),
+            onPressed: () =>
+                Navigator.of(context).pushNamed(AppRoutes.notifications),
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: AppColors.textPrimary,
+            ),
           ),
         ],
       ),
@@ -72,18 +82,38 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Rate Your Delivery', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Color(0xFF1E1B4B))),
+                  const Text(
+                    'Rate Your Delivery',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E1B4B),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(999)),
-                    child: Text('${widget.orderId} · Palm Jumeirah Villa', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF4F46E5))),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${widget.orderId} · Palm Jumeirah Villa',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF4F46E5),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Hero Image
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -98,7 +128,7 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Overall Experience Box
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -111,7 +141,14 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
                 ),
                 child: Column(
                   children: [
-                    const Text('Overall Experience', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B))),
+                    const Text(
+                      'Overall Experience',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E1B4B),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -120,24 +157,35 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
                         return GestureDetector(
                           onTap: () => setState(() => _overall = n),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6.0,
+                            ),
                             child: Icon(
                               Icons.star_rounded,
                               size: 44,
-                              color: n <= _overall ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+                              color: n <= _overall
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFFE2E8F0),
                             ),
                           ),
                         );
                       }),
                     ),
                     const SizedBox(height: 8),
-                    const Text('Excellent', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5))),
+                    const Text(
+                      'Excellent',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF4F46E5),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Rating Categories List
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -153,35 +201,61 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
                     final icon = entry.value.$1;
                     final title = entry.value.$2;
                     final rating = _ratings[title]!;
-                    
+
                     return Column(
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
                           child: Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(color: Color(0xFFEEF2FF), shape: BoxShape.circle),
-                                child: Icon(icon, size: 18, color: const Color(0xFF4F46E5)),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEEF2FF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  icon,
+                                  size: 18,
+                                  color: const Color(0xFF4F46E5),
+                                ),
                               ),
                               const SizedBox(width: 12),
-                              Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF1E1B4B)))),
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF1E1B4B),
+                                  ),
+                                ),
+                              ),
                               Row(
                                 children: List.generate(5, (starIndex) {
                                   final n = starIndex + 1;
                                   return GestureDetector(
-                                    onTap: () => setState(() => _ratings[title] = n),
+                                    onTap: () =>
+                                        setState(() => _ratings[title] = n),
                                     child: Icon(
                                       Icons.star_rounded,
                                       size: 20,
-                                      color: n <= rating ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+                                      color: n <= rating
+                                          ? const Color(0xFF4F46E5)
+                                          : const Color(0xFFE2E8F0),
                                     ),
                                   );
                                 }),
                               ),
                               const SizedBox(width: 8),
-                              const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF94A3B8)),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                size: 18,
+                                color: Color(0xFF94A3B8),
+                              ),
                             ],
                           ),
                         ),
@@ -194,7 +268,7 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Text Area
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -204,15 +278,32 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text.rich(
                       TextSpan(
                         children: [
-                          const TextSpan(text: 'Tell us more ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B))),
-                          const TextSpan(text: '(optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF94A3B8))),
+                          const TextSpan(
+                            text: 'Tell us more ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1E1B4B),
+                            ),
+                          ),
+                          const TextSpan(
+                            text: '(optional)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -233,12 +324,15 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Upload Button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
@@ -248,31 +342,60 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.file_upload_outlined, size: 18, color: Color(0xFF4F46E5)),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.file_upload_outlined,
+                        size: 18,
+                        color: Color(0xFF4F46E5),
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(child: Text('Add photos or documents', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF4F46E5)))),
-                    const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF94A3B8)),
+                    const Expanded(
+                      child: Text(
+                        'Add photos or documents',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: Color(0xFF94A3B8),
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Disclaimer
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  const Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFF64748B)),
+                  const Icon(
+                    Icons.lock_outline_rounded,
+                    size: 14,
+                    color: Color(0xFF64748B),
+                  ),
                   const SizedBox(width: 8),
-                  const Expanded(child: Text('Your feedback is linked to this delivery for service improvement.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
+                  const Expanded(
+                    child: Text(
+                      'Your feedback is linked to this delivery for service improvement.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Buttons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -281,16 +404,30 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (r) => false),
+                      onPressed: _submitting ? null : _submitRating,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4F46E5),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
-                        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      child: const Text('Submit Rating'),
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Submit Rating'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -307,7 +444,10 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
                         ),
                         elevation: 0,
-                        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       child: const Text('Not now'),
                     ),
@@ -315,11 +455,38 @@ class _RateDeliveryScreenState extends State<RateDeliveryScreen> {
                 ],
               ),
             ),
-            
+
             SizedBox(height: MediaQuery.paddingOf(context).bottom + 32),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _submitRating() async {
+    setState(() => _submitting = true);
+    try {
+      await sl<OrderFeedbackApiService>().submitRating(
+        orderId: widget.orderId,
+        overallRating: _overall,
+        ratings: {
+          'delivery': _ratings['On-time Delivery'] ?? _overall,
+          'driver': _ratings['Driver Service'] ?? _overall,
+          'productQuality': _ratings['Concrete Quality'] ?? _overall,
+        },
+        comment: _commentController.text,
+      );
+      if (!mounted) return;
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRoutes.home, (r) => false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
   }
 }

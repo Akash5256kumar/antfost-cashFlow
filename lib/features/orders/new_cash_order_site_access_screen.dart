@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
@@ -8,6 +9,8 @@ import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_review_screen.dart';
 import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
+import '../../core/uploads/document_picker_service.dart';
+import '../../core/utils/route_feedback.dart';
 
 // ── Site condition model (Figma's `CONDITIONS` on SiteAccess.tsx) ────────────
 
@@ -45,6 +48,11 @@ const _conditions = [
     'Access available during night hours.',
   ),
 ];
+
+String _fileTypeLabel(String? name) {
+  final extension = name?.split('.').last.toUpperCase();
+  return extension == null || extension.isEmpty ? 'DOC' : extension;
+}
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -86,13 +94,46 @@ class _NewCashOrderSiteAccessScreenState
   // Yes/No answer per Figma's CONDITIONS list (narrow/permit default Yes,
   // boom/night default No — matches Figma's sample state).
   final Map<String, bool> _answers = {
-    'narrow': true,
-    'permit': true,
+    'narrow': false,
+    'permit': false,
     'boom': false,
     'night': false,
   };
 
   bool _confirmed = true;
+  SelectedDocument? _accessPhoto;
+  SelectedDocument? _roadPermit;
+
+  @override
+  void initState() {
+    super.initState();
+    final saved = widget.draft?.siteAccessRequirements ?? const <String>[];
+    _answers['narrow'] = saved.contains('Narrow Access');
+    _answers['permit'] = saved.contains('Road Permit Required');
+    _answers['boom'] = saved.contains('Boom Reach Restriction');
+    _answers['night'] = saved.contains('Night Delivery Access');
+    _accessPhoto = widget.draft?.accessPhoto;
+    _roadPermit = widget.draft?.roadPermit;
+  }
+
+  Future<void> _pickDocument(String condition) async {
+    try {
+      final document = await DocumentPickerService.pickDocument();
+      if (!mounted || document == null) return;
+      setState(() {
+        if (condition == 'narrow') {
+          _accessPhoto = document;
+        } else {
+          _roadPermit = document;
+        }
+      });
+    } on DocumentPickerException catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
 
   @override
   void dispose() {
@@ -100,13 +141,20 @@ class _NewCashOrderSiteAccessScreenState
   }
 
   void _onContinue() {
+    if (_answers['narrow'] == true && _accessPhoto == null) {
+      showAppSnackBar(context, 'Upload an access photo for Narrow Access.');
+      return;
+    }
+    if (_answers['permit'] == true && _roadPermit == null) {
+      showAppSnackBar(context, 'Upload the road permit document.');
+      return;
+    }
     final selectedReqs = _conditions
         .where((c) => _answers[c.id] == true)
         .map((c) => c.label)
         .toList();
     final attachmentsCount =
-        (_answers['narrow'] == true ? 1 : 0) +
-        (_answers['permit'] == true ? 1 : 0);
+        (_accessPhoto != null ? 1 : 0) + (_roadPermit != null ? 1 : 0);
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -127,6 +175,8 @@ class _NewCashOrderSiteAccessScreenState
           draft: widget.draft?.copyWith(
             siteAccessRequirements: selectedReqs,
             siteAttachmentsCount: attachmentsCount,
+            accessPhoto: _accessPhoto,
+            roadPermit: _roadPermit,
           ),
         ),
       ),
@@ -177,6 +227,17 @@ class _NewCashOrderSiteAccessScreenState
                             value: _answers[c.id],
                             onChanged: (v) =>
                                 setState(() => _answers[c.id] = v),
+                            onPickDocument: () => _pickDocument(c.id),
+                            onRemoveDocument: () => setState(() {
+                              if (c.id == 'narrow') {
+                                _accessPhoto = null;
+                              } else {
+                                _roadPermit = null;
+                              }
+                            }),
+                            document: c.id == 'narrow'
+                                ? _accessPhoto
+                                : _roadPermit,
                           ),
                         );
                       }),
@@ -246,11 +307,17 @@ class _ConditionCard extends StatelessWidget {
     required this.condition,
     required this.value,
     required this.onChanged,
+    required this.onPickDocument,
+    required this.onRemoveDocument,
+    this.document,
   });
 
   final _Condition condition;
   final bool? value;
   final ValueChanged<bool> onChanged;
+  final VoidCallback onPickDocument;
+  final VoidCallback onRemoveDocument;
+  final SelectedDocument? document;
 
   @override
   Widget build(BuildContext context) {
@@ -313,11 +380,6 @@ class _ConditionCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                ),
-                Icon(
-                  Icons.keyboard_arrow_up_rounded,
-                  color: kOrderTextGrey,
-                  size: context.scaled(20),
                 ),
               ],
             ),
@@ -385,7 +447,7 @@ class _ConditionCard extends StatelessWidget {
               ),
             ),
           ),
-          if (condition.id == 'narrow' && yes)
+          if (condition.id == 'narrow' && yes && document != null)
             Padding(
               padding: EdgeInsets.fromLTRB(
                 context.scaled(14),
@@ -397,7 +459,7 @@ class _ConditionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Access photo',
+                    document == null ? 'Access photo' : document!.name,
                     style: TextStyle(
                       fontSize: context.scaled(11),
                       color: const Color(0xFF1F2533),
@@ -408,12 +470,19 @@ class _ConditionCard extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(context.scaled(8)),
-                        child: Image.asset(
-                          AppAssets.mixThumb8,
-                          width: context.scaled(64),
-                          height: context.scaled(64),
-                          fit: BoxFit.cover,
-                        ),
+                        child: document?.path != null
+                            ? Image.file(
+                                File(document!.path!),
+                                width: context.scaled(64),
+                                height: context.scaled(64),
+                                fit: BoxFit.cover,
+                              )
+                            : Image.asset(
+                                AppAssets.mixThumb8,
+                                width: context.scaled(64),
+                                height: context.scaled(64),
+                                fit: BoxFit.cover,
+                              ),
                       ),
                       Positioned(
                         top: context.scaled(4),
@@ -424,10 +493,16 @@ class _ConditionCard extends StatelessWidget {
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: context.scaled(12),
-                            color: const Color(0xFF1F2533),
+                          child: GestureDetector(
+                            onTap: onRemoveDocument,
+                            child: Padding(
+                              padding: EdgeInsets.all(context.scaled(4)),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: context.scaled(12),
+                                color: const Color(0xFF1F2533),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -436,7 +511,27 @@ class _ConditionCard extends StatelessWidget {
                 ],
               ),
             ),
-          if (condition.id == 'permit' && yes)
+          if ((condition.id == 'narrow' || condition.id == 'permit') &&
+              yes &&
+              document == null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                context.scaled(14),
+                0,
+                context.scaled(14),
+                context.scaledV(14),
+              ),
+              child: OutlinedButton.icon(
+                onPressed: onPickDocument,
+                icon: const Icon(Icons.upload_file_rounded),
+                label: Text(
+                  condition.id == 'narrow'
+                      ? 'Upload access photo'
+                      : 'Upload road permit',
+                ),
+              ),
+            ),
+          if (condition.id == 'permit' && yes && document != null)
             Padding(
               padding: EdgeInsets.fromLTRB(
                 context.scaled(14),
@@ -448,7 +543,7 @@ class _ConditionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Road permit',
+                    document == null ? 'Road permit' : document!.name,
                     style: TextStyle(
                       fontSize: context.scaled(11),
                       color: const Color(0xFF1F2533),
@@ -478,7 +573,7 @@ class _ConditionCard extends StatelessWidget {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            'PDF',
+                            _fileTypeLabel(document?.name),
                             style: TextStyle(
                               fontSize: context.scaled(9),
                               fontWeight: FontWeight.w700,
@@ -492,7 +587,8 @@ class _ConditionCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Road_Permit_AF-2048.pdf',
+                                document?.name ??
+                                    'Add road permit (PDF/JPG/PNG)',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -502,7 +598,9 @@ class _ConditionCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                '1.2 MB',
+                                document == null
+                                    ? 'Tap to upload'
+                                    : '${(document!.sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
                                 style: TextStyle(
                                   fontSize: context.scaled(10),
                                   color: kOrderTextGrey,
@@ -511,10 +609,16 @@ class _ConditionCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                        Icon(
-                          Icons.close_rounded,
-                          size: context.scaled(16),
-                          color: const Color(0xFF1F2533),
+                        GestureDetector(
+                          onTap: onRemoveDocument,
+                          child: Padding(
+                            padding: EdgeInsets.all(context.scaled(4)),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: context.scaled(16),
+                              color: const Color(0xFF1F2533),
+                            ),
+                          ),
                         ),
                       ],
                     ),

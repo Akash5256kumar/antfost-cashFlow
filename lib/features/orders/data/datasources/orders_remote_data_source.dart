@@ -1,4 +1,6 @@
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/api_client.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/mock_api/local_api_fixtures.dart';
 import '../models/mix_code_model.dart';
 import '../models/order_model.dart';
@@ -155,5 +157,95 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
   Future<OrderModel> createCashOrder(NewCashOrderRequest request) async {
     await _delay();
     return OrderModel.fromJson(LocalApiFixtures.createDraftOrder(request));
+  }
+}
+
+/// Mobile API implementation. The order and catalogue flows remain separate;
+/// this class also supplies the live Projects list used by the current UI.
+class ApiOrdersRemoteDataSource implements OrdersRemoteDataSource {
+  ApiOrdersRemoteDataSource(this._client);
+
+  final ApiClient _client;
+  final MockOrdersRemoteDataSource _legacyFlowFallback =
+      MockOrdersRemoteDataSource();
+
+  @override
+  Future<List<ProjectModel>> getProjects() => _request(() async {
+    final response = await _client.get<Map<String, dynamic>>(
+      '/projects',
+      queryParameters: const {'page': 1, 'pageSize': 100},
+    );
+    final data = response.data;
+    final items = data?['items'];
+    if (items is! List)
+      throw const ServerException('Projects response is invalid.');
+    return items
+        .whereType<Map>()
+        .map((item) => ProjectModel.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  });
+
+  @override
+  Future<List<OrderModel>> getOrders() async {
+    try {
+      return await _request(() async {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/orders',
+          queryParameters: const {'page': 1, 'pageSize': 100},
+        );
+        final items = response.data?['items'];
+        if (items is! List)
+          throw const ServerException('Orders response is invalid.');
+        return items
+            .whereType<Map>()
+            .map((item) => OrderModel.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
+      });
+    } on ServerException catch (error) {
+      // The API uses 404/NO_ORDERS_FOUND for a valid empty collection.
+      if (error.message == 'No orders match the selected filters.') return [];
+      rethrow;
+    }
+  }
+
+  @override
+  Future<OrderModel> getOrderDetails(String orderId) => _request(() async {
+    final response = await _client.get<Map<String, dynamic>>(
+      '/orders/$orderId',
+    );
+    if (response.data == null)
+      throw const ServerException('Order details response is invalid.');
+    return OrderModel.fromJson(response.data!);
+  });
+
+  @override
+  Future<List<MixCodeModel>> getMixCodes() => _legacyFlowFallback.getMixCodes();
+
+  @override
+  Future<ProjectModel> addProject(ProjectModel project) =>
+      _legacyFlowFallback.addProject(project);
+
+  @override
+  Future<OrderModel> createCashOrder(NewCashOrderRequest request) =>
+      _legacyFlowFallback.createCashOrder(request);
+
+  Future<T> _request<T>(Future<T> Function() request) async {
+    try {
+      return await request();
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      final message = body is Map && body['message'] is String
+          ? body['message'] as String
+          : error.message ?? 'Unable to load projects.';
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout) {
+        throw TimeoutException(message);
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        throw NetworkException(message);
+      }
+      throw ServerException(message);
+    }
   }
 }

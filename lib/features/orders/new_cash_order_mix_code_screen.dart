@@ -5,6 +5,8 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_api_service.dart';
 import 'new_cash_order_quantity_screen.dart';
 import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
@@ -83,12 +85,60 @@ class NewCashOrderMixCodeScreen extends StatefulWidget {
 class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
   MixCodeItem? _selected;
   late final TextEditingController _search;
+  List<MixCodeItem> _mixCodes = kSampleMixCodes;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _search = TextEditingController()..addListener(() => setState(() {}));
     _selected = widget.draft?.mixCode;
+    _loadMixCodes();
+  }
+
+  Future<void> _loadMixCodes() async {
+    final project = widget.draft?.project;
+    if (project == null ||
+        project.projectId.isEmpty ||
+        project.locationId.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final items = await sl<OrderApiService>().mixCodes(
+        projectId: project.projectId,
+        locationId: project.locationId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _mixCodes = items
+            .where((item) => item['available'] != false)
+            .map(
+              (item) => MixCodeItem(
+                code: item['code'] as String? ?? '',
+                type: item['type'] as String? ?? '',
+                pricePerM3: (item['pricePerM3'] as num?)?.round() ?? 0,
+                aggregateSize: item['aggregateSize'] as String? ?? '',
+                slump: item['slump'] as String? ?? '',
+                imagePath: AppAssets.mixThumb1,
+                mpa: item['mpa'] as String? ?? '',
+                psi: item['psi'] as String? ?? '',
+              ),
+            )
+            .where((item) => item.code.isNotEmpty)
+            .toList();
+        _loading = false;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -99,8 +149,8 @@ class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
 
   List<MixCodeItem> get _filtered {
     final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return kSampleMixCodes;
-    return kSampleMixCodes
+    if (q.isEmpty) return _mixCodes;
+    return _mixCodes
         .where(
           (m) =>
               m.code.toLowerCase().contains(q) ||
@@ -190,18 +240,37 @@ class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
                       SizedBox(height: context.scaledV(24)),
 
                       // List
-                      ...List.generate(_filtered.length, (i) {
-                        final item = _filtered[i];
-                        final isSelected = item.code == _selected?.code;
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: context.scaledV(12)),
-                          child: _MixCodeCard(
-                            item: item,
-                            isSelected: isSelected,
-                            onTap: () => setState(() => _selected = item),
+                      if (_loading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: CircularProgressIndicator(),
                           ),
-                        );
-                      }),
+                        )
+                      else if (_filtered.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(
+                            child: Text(
+                              'No mixes available for this location.',
+                            ),
+                          ),
+                        )
+                      else
+                        ...List.generate(_filtered.length, (i) {
+                          final item = _filtered[i];
+                          final isSelected = item.code == _selected?.code;
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom: context.scaledV(12),
+                            ),
+                            child: _MixCodeCard(
+                              item: item,
+                              isSelected: isSelected,
+                              onTap: () => setState(() => _selected = item),
+                            ),
+                          );
+                        }),
                     ],
                   ),
                 ),
@@ -305,11 +374,13 @@ class _MixCodeCard extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: context.scaledV(8)),
-                  Row(
+                  Wrap(
+                    spacing: context.scaled(6),
+                    runSpacing: context.scaledV(4),
                     children: [
-                      _Badge(label: item.aggregateSize),
-                      SizedBox(width: context.scaled(6)),
-                      _Badge(label: item.slump),
+                      _Badge(label: item.aggregateSize, allowWrap: true),
+                      if (item.slump.trim().isNotEmpty)
+                        _Badge(label: item.slump),
                     ],
                   ),
                 ],
@@ -350,26 +421,34 @@ class _MixCodeCard extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({required this.label});
+  const _Badge({required this.label, this.allowWrap = false});
   final String label;
+  final bool allowWrap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.scaled(10),
-        vertical: context.scaledV(4),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.52,
       ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEEDF7),
-        borderRadius: BorderRadius.circular(context.scaled(12)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: context.scaled(11.5),
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF1E1B4B),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.scaled(10),
+          vertical: context.scaledV(4),
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEEEDF7),
+          borderRadius: BorderRadius.circular(context.scaled(12)),
+        ),
+        child: Text(
+          label,
+          maxLines: allowWrap ? 3 : 1,
+          overflow: allowWrap ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: context.scaled(11.5),
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1E1B4B),
+          ),
         ),
       ),
     );

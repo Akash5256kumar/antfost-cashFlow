@@ -5,6 +5,8 @@ import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import 'payment_screen.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_api_service.dart';
 
 /// Pixel-perfect implementation matching the Figma Price Breakdown design.
 class PriceBreakdownScreen extends StatefulWidget {
@@ -22,6 +24,7 @@ class PriceBreakdownScreen extends StatefulWidget {
     this.walletApplied = 10000.0,
     this.totalAmount,
     this.nextRoute,
+    this.orderId,
   });
 
   final String projectName;
@@ -36,6 +39,7 @@ class PriceBreakdownScreen extends StatefulWidget {
   final double walletApplied;
   final double? totalAmount;
   final String? nextRoute;
+  final String? orderId;
 
   double get _concreteCost => quantity * pricePerM3;
   double get _subtotal =>
@@ -49,6 +53,30 @@ class PriceBreakdownScreen extends StatefulWidget {
 
 class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
   bool _reviewed = false;
+  Map<String, dynamic>? _serverPrice;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.orderId != null) _loadPrice();
+  }
+
+  Future<void> _loadPrice() async {
+    try {
+      final response = await sl<OrderApiService>().priceBreakdown(
+        widget.orderId!,
+      );
+      if (mounted) setState(() => _serverPrice = response);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+      }
+    }
+  }
 
   String _fmt(double v) {
     final s = v.toStringAsFixed(2);
@@ -64,11 +92,27 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final price = _serverPrice?['priceBreakdown'] as Map?;
+    final serverTotal = (price?['total'] as num?)?.toDouble();
     final items = [
-      ('Concrete', widget._concreteCost),
-      ('Concrete Pump', widget.deliveryFee),
-      ('Technician & 6 Cube Moulds', widget.serviceCharge),
-      ('Payment Method Charge', widget.paymentMethodCharge),
+      (
+        'Concrete',
+        (price?['concrete'] as num?)?.toDouble() ?? widget._concreteCost,
+      ),
+      (
+        'Concrete Pump',
+        (price?['concretePump'] as num?)?.toDouble() ?? widget.deliveryFee,
+      ),
+      (
+        'Technician & 6 Cube Moulds',
+        (price?['technicianAnd6CubeMoulds'] as num?)?.toDouble() ??
+            widget.serviceCharge,
+      ),
+      (
+        'Payment Method Charge',
+        (price?['paymentMethodCharge'] as num?)?.toDouble() ??
+            widget.paymentMethodCharge,
+      ),
     ];
 
     return Scaffold(
@@ -109,14 +153,13 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
                             children: [
                               Text(
                                 'Price Breakdown',
-                                style: AppTextStyles.authScreenTitle(
-                                  context,
-                                ).copyWith(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF0F172A),
-                                  letterSpacing: -0.3,
-                                ),
+                                style: AppTextStyles.authScreenTitle(context)
+                                    .copyWith(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF0F172A),
+                                      letterSpacing: -0.3,
+                                    ),
                               ),
                               const SizedBox(height: 8),
                               Container(
@@ -151,7 +194,8 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
                               const SizedBox(height: 10),
                               ConstrainedBox(
                                 constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width * 0.52,
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.52,
                                 ),
                                 child: Text(
                                   '${widget.projectName} · ${widget.quantity} m³ · ${widget.mixCode}',
@@ -237,7 +281,10 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
                                   ),
                                 ),
                                 Text(
-                                  _fmt(widget._subtotal),
+                                  _fmt(
+                                    (price?['subtotal'] as num?)?.toDouble() ??
+                                        widget._subtotal,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w600,
@@ -265,7 +312,10 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
                                   ),
                                 ),
                                 Text(
-                                  _fmt(widget._vat),
+                                  _fmt(
+                                    (price?['vat'] as num?)?.toDouble() ??
+                                        widget._vat,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w600,
@@ -298,7 +348,7 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
                                   ),
                                 ),
                                 Text(
-                                  _fmt(widget._orderTotal),
+                                  _fmt(serverTotal ?? widget._orderTotal),
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -401,7 +451,9 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => PaymentScreen(
-                                    totalAmount: widget._orderTotal,
+                                    orderId: widget.orderId,
+                                    totalAmount:
+                                        serverTotal ?? widget._orderTotal,
                                     quantity: widget.quantity,
                                   ),
                                 ),

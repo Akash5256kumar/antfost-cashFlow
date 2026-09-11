@@ -1,4 +1,6 @@
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/api_client.dart';
+import 'package:dio/dio.dart';
 import '../../domain/entities/invoice.dart';
 import '../models/invoice_model.dart';
 
@@ -22,8 +24,7 @@ abstract class InvoicesRemoteDataSource {
 // ---------------------------------------------------------------------------
 
 /// Simulates a 300 ms network round-trip.
-Future<void> _fakeDelay() =>
-    Future.delayed(const Duration(milliseconds: 300));
+Future<void> _fakeDelay() => Future.delayed(const Duration(milliseconds: 300));
 
 /// Simulates a slower 500 ms download delay.
 Future<void> _fakeDownloadDelay() =>
@@ -118,5 +119,63 @@ class MockInvoicesRemoteDataSource implements InvoicesRemoteDataSource {
   Future<bool> downloadInvoice(String invoiceId) async {
     await _fakeDownloadDelay();
     return true;
+  }
+}
+
+class ApiInvoicesRemoteDataSource implements InvoicesRemoteDataSource {
+  ApiInvoicesRemoteDataSource(this._client);
+  final ApiClient _client;
+  @override
+  Future<List<InvoiceModel>> getInvoices() => _request(() async {
+    Response<Map<String, dynamic>> response;
+    try {
+      response = await _client.get<Map<String, dynamic>>(
+        '/invoices',
+        queryParameters: const {'page': 1, 'pageSize': 100},
+      );
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      if (error.response?.statusCode == 404 &&
+          data is Map &&
+          data['code'] == 'NO_INVOICES_FOUND') {
+        return <InvoiceModel>[];
+      }
+      rethrow;
+    }
+    final items = response.data?['items'];
+    if (items is! List)
+      throw const ServerException('Invoices response is invalid.');
+    return items
+        .whereType<Map>()
+        .map((item) => InvoiceModel.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  });
+  @override
+  Future<InvoiceDetailModel> getInvoiceDetail(String invoiceId) =>
+      _request(() async {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/invoices/$invoiceId',
+        );
+        if (response.data == null)
+          throw const ServerException('Invoice response is invalid.');
+        return InvoiceDetailModel.fromJson(response.data!);
+      });
+  @override
+  Future<bool> downloadInvoice(String invoiceId) => _request(() async {
+    await _client.get<Object>('/invoices/$invoiceId/download');
+    return true;
+  });
+  Future<T> _request<T>(Future<T> Function() callback) async {
+    try {
+      return await callback();
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      final message = data is Map && data['message'] is String
+          ? data['message'] as String
+          : error.message ?? 'Unable to load invoices.';
+      if (error.type == DioExceptionType.connectionError)
+        throw NetworkException(message);
+      throw ServerException(message);
+    }
   }
 }

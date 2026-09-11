@@ -1,4 +1,6 @@
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/api_client.dart';
+import 'package:dio/dio.dart';
 import '../../domain/entities/notification.dart';
 import '../models/notification_model.dart';
 
@@ -8,6 +10,8 @@ abstract class NotificationsRemoteDataSource {
   ///
   /// Throws [ServerException] on failure.
   Future<List<AppNotificationModel>> getNotifications();
+  Future<bool> markAsRead(String notificationId);
+  Future<bool> markAllAsRead();
 }
 
 /// Mock implementation that returns hard-coded dummy data after 300 ms.
@@ -125,7 +129,8 @@ class MockNotificationsRemoteDataSource
         const AppNotification(
           id: 'n10',
           title: 'Refund Processed',
-          message: 'AED 9,187.50 refunded for cancelled order AF-2026-02-000008',
+          message:
+              'AED 9,187.50 refunded for cancelled order AF-2026-02-000008',
           date: '02 Feb',
           isRead: true,
           category: NotificationCategory.financial,
@@ -158,7 +163,8 @@ class MockNotificationsRemoteDataSource
         const AppNotification(
           id: 'n13',
           title: 'Payment Verification Pending',
-          message: 'Payment verification in progress for order AF-2026-02-000006',
+          message:
+              'Payment verification in progress for order AF-2026-02-000006',
           date: '1d ago',
           isRead: true,
           category: NotificationCategory.risk,
@@ -178,5 +184,68 @@ class MockNotificationsRemoteDataSource
         ),
       ),
     ];
+  }
+
+  @override
+  Future<bool> markAsRead(String notificationId) async => true;
+
+  @override
+  Future<bool> markAllAsRead() async => true;
+}
+
+class ApiNotificationsRemoteDataSource
+    implements NotificationsRemoteDataSource {
+  ApiNotificationsRemoteDataSource(this._client);
+  final ApiClient _client;
+
+  @override
+  Future<List<AppNotificationModel>> getNotifications() => _request(() async {
+    final response = await _client.get<Map<String, dynamic>>(
+      '/notifications',
+      queryParameters: const {'page': 1, 'pageSize': 100},
+    );
+    final items = response.data?['items'];
+    if (items is! List)
+      throw const ServerException('Notifications response is invalid.');
+    return items
+        .whereType<Map>()
+        .map(
+          (item) =>
+              AppNotificationModel.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList();
+  });
+
+  @override
+  Future<bool> markAsRead(String notificationId) => _request(() async {
+    await _client.patch<Map<String, dynamic>>(
+      '/notifications/$notificationId',
+      data: const {'read': true},
+    );
+    return true;
+  });
+
+  @override
+  Future<bool> markAllAsRead() => _request(() async {
+    await _client.post<Map<String, dynamic>>('/notifications/mark-all-read');
+    return true;
+  });
+
+  Future<T> _request<T>(Future<T> Function() callback) async {
+    try {
+      return await callback();
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      final message = data is Map && data['message'] is String
+          ? data['message'] as String
+          : error.message ?? 'Unable to load notifications.';
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout)
+        throw TimeoutException(message);
+      if (error.type == DioExceptionType.connectionError)
+        throw NetworkException(message);
+      throw ServerException(message);
+    }
   }
 }

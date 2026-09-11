@@ -1,190 +1,107 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../../../core/errors/failures.dart';
-import '../../../../core/usecases/usecase.dart';
-import '../../domain/usecases/forgot_passcode_use_case.dart';
-import '../../domain/usecases/get_cached_user_use_case.dart';
-import '../../domain/usecases/reset_passcode_use_case.dart';
-import '../../domain/usecases/sign_in_use_case.dart';
-import '../../domain/usecases/sign_out_use_case.dart';
-import '../../domain/usecases/sign_up_use_case.dart';
-import '../../domain/usecases/verify_otp_use_case.dart';
+import '../../domain/repositories/auth_repository.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
-/// Orchestrates all authentication flows.
-/// Each [AuthEvent] is mapped to the appropriate use case; results are
-/// translated into [AuthState] variants for the UI to react to.
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final SignInUseCase signInUseCase;
-  final SignUpUseCase signUpUseCase;
-  final VerifyOtpUseCase verifyOtpUseCase;
-  final ForgotPasscodeUseCase forgotPasscodeUseCase;
-  final ResetPasscodeUseCase resetPasscodeUseCase;
-  final SignOutUseCase signOutUseCase;
-  final GetCachedUserUseCase getCachedUserUseCase;
-
-  AuthBloc({
-    required this.signInUseCase,
-    required this.signUpUseCase,
-    required this.verifyOtpUseCase,
-    required this.forgotPasscodeUseCase,
-    required this.resetPasscodeUseCase,
-    required this.signOutUseCase,
-    required this.getCachedUserUseCase,
-  }) : super(const AuthInitial()) {
-    on<SignInEvent>(_onSignIn);
-    on<SignUpEvent>(_onSignUp);
-    on<VerifyOtpEvent>(_onVerifyOtp);
-    on<ForgotPasscodeEvent>(_onForgotPasscode);
-    on<ResetPasscodeEvent>(_onResetPasscode);
-    on<SignOutEvent>(_onSignOut);
-    on<CheckCachedUserEvent>(_onCheckCachedUser);
+  AuthBloc(this._repo) : super(const AuthInitial()) {
+    on<SignInEvent>(_signIn);
+    on<SignUpBusinessEvent>(_business);
+    on<SignUpIndividualEvent>(_individual);
+    on<VerifySignUpOtpEvent>(_verifySignup);
+    on<ResendSignUpOtpEvent>(_resend);
+    on<ForgotPasscodeEvent>(_forgot);
+    on<VerifyPasscodeOtpEvent>(_verifyReset);
+    on<ResetPasscodeEvent>(_reset);
+    on<SignOutEvent>(_signOut);
+    on<CheckCachedUserEvent>(_cached);
   }
-
-  // ---------------------------------------------------------------------------
-  // Event handlers
-  // ---------------------------------------------------------------------------
-
-  Future<void> _onSignIn(SignInEvent event, Emitter<AuthState> emit) async {
-    emit(const AuthLoading());
-
-    final result = await signInUseCase(
-      SignInParams(
-        contact: event.contact,
-        passcode: event.passcode,
-        isEmail: event.isEmail,
-      ),
-    );
-
-    result.fold(
-      (failure) => emit(AuthError(_mapFailureToMessage(failure))),
-      (user) => emit(AuthSuccess(user)),
-    );
-  }
-
-  Future<void> _onSignUp(SignUpEvent event, Emitter<AuthState> emit) async {
-    emit(const AuthLoading());
-
-    final result = await signUpUseCase(
-      SignUpParams(
-        name: event.name,
-        email: event.email,
-        phone: event.phone,
-        company: event.company,
-        passcode: event.passcode,
-      ),
-    );
-
-    result.fold(
-      (failure) => emit(AuthError(_mapFailureToMessage(failure))),
-      // After registration the app enters an OTP-verification step.
-      (_) => emit(const AuthOtpSent()),
-    );
-  }
-
-  Future<void> _onVerifyOtp(
-    VerifyOtpEvent event,
-    Emitter<AuthState> emit,
+  final AuthRepository _repo;
+  Future<void> _run<T>(
+    Emitter<AuthState> e,
+    Future<dynamic> Function() f,
+    AuthState Function(dynamic) ok,
   ) async {
-    emit(const AuthLoading());
+    e(const AuthLoading());
+    final r = await f();
+    r.fold((x) => e(AuthError(_message(x))), (x) => e(ok(x)));
+  }
 
-    final result = await verifyOtpUseCase(
-      VerifyOtpParams(
-        contact: event.contact,
-        otp: event.otp,
-        isEmail: event.isEmail,
-      ),
-    );
-
-    result.fold(
-      (failure) => emit(AuthError(_mapFailureToMessage(failure))),
-      (_) => emit(const AuthOtpVerified()),
+  Future<void> _signIn(SignInEvent x, Emitter<AuthState> e) => _run(
+    e,
+    () => _repo.signIn(
+      usernameOrMobile: x.usernameOrMobile,
+      password: x.password,
+    ),
+    (v) => AuthSuccess(v.user),
+  );
+  Future<void> _business(SignUpBusinessEvent x, Emitter<AuthState> e) => _run(
+    e,
+    () => _repo.signUpBusiness(
+      companyName: x.companyName,
+      username: x.username,
+      registeredMobile: x.registeredMobile,
+      password: x.password,
+    ),
+    (v) => AuthOtpSent(v),
+  );
+  Future<void> _individual(SignUpIndividualEvent x, Emitter<AuthState> e) =>
+      _run(
+        e,
+        () => _repo.signUpIndividual(
+          fullName: x.fullName,
+          mobile: x.mobile,
+          username: x.username,
+          password: x.password,
+          termsAccepted: x.termsAccepted,
+        ),
+        (v) => AuthOtpSent(v),
+      );
+  Future<void> _verifySignup(VerifySignUpOtpEvent x, Emitter<AuthState> e) =>
+      _run(
+        e,
+        () =>
+            _repo.verifySignUpOtp(verificationId: x.verificationId, otp: x.otp),
+        (v) => AuthOtpVerified(v),
+      );
+  Future<void> _resend(ResendSignUpOtpEvent x, Emitter<AuthState> e) => _run(
+    e,
+    () => _repo.resendSignUpOtp(verificationId: x.verificationId),
+    (v) => AuthOtpSent(v),
+  );
+  Future<void> _forgot(ForgotPasscodeEvent x, Emitter<AuthState> e) => _run(
+    e,
+    () => _repo.forgotPasscode(contact: x.contact, isEmail: x.isEmail),
+    (v) => AuthOtpSent(v),
+  );
+  Future<void> _verifyReset(VerifyPasscodeOtpEvent x, Emitter<AuthState> e) =>
+      _run(
+        e,
+        () => _repo.verifyPasscodeOtp(
+          verificationId: x.verificationId,
+          contact: x.contact,
+          otp: x.otp,
+        ),
+        (v) => AuthResetTokenReady(v.resetToken),
+      );
+  Future<void> _reset(ResetPasscodeEvent x, Emitter<AuthState> e) => _run(
+    e,
+    () => _repo.resetPasscode(
+      resetToken: x.resetToken,
+      newPasscode: x.newPasscode,
+    ),
+    (_) => const AuthPasscodeReset(),
+  );
+  Future<void> _signOut(SignOutEvent x, Emitter<AuthState> e) =>
+      _run(e, () => _repo.signOut(), (_) => const AuthSignedOut());
+  Future<void> _cached(CheckCachedUserEvent x, Emitter<AuthState> e) async {
+    final r = await _repo.getCachedUser();
+    r.fold(
+      (f) => e(AuthError(_message(f))),
+      (u) => e(u == null ? const AuthInitial() : AuthSuccess(u)),
     );
   }
 
-  Future<void> _onForgotPasscode(
-    ForgotPasscodeEvent event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(const AuthLoading());
-
-    final result = await forgotPasscodeUseCase(
-      ForgotPasscodeParams(
-        contact: event.contact,
-        isEmail: event.isEmail,
-      ),
-    );
-
-    result.fold(
-      (failure) => emit(AuthError(_mapFailureToMessage(failure))),
-      (_) => emit(const AuthOtpSent()),
-    );
-  }
-
-  Future<void> _onResetPasscode(
-    ResetPasscodeEvent event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(const AuthLoading());
-
-    final result = await resetPasscodeUseCase(
-      ResetPasscodeParams(
-        contact: event.contact,
-        otp: event.otp,
-        newPasscode: event.newPasscode,
-      ),
-    );
-
-    result.fold(
-      (failure) => emit(AuthError(_mapFailureToMessage(failure))),
-      (_) => emit(const AuthOtpVerified()),
-    );
-  }
-
-  Future<void> _onSignOut(SignOutEvent event, Emitter<AuthState> emit) async {
-    emit(const AuthLoading());
-
-    final result = await signOutUseCase(const NoParams());
-
-    result.fold(
-      (failure) => emit(AuthError(_mapFailureToMessage(failure))),
-      (_) => emit(const AuthSignedOut()),
-    );
-  }
-
-  Future<void> _onCheckCachedUser(
-    CheckCachedUserEvent event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(const AuthLoading());
-
-    final result = await getCachedUserUseCase(const NoParams());
-
-    result.fold(
-      (failure) => emit(AuthError(_mapFailureToMessage(failure))),
-      (user) {
-        if (user != null) {
-          emit(AuthSuccess(user));
-        } else {
-          emit(const AuthInitial());
-        }
-      },
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  /// Converts a [Failure] into a user-facing error message.
-  String _mapFailureToMessage(Failure failure) {
-    return failure is NetworkFailure
-        ? failure.message
-        : failure is AuthFailure
-            ? failure.message
-            : failure is ValidationFailure
-                ? failure.message
-                : 'Something went wrong. Please try again.';
-  }
+  String _message(Failure f) => f.message;
 }

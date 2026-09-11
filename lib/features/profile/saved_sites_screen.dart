@@ -9,6 +9,9 @@ import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import '../orders/order_project_summary.dart';
 import '../../app/config/app_assets.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/project_location_api_service.dart';
+import '../../core/errors/exceptions.dart';
 
 class _SiteItem {
   final String id;
@@ -20,6 +23,8 @@ class _SiteItem {
   final String contactPhone;
   final int activeOrdersCount;
   final bool isDefault;
+  final double latitude;
+  final double longitude;
 
   const _SiteItem({
     required this.id,
@@ -31,6 +36,8 @@ class _SiteItem {
     required this.contactPhone,
     required this.activeOrdersCount,
     this.isDefault = false,
+    this.latitude = 0,
+    this.longitude = 0,
   });
 
   _SiteItem copyWith({
@@ -81,12 +88,15 @@ class SavedSitesScreen extends StatefulWidget {
 class _SavedSitesScreenState extends State<SavedSitesScreen> {
   final TextEditingController _searchController = TextEditingController();
   int? _selectedIndex;
+  late Future<List<_SiteItem>> _sitesFuture;
+  String? _loadMessage;
 
   @override
   void initState() {
     super.initState();
     // Start with nothing selected if picking for a project, otherwise select the first one.
     _selectedIndex = widget.pickForProject ? null : 0;
+    _sitesFuture = _loadSites();
   }
 
   List<_SiteItem> _sites = [
@@ -133,6 +143,33 @@ class _SavedSitesScreenState extends State<SavedSitesScreen> {
     ),
   ];
 
+  Future<List<_SiteItem>> _loadSites() async {
+    _loadMessage = null;
+    try {
+      final locations = await sl<ProjectLocationApiService>().getLocations();
+      return locations
+          .map(
+            (location) => _SiteItem(
+              id: location.id,
+              name: location.name,
+              subtitle: location.projectName,
+              location: location.address,
+              imagePath: AppAssets.orderThumbPalm,
+              contactPerson: location.contactName,
+              contactPhone: location.contactPhone,
+              activeOrdersCount: location.activeOrdersCount,
+              isDefault: location.isDefault,
+              latitude: location.latitude,
+              longitude: location.longitude,
+            ),
+          )
+          .toList();
+    } on ServerException catch (error) {
+      _loadMessage = error.message;
+      return const [];
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -150,8 +187,10 @@ class _SavedSitesScreenState extends State<SavedSitesScreen> {
   }
 
   Future<void> _handleAddNewProject() async {
-    final result = await Navigator.of(context, rootNavigator: true)
-        .pushNamed<OrderProjectSummary?>(AppRoutes.addNewProject, arguments: true);
+    final result = await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).pushNamed<OrderProjectSummary?>(AppRoutes.addNewProject, arguments: true);
 
     if (result != null && mounted) {
       setState(() {
@@ -202,33 +241,73 @@ class _SavedSitesScreenState extends State<SavedSitesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredSites;
-
-    // The user requested that both sides (management and picker) open the exact same screen.
-    return _PickerView(
-      sites: filtered,
-      selectedIndex: _selectedIndex,
-      pickForProject: widget.pickForProject,
-      onSelect: (i) => setState(() => _selectedIndex = i),
-      onCreateOrder: () {
-        if (_selectedIndex == null) return;
-        final selected = filtered[_selectedIndex!];
-
-        if (widget.pickForProject) {
-          Navigator.of(context).pop(
-            ProjectLocationDraft(
-              name: selected.name,
-              address: selected.location,
-              contactName: selected.contactPerson,
-              contactPhone: selected.contactPhone,
+    return FutureBuilder<List<_SiteItem>>(
+      future: _sitesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          final message = _loadMessage ?? 'Could not load saved locations.';
+          return Scaffold(
+            appBar: const AppBrandHeader(showBack: true),
+            body: Center(
+              child: TextButton(
+                onPressed: () => setState(() => _sitesFuture = _loadSites()),
+                child: Text('$message Retry'),
+              ),
             ),
           );
-        } else {
-          Navigator.of(context).pushNamed(AppRoutes.newCashOrderMixCode);
         }
+        if (_loadMessage != null) {
+          return Scaffold(
+            appBar: const AppBrandHeader(showBack: true),
+            body: Center(
+              child: TextButton(
+                onPressed: () => setState(() => _sitesFuture = _loadSites()),
+                child: Text('$_loadMessage Retry'),
+              ),
+            ),
+          );
+        }
+        _sites
+          ..clear()
+          ..addAll(snapshot.data ?? const []);
+        final filtered = _filteredSites;
+        return _PickerView(
+          sites: filtered,
+          selectedIndex: _selectedIndex,
+          pickForProject: widget.pickForProject,
+          onSelect: (i) => setState(() => _selectedIndex = i),
+          onCreateOrder: () {
+            if (_selectedIndex == null || _selectedIndex! >= filtered.length)
+              return;
+            final selected = filtered[_selectedIndex!];
+            if (widget.pickForProject) {
+              Navigator.of(context).pop(
+                ProjectLocationDraft(
+                  name: selected.name,
+                  address: selected.location,
+                  latitude: selected.latitude,
+                  longitude: selected.longitude,
+                  contactName: selected.contactPerson,
+                  contactPhone: selected.contactPhone,
+                ),
+              );
+            } else {
+              // A saved location alone does not contain the project ID that
+              // the live order APIs require. Send the user to Projects, where
+              // selecting a project starts the current order flow with both
+              // projectId and locationId.
+              AppTabControllerScope.of(context).onSelectTab(AppTab.projects.index);
+            }
+          },
+          searchController: _searchController,
+          onSearchChanged: (_) => setState(() => _selectedIndex = null),
+        );
       },
-      searchController: _searchController,
-      onSearchChanged: (_) => setState(() {}),
     );
   }
 }
@@ -459,7 +538,9 @@ class _PickerView extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const AppBrandHeader(showBack: true),
-      bottomNavigationBar: const AppTabBottomNavBar(currentTab: AppTab.projects),
+      bottomNavigationBar: const AppTabBottomNavBar(
+        currentTab: AppTab.projects,
+      ),
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
@@ -495,13 +576,15 @@ class _PickerView extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.white,
                   borderRadius: BorderRadius.circular(context.scaled(16)),
-                  border: Border.all(color: const Color(0xFFF1F5F9)), // faint border
+                  border: Border.all(
+                    color: const Color(0xFFF1F5F9),
+                  ), // faint border
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x051E1946),
                       offset: Offset(0, 2),
                       blurRadius: 8,
-                    )
+                    ),
                   ],
                 ),
                 child: TextField(
@@ -524,7 +607,10 @@ class _PickerView extends StatelessWidget {
                     ),
                     suffixIcon: searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: Icon(Icons.clear_rounded, size: context.scaled(18)),
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              size: context.scaled(18),
+                            ),
                             onPressed: () {
                               searchController.clear();
                               onSearchChanged('');
@@ -562,11 +648,17 @@ class _PickerView extends StatelessWidget {
                         padding: EdgeInsets.all(context.scaled(12)),
                         decoration: BoxDecoration(
                           color: on
-                              ? const Color(0x0A2B44FF) // super soft primary background
+                              ? const Color(
+                                  0x0A2B44FF,
+                                ) // super soft primary background
                               : AppColors.white,
-                          borderRadius: BorderRadius.circular(context.scaled(16)),
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(16),
+                          ),
                           border: Border.all(
-                            color: on ? AppColors.primary : const Color(0xFFF1F5F9),
+                            color: on
+                                ? AppColors.primary
+                                : const Color(0xFFF1F5F9),
                             width: on ? 1.5 : 1,
                           ),
                           boxShadow: [
@@ -575,13 +667,15 @@ class _PickerView extends StatelessWidget {
                                 color: Color(0x051E1946),
                                 offset: Offset(0, 2),
                                 blurRadius: 8,
-                              )
+                              ),
                           ],
                         ),
                         child: Row(
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(context.scaled(12)),
+                              borderRadius: BorderRadius.circular(
+                                context.scaled(12),
+                              ),
                               child: Image.asset(
                                 site.imagePath,
                                 width: context.scaled(72),
@@ -608,7 +702,8 @@ class _PickerView extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: context.scaled(13),
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.primary, // ALWAYS primary in screenshot
+                                      color: AppColors
+                                          .primary, // ALWAYS primary in screenshot
                                     ),
                                   ),
                                   SizedBox(height: context.scaledV(6)),

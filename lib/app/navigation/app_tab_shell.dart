@@ -18,12 +18,6 @@ import '../../features/orders/confirmation_needed_screen.dart';
 import '../../features/orders/live_tracking_screen.dart';
 import '../../features/orders/loading_complete_screen.dart';
 import '../../features/orders/my_orders_screen.dart';
-import '../../features/orders/new_cash_order_mix_code_screen.dart';
-import '../../features/orders/new_cash_order_other_screen.dart';
-import '../../features/orders/new_cash_order_quantity_screen.dart';
-import '../../features/orders/new_cash_order_review_screen.dart';
-import '../../features/orders/new_cash_order_schedule_screen.dart';
-import '../../features/orders/new_cash_order_screen.dart';
 import '../../features/orders/order_complete_screen.dart';
 import '../../features/orders/order_details_screen.dart';
 import '../../features/orders/order_guide_screen.dart';
@@ -54,6 +48,7 @@ import '../../features/profile/settings_screen.dart';
 import '../../features/wallet/transaction_history_screen.dart';
 import '../../features/wallet/wallet_screen.dart';
 import 'app_tab_navigation.dart';
+import 'app_route_args.dart';
 import 'app_routes.dart';
 
 class AppTabShell extends StatefulWidget {
@@ -249,89 +244,6 @@ Route<dynamic> _buildRouteForTab(
         settings: settings,
         builder: (_) => const OrderGuideScreen(),
       );
-    case AppRoutes.newCashOrder:
-      return _materialRoute(
-        settings: settings,
-        builder: (_) => const NewCashOrderScreen(),
-      );
-    case AppRoutes.newCashOrderMixCode:
-      return _materialRoute(
-        settings: settings,
-        builder: (_) => const NewCashOrderMixCodeScreen(),
-      );
-    case AppRoutes.newCashOrderQuantity:
-      return _materialRoute(
-        settings: settings,
-        builder: (_) => NewCashOrderQuantityScreen(
-          mixCode: const MixCodeItem(
-            code: 'C25/30',
-            type: 'Standard Mix',
-            pricePerM3: 450,
-            aggregateSize: '20 mm',
-            slump: 'S3',
-            mpa: '30 MPa',
-            psi: '4,351 PSI',
-            imagePath: 'assets/images/art_concrete_cube.jpg',
-          ),
-        ),
-      );
-    case AppRoutes.newCashOrderSchedule:
-      return _materialRoute(
-        settings: settings,
-        builder: (_) => NewCashOrderScheduleScreen(
-          mixCode: const MixCodeItem(
-            code: 'C25/30',
-            type: 'Standard Mix',
-            pricePerM3: 450,
-            aggregateSize: '20 mm',
-            slump: 'S3',
-            mpa: '30 MPa',
-            psi: '4,351 PSI',
-            imagePath: 'assets/images/art_concrete_cube.jpg',
-          ),
-          quantity: 25,
-        ),
-      );
-    case AppRoutes.newCashOrderOther:
-      return _materialRoute(
-        settings: settings,
-        builder: (_) => NewCashOrderOtherScreen(
-          mixCode: const MixCodeItem(
-            code: 'C25/30',
-            type: 'Standard Mix',
-            pricePerM3: 450,
-            aggregateSize: '20 mm',
-            slump: 'S3',
-            mpa: '30 MPa',
-            psi: '4,351 PSI',
-            imagePath: 'assets/images/art_concrete_cube.jpg',
-          ),
-          quantity: 25,
-        ),
-      );
-    case AppRoutes.newCashOrderReview:
-      return _materialRoute(
-        settings: settings,
-        builder: (_) => NewCashOrderReviewScreen(
-          mixCode: const MixCodeItem(
-            code: 'C25/30',
-            type: 'Standard Mix',
-            pricePerM3: 450,
-            aggregateSize: '20 mm',
-            slump: 'S3',
-            mpa: '30 MPa',
-            psi: '4,351 PSI',
-            imagePath: 'assets/images/art_concrete_cube.jpg',
-          ),
-          quantity: 25,
-          structureRef: 'Foundation',
-          technicianRequired: false,
-          temperatureControl: false,
-          pumpRequired: false,
-          cubeMould: false,
-          numMoulds: 0,
-        ),
-      );
     case AppRoutes.payment:
       return _materialRoute(
         settings: settings,
@@ -412,7 +324,10 @@ Route<dynamic> _buildRouteForTab(
     case AppRoutes.projectDetails:
       return _materialRoute(
         settings: settings,
-        builder: (_) => const ProjectDetailsScreen(),
+        builder: (_) => ProjectDetailsScreen(
+          projectId:
+              (settings.arguments as ProjectDetailsRouteArgs?)?.projectId,
+        ),
       );
     case AppRoutes.orderDetails:
       return _materialRoute(

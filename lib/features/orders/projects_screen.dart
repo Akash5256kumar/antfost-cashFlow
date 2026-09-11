@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../app/di/injection.dart';
 import '../../app/navigation/app_routes.dart';
+import '../../app/navigation/app_route_args.dart';
 import '../../core/usecases/usecase.dart';
 import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
@@ -11,7 +12,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_location_thumb.dart';
-import 'order_project_summary.dart';
+import '../../core/services/project_location_api_service.dart';
 import 'domain/entities/order.dart' as order_entity;
 import 'domain/entities/project.dart';
 import 'domain/usecases/get_projects_use_case.dart';
@@ -29,6 +30,7 @@ class ProjectsScreen extends StatefulWidget {
 class _ProjectsScreenState extends State<ProjectsScreen> {
   final _searchController = TextEditingController();
   late Future<List<Project>> _future;
+  late Future<int> _locationCountFuture;
 
   @override
   void initState() {
@@ -36,6 +38,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     _future = sl<GetProjectsUseCase>()(const NoParams()).then(
       (either) =>
           either.fold((failure) => throw failure, (projects) => projects),
+    );
+    _locationCountFuture = sl<ProjectLocationApiService>().getLocations().then(
+      (items) => items.length,
     );
     context.read<OrdersBloc>().add(const FetchOrdersEvent());
   }
@@ -119,7 +124,18 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                           child: _MiniStat(
                             icon: Icons.location_on_outlined,
                             label: 'Saved Locations',
-                            value: '7',
+                            value: '',
+                            valueWidget: FutureBuilder<int>(
+                              future: _locationCountFuture,
+                              builder: (context, snapshot) => Text(
+                                '${snapshot.data ?? 0}',
+                                style: TextStyle(
+                                  fontSize: context.scaled(18),
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
                             onTap: () {
                               Navigator.pushNamed(
                                 context,
@@ -189,22 +205,19 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                           child: _ProjectCard(
                             project: p,
                             activeOrders: pOrders.length,
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.projectDetails),
+                            onTap: () => Navigator.of(context).pushNamed(
+                              AppRoutes.projectDetails,
+                              arguments: ProjectDetailsRouteArgs(
+                                projectId: p.id,
+                              ),
+                            ),
                           ),
                         );
                       }),
                     SizedBox(height: context.scaledV(8)),
                     _AddProjectButton(
-                      onPressed: () async {
-                        final summary = await Navigator.of(context)
-                            .pushNamed(AppRoutes.addNewProject);
-                        if (summary is OrderProjectSummary && context.mounted) {
-                          Navigator.of(context)
-                              .pushNamed(AppRoutes.newCashOrderMixCode);
-                        }
-                      },
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.addNewProject),
                     ),
                     SizedBox(height: context.scaledV(20)),
                   ],
@@ -223,11 +236,13 @@ class _MiniStat extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.valueWidget,
     this.onTap,
   });
   final IconData icon;
   final String label;
   final String value;
+  final Widget? valueWidget;
   final VoidCallback? onTap;
 
   @override
@@ -268,14 +283,15 @@ class _MiniStat extends StatelessWidget {
                       color: AppColors.textHint,
                     ),
                   ),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: context.scaled(19),
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
+                  valueWidget ??
+                      Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: context.scaled(19),
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                 ],
               ),
             ),
@@ -291,7 +307,7 @@ class _MiniStat extends StatelessWidget {
   }
 }
 
-class _ProjectCard extends StatelessWidget {
+class _ProjectCard extends StatefulWidget {
   const _ProjectCard({
     required this.project,
     required this.activeOrders,
@@ -303,16 +319,42 @@ class _ProjectCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_ProjectCard> createState() => _ProjectCardState();
+}
+
+class _ProjectCardState extends State<_ProjectCard> {
+  int? _savedLocations;
+  int? _liveOrders;
+
+  @override
+  void initState() {
+    super.initState();
+    sl<ProjectLocationApiService>()
+        .getProjectDetails(widget.project.id)
+        .then((d) {
+          if (!mounted) return;
+          setState(() {
+            final locations = d['locations'];
+            _savedLocations = locations is List ? locations.length : 0;
+            _liveOrders = (d['activeOrdersCount'] as num?)?.toInt() ?? 0;
+          });
+        })
+        .catchError((_) {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    int savedLocs = 4;
+    final project = widget.project;
+    final activeOrders = _liveOrders ?? widget.activeOrders;
+    int savedLocs = _savedLocations ?? 0;
     double progress = 0.60;
     String statusStr = 'On Track';
     Color statusColor = AppColors.primary;
 
-    if (project.name.contains('Marina')) {
+    if (_savedLocations == null && project.name.contains('Marina')) {
       savedLocs = 6;
       progress = 0.35;
-    } else if (project.name.contains('Creek')) {
+    } else if (_savedLocations == null && project.name.contains('Creek')) {
       savedLocs = 5;
       progress = 0.15;
       statusStr = 'Planning';
@@ -320,7 +362,7 @@ class _ProjectCard extends StatelessWidget {
     }
 
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(12),

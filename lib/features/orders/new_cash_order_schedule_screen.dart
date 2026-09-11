@@ -5,6 +5,8 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_api_service.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_other_screen.dart';
 import 'new_cash_order_draft.dart';
@@ -36,6 +38,8 @@ class _NewCashOrderScheduleScreenState
   late int _intervalMinutes;
   late final TextEditingController _notesController;
   late final TextEditingController _intervalController;
+  List<Map<String, dynamic>> _windows = const [];
+  bool _windowsLoading = true;
 
   final List<DateTime> _dates = List.generate(
     14,
@@ -59,6 +63,54 @@ class _NewCashOrderScheduleScreenState
         _intervalMinutes = val;
       }
     });
+    _loadWindows();
+  }
+
+  Future<void> _loadWindows() async {
+    final project = widget.draft?.project;
+    if (project == null ||
+        project.projectId.isEmpty ||
+        project.locationId.isEmpty) {
+      if (mounted) setState(() => _windowsLoading = false);
+      return;
+    }
+    try {
+      final values = await sl<OrderApiService>().timeWindows(
+        projectId: project.projectId,
+        locationId: project.locationId,
+        mixCode: widget.mixCode.code,
+        quantityM3: widget.quantity.toDouble(),
+        date: _selectedDate.toIso8601String().substring(0, 10),
+      );
+      if (mounted)
+        setState(() {
+          _windows = values
+              .where((window) => window['available'] != false)
+              .map(
+                (window) => {
+                  ...window,
+                  'time':
+                      '${window['startTime'] ?? ''} - ${window['endTime'] ?? ''}',
+                },
+              )
+              .toList();
+          final savedWindowId = widget.draft?.timeWindowId;
+          final restoredIndex = _windows.indexWhere(
+            (window) => window['id'].toString() == savedWindowId,
+          );
+          _selectedTimeWindowIndex = restoredIndex >= 0 ? restoredIndex : 0;
+          _windowsLoading = false;
+        });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _windowsLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -85,10 +137,12 @@ class _NewCashOrderScheduleScreenState
   }
 
   void _onContinue() {
-    const windows = ['Morning', 'Midday', 'Afternoon', 'Early Night'];
+    if (_windows.isEmpty) return;
+    final selected = _windows[_selectedTimeWindowIndex];
     final updatedDraft = widget.draft?.copyWith(
       scheduledDate: _selectedDate,
-      timeWindow: windows[_selectedTimeWindowIndex],
+      timeWindow: selected['title'] as String? ?? '',
+      timeWindowId: selected['id'].toString(),
       intervalMinutes: _intervalMinutes,
       scheduleNotes: _notesController.text.trim(),
     );
@@ -136,7 +190,13 @@ class _NewCashOrderScheduleScreenState
                     _HorizontalDateSlider(
                       dates: _dates,
                       selectedDate: _selectedDate,
-                      onSelect: (d) => setState(() => _selectedDate = d),
+                      onSelect: (d) {
+                        setState(() {
+                          _selectedDate = d;
+                          _windowsLoading = true;
+                        });
+                        _loadWindows();
+                      },
                     ),
                     SizedBox(height: context.scaledV(32)),
 
@@ -150,11 +210,15 @@ class _NewCashOrderScheduleScreenState
                       ),
                     ),
                     SizedBox(height: context.scaledV(16)),
-                    _TimeWindowGrid(
-                      selectedIndex: _selectedTimeWindowIndex,
-                      onSelect: (i) =>
-                          setState(() => _selectedTimeWindowIndex = i),
-                    ),
+                    if (_windowsLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      _TimeWindowGrid(
+                        windows: _windows,
+                        selectedIndex: _selectedTimeWindowIndex,
+                        onSelect: (i) =>
+                            setState(() => _selectedTimeWindowIndex = i),
+                      ),
                     SizedBox(height: context.scaledV(32)),
 
                     // ── Delivery interval ──────────────────────────
@@ -429,25 +493,15 @@ class _HorizontalDateSlider extends StatelessWidget {
 // ── Time Window Grid ─────────────────────────────────────────────────────────
 
 class _TimeWindowGrid extends StatelessWidget {
-  const _TimeWindowGrid({required this.selectedIndex, required this.onSelect});
+  const _TimeWindowGrid({
+    required this.windows,
+    required this.selectedIndex,
+    required this.onSelect,
+  });
 
+  final List<Map<String, dynamic>> windows;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
-
-  static const List<Map<String, dynamic>> _windows = [
-    {'title': 'Morning', 'time': '06:00-12:00', 'icon': Icons.wb_twilight},
-    {'title': 'Midday', 'time': '12:00-16:00', 'icon': Icons.wb_sunny_outlined},
-    {
-      'title': 'Afternoon',
-      'time': '16:00-00:00',
-      'icon': Icons.wb_sunny_outlined,
-    },
-    {
-      'title': 'Early Night',
-      'time': '00:00-06:00',
-      'icon': Icons.nights_stay_outlined,
-    },
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -456,11 +510,11 @@ class _TimeWindowGrid extends StatelessWidget {
         final gap = context.scaled(8);
         final itemWidth = (constraints.maxWidth - gap * 3) / 4;
         return Row(
-          children: List.generate(_windows.length, (i) {
+          children: List.generate(windows.length, (i) {
             final isSelected = selectedIndex == i;
             return Padding(
               padding: EdgeInsets.only(
-                right: i == _windows.length - 1 ? 0 : gap,
+                right: i == windows.length - 1 ? 0 : gap,
               ),
               child: GestureDetector(
                 onTap: () => onSelect(i),
@@ -484,7 +538,7 @@ class _TimeWindowGrid extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _windows[i]['icon'] as IconData,
+                        Icons.schedule_rounded,
                         size: context.scaled(24),
                         color: isSelected
                             ? AppColors.primary
@@ -492,7 +546,7 @@ class _TimeWindowGrid extends StatelessWidget {
                       ),
                       SizedBox(height: context.scaledV(8)),
                       Text(
-                        _windows[i]['title'] as String,
+                        windows[i]['title'] as String? ?? '',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: context.scaled(11.5),
@@ -506,7 +560,9 @@ class _TimeWindowGrid extends StatelessWidget {
                       ),
                       SizedBox(height: context.scaledV(2)),
                       Text(
-                        _windows[i]['time'] as String,
+                        windows[i]['time'] as String? ??
+                            windows[i]['subtitle'] as String? ??
+                            '',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: context.scaled(9.5),

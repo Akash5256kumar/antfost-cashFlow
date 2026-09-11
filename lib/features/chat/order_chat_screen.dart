@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_chat_api_service.dart';
 
 class OrderChatScreen extends StatefulWidget {
   const OrderChatScreen({super.key, this.orderId = 'AF-2057'});
@@ -12,6 +14,7 @@ class OrderChatScreen extends StatefulWidget {
 
 class _OrderChatScreenState extends State<OrderChatScreen> {
   final TextEditingController _messageController = TextEditingController();
+  bool _sending = false;
 
   final List<Map<String, dynamic>> _messages = [
     {
@@ -27,16 +30,62 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     },
   ];
 
-  void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
-    setState(() {
-      _messages.insert(0, {
-        'text': _messageController.text.trim(),
-        'isMe': true,
-        'time': 'Just now',
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    try {
+      final items = await sl<OrderChatApiService>().loadMessages(
+        widget.orderId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(
+            items.map(
+              (m) => {
+                'text': m['body'] as String? ?? '',
+                'isMe': m['isMine'] as bool? ?? false,
+                'time': m['sentAt'] as String? ?? '',
+              },
+            ),
+          );
       });
-      _messageController.clear();
-    });
+    } catch (_) {
+      // Keep the existing conversation preview when the chat service is unavailable.
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final body = _messageController.text.trim();
+    if (body.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      final sent = await sl<OrderChatApiService>().sendMessage(
+        widget.orderId,
+        body,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages.insert(0, {
+          'text': sent['body'] as String? ?? body,
+          'isMe': true,
+          'time': sent['sentAt'] as String? ?? 'Just now',
+        });
+        _messageController.clear();
+        _sending = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _sending = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 
   @override

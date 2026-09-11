@@ -1,136 +1,258 @@
+import 'package:dio/dio.dart';
+
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/api_client.dart';
+import '../../domain/entities/auth_flow.dart';
 import '../models/user_model.dart';
 
-/// Contract for the remote authentication data source.
 abstract class AuthRemoteDataSource {
-  /// Returns a [UserModel] on successful sign-in.
-  /// Throws [AuthException] on invalid credentials.
-  Future<UserModel> signIn({
+  Future<AuthSession> signIn({
+    required String usernameOrMobile,
+    required String password,
+  });
+  Future<OtpChallenge> signUpBusiness({
+    required String companyName,
+    required String username,
+    required String registeredMobile,
+    required String password,
+  });
+  Future<OtpChallenge> signUpIndividual({
+    required String fullName,
+    required String mobile,
+    required String username,
+    required String password,
+    required bool termsAccepted,
+  });
+  Future<AuthSession> verifySignUpOtp({
+    required String verificationId,
+    required String otp,
+  });
+  Future<OtpChallenge> resendSignUpOtp({required String verificationId});
+  Future<OtpChallenge> forgotPasscode({
     required String contact,
-    required String passcode,
     required bool isEmail,
   });
-
-  /// Returns a [UserModel] representing the newly created account.
-  Future<UserModel> signUp({
-    required String name,
-    required String email,
-    required String phone,
-    required String company,
-    required String passcode,
-  });
-
-  /// Returns `true` when the OTP is accepted.
-  Future<bool> verifyOtp({
+  Future<PasswordResetVerification> verifyPasscodeOtp({
+    required String verificationId,
     required String contact,
     required String otp,
-    required bool isEmail,
   });
-
-  /// Returns `true` when the OTP has been dispatched to [contact].
-  Future<bool> forgotPasscode({required String contact, required bool isEmail});
-
-  /// Returns `true` when the passcode has been reset successfully.
-  Future<bool> resetPasscode({
-    required String contact,
-    required String otp,
+  Future<void> resetPasscode({
+    required String resetToken,
     required String newPasscode,
   });
-
-  /// Returns `true` on successful remote sign-out.
-  Future<bool> signOut();
+  Future<void> signOut({required String refreshToken});
 }
 
-// ---------------------------------------------------------------------------
-// Mock implementation — replace with Dio/Retrofit once the API is ready.
-// ---------------------------------------------------------------------------
+/// Real Mobile API implementation. Paths are relative to `/api/mobile/v1`.
+class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
+  ApiAuthRemoteDataSource(this._client);
+  final ApiClient _client;
 
-/// Dummy credentials accepted by the mock:
-///   - email  : test@test.com  | passcode: 123456
-///   - phone  : 0501234567     | passcode: 123456
-const _mockEmail = 'test@test.com';
-const _mockPhone = '0501234567';
-
-/// Simulates a 300 ms network round-trip.
-Future<void> _fakeDelay() => Future.delayed(const Duration(milliseconds: 300));
-
-/// A pre-built dummy user returned by all successful mock calls.
-final _dummyUser = UserModel(
-  id: 'usr_001',
-  name: 'Akash Kumar',
-  email: _mockEmail,
-  phone: _mockPhone,
-  company: 'Antfost Pvt. Ltd.',
-  isKycVerified: true,
-);
-
-/// Mock remote data source for development / testing purposes.
-class MockAuthRemoteDataSource implements AuthRemoteDataSource {
   @override
-  Future<UserModel> signIn({
+  Future<AuthSession> signIn({
+    required String usernameOrMobile,
+    required String password,
+  }) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/sign-in',
+      data: {'usernameOrMobile': usernameOrMobile, 'password': password},
+    );
+    return _session(_data(response));
+  });
+
+  @override
+  Future<OtpChallenge> signUpBusiness({
+    required String companyName,
+    required String username,
+    required String registeredMobile,
+    required String password,
+  }) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/sign-up/business',
+      data: {
+        'companyName': companyName,
+        'username': username,
+        'registeredMobile': registeredMobile,
+        'password': password,
+      },
+    );
+    return _challenge(_data(response), contactRequired: true);
+  });
+
+  @override
+  Future<OtpChallenge> signUpIndividual({
+    required String fullName,
+    required String mobile,
+    required String username,
+    required String password,
+    required bool termsAccepted,
+  }) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/sign-up/individual',
+      data: {
+        'fullName': fullName,
+        'mobile': mobile,
+        'username': username,
+        'password': password,
+        'termsAccepted': termsAccepted,
+      },
+    );
+    return _challenge(_data(response), contactRequired: true);
+  });
+
+  @override
+  Future<AuthSession> verifySignUpOtp({
+    required String verificationId,
+    required String otp,
+  }) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/sign-up/verify-otp',
+      data: {'verificationId': verificationId, 'otp': otp},
+    );
+    return _session(_data(response), includeNextStep: true);
+  });
+
+  @override
+  Future<OtpChallenge> resendSignUpOtp({required String verificationId}) =>
+      _request(() async {
+        final response = await _client.post<Map<String, dynamic>>(
+          '/auth/sign-up/resend-otp',
+          data: {'verificationId': verificationId},
+        );
+        return _challenge(_data(response));
+      });
+
+  @override
+  Future<OtpChallenge> forgotPasscode({
     required String contact,
-    required String passcode,
     required bool isEmail,
-  }) async {
-    await _fakeDelay();
+  }) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/passcode/forgot',
+      data: {'contact': contact, 'isEmail': isEmail},
+    );
+    return _challenge(_data(response), fallbackContact: contact);
+  });
 
-    // Accept all credentials for testing
+  @override
+  Future<PasswordResetVerification> verifyPasscodeOtp({
+    required String verificationId,
+    required String contact,
+    required String otp,
+  }) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/passcode/verify-otp',
+      data: {'verificationId': verificationId, 'contact': contact, 'otp': otp},
+    );
+    final data = _data(response);
+    if (data['verified'] != true || data['resetToken'] is! String)
+      throw const ServerException('OTP verification response is invalid.');
+    return PasswordResetVerification(resetToken: data['resetToken'] as String);
+  });
 
-    return _dummyUser;
+  @override
+  Future<void> resetPasscode({
+    required String resetToken,
+    required String newPasscode,
+  }) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/passcode/reset',
+      data: {'resetToken': resetToken, 'newPasscode': newPasscode},
+    );
+    if (_data(response)['success'] != true)
+      throw const ServerException('Passcode could not be reset.');
+  });
+
+  @override
+  Future<void> signOut({required String refreshToken}) => _request(() async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/sign-out',
+      data: {'refreshToken': refreshToken},
+    );
+    if (_data(response)['success'] != true)
+      throw const ServerException('Could not sign out.');
+  });
+
+  Future<T> _request<T>(Future<T> Function() request) async {
+    try {
+      return await request();
+    } on DioException catch (error) {
+      final responseData = error.response?.data;
+      final message = responseData is Map && responseData['message'] is String
+          ? responseData['message'] as String
+          : error.message ?? 'Unable to reach the server.';
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.receiveTimeout:
+        case DioExceptionType.sendTimeout:
+          throw TimeoutException(message);
+        case DioExceptionType.connectionError:
+          throw NetworkException(message);
+        default:
+          if (error.response?.statusCode == 401 ||
+              error.response?.statusCode == 403)
+            throw AuthException(message);
+          throw ServerException(message);
+      }
+    }
   }
 
-  @override
-  Future<UserModel> signUp({
-    required String name,
-    required String email,
-    required String phone,
-    required String company,
-    required String passcode,
-  }) async {
-    await _fakeDelay();
-    // Return a new user built from the submitted registration data.
-    return UserModel(
-      id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      email: email,
-      phone: phone,
-      company: company,
-      isKycVerified: false,
+  Map<String, dynamic> _data(Response<Map<String, dynamic>> response) {
+    final data = response.data;
+    if (data == null) throw const ServerException('Empty server response.');
+    return data;
+  }
+
+  OtpChallenge _challenge(
+    Map<String, dynamic> data, {
+    String? fallbackContact,
+    bool contactRequired = false,
+  }) {
+    final verificationId = data['verificationId'];
+    final maskedContact = data['maskedContact'];
+    final expiresAt = DateTime.tryParse(data['expiresAt'] as String? ?? '');
+    final contact =
+        data['contact'] as String? ?? fallbackContact ?? maskedContact;
+    if (verificationId is! String ||
+        maskedContact is! String ||
+        expiresAt == null ||
+        (contactRequired && data['contact'] is! String))
+      throw const ServerException('OTP response is invalid.');
+    return OtpChallenge(
+      verificationId: verificationId,
+      contact: contact,
+      maskedContact: maskedContact,
+      expiresAt: expiresAt,
+      resendAvailableAt: DateTime.tryParse(
+        data['resendAvailableAt'] as String? ?? '',
+      ),
     );
   }
 
-  @override
-  Future<bool> verifyOtp({
-    required String contact,
-    required String otp,
-    required bool isEmail,
-  }) async {
-    await _fakeDelay();
-    return true;
-  }
-
-  @override
-  Future<bool> forgotPasscode({
-    required String contact,
-    required bool isEmail,
-  }) async {
-    await _fakeDelay();
-    return true;
-  }
-
-  @override
-  Future<bool> resetPasscode({
-    required String contact,
-    required String otp,
-    required String newPasscode,
-  }) async {
-    await _fakeDelay();
-    return true;
-  }
-
-  @override
-  Future<bool> signOut() async {
-    await _fakeDelay();
-    return true;
+  AuthSession _session(
+    Map<String, dynamic> data, {
+    bool includeNextStep = false,
+  }) {
+    final user = data['user'];
+    final accessToken = data['accessToken'];
+    final refreshToken = data['refreshToken'];
+    if (user is! Map<String, dynamic> ||
+        accessToken is! String ||
+        refreshToken is! String)
+      throw const ServerException('Authentication response is invalid.');
+    final nextStep = data['nextStep'] == 'kyc'
+        ? AuthNextStep.kyc
+        : data['nextStep'] == 'home'
+        ? AuthNextStep.home
+        : null;
+    if (includeNextStep && nextStep == null)
+      throw const ServerException('Authentication next step is invalid.');
+    return AuthSession(
+      user: UserModel.fromJson(user),
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      nextStep: nextStep,
+    );
   }
 }

@@ -7,14 +7,18 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
-import '../../app/navigation/app_routes.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/utils/input_validators.dart';
+import '../../core/services/project_location_api_service.dart';
+import '../../core/errors/exceptions.dart';
+import '../../app/di/injection.dart';
 import '../../features/profile/saved_sites_screen.dart';
 import 'add_location_screen.dart';
 import 'order_project_summary.dart';
+import 'new_cash_order_draft.dart';
+import 'new_cash_order_mix_code_screen.dart';
 
 const List<_ProjectType> _projectTypes = [
   _ProjectType('Residential', Icons.home_rounded),
@@ -80,7 +84,9 @@ class _AddNewProjectScreenState extends State<AddNewProjectScreen> {
     setState(() => _locations.add(result));
   }
 
-  void _createOrder([ProjectLocationDraft? location]) {
+  bool _isSaving = false;
+
+  Future<void> _createOrder([ProjectLocationDraft? location]) async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedType == null) {
       _showValidationMessage('Select a project type to continue.');
@@ -90,29 +96,65 @@ class _AddNewProjectScreenState extends State<AddNewProjectScreen> {
       _showValidationMessage('Add at least one delivery location to continue.');
       return;
     }
-    final firstLocation =
-        location ?? (_locations.isNotEmpty ? _locations.first : null);
+    final locations = location == null ? _locations : [..._locations, location];
+    setState(() => _isSaving = true);
+    try {
+      final created = await sl<ProjectLocationApiService>().createProject(
+        name: _nameController.text.trim(),
+        projectType: _selectedType!,
+        locations: locations
+            .map(
+              (item) => ProjectLocationPayload(
+                name: item.name,
+                address: item.address,
+                latitude: item.latitude,
+                longitude: item.longitude,
+                contactName: item.contactName ?? '',
+                contactPhone: item.contactPhone ?? '',
+              ),
+            )
+            .toList(),
+      );
+      if (!mounted) return;
+      final firstLocation = locations.first;
+      final serverLocation = created.locations.isEmpty
+          ? null
+          : created.locations.first;
+      if (serverLocation == null || serverLocation.id.isEmpty) {
+        throw const FormatException('Project was saved without a location ID.');
+      }
+      final summary = OrderProjectSummary(
+        projectId: created.id,
+        locationId: serverLocation.id,
+        projectName: _nameController.text.trim().isEmpty
+            ? 'New Project'
+            : _nameController.text.trim(),
+        projectSite: _selectedType ?? 'Residential',
+        locationLabel: firstLocation.address,
+        coordinates: LatLng(firstLocation.latitude, firstLocation.longitude),
+      );
 
-    final summary = OrderProjectSummary(
-      projectName: _nameController.text.trim().isEmpty
-          ? 'New Project'
-          : _nameController.text.trim(),
-      projectSite: _selectedType ?? 'Residential',
-      locationLabel: firstLocation?.address.isNotEmpty == true
-          ? firstLocation!.address
-          : (firstLocation?.name ?? 'Pinned Project Location'),
-      // No map picker on this screen anymore (moved to AddLocationScreen
-      // per the new Figma flow) — coordinates aren't captured here.
-      coordinates: const LatLng(24.48862, 54.38652),
-    );
-
-    if (widget.returnResult) {
-      Navigator.of(context).pop(summary);
-    } else {
-      Navigator.of(
-        context,
-        rootNavigator: true,
-      ).pushNamed(AppRoutes.newCashOrderMixCode);
+      if (widget.returnResult) {
+        Navigator.of(context).pop(summary);
+      } else {
+        Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute(
+            builder: (_) => NewCashOrderMixCodeScreen(
+              draft: NewCashOrderDraft(project: summary),
+            ),
+          ),
+        );
+      }
+    } on ServerException catch (error) {
+      _showValidationMessage(error.message);
+    } on NetworkException catch (error) {
+      _showValidationMessage(error.message);
+    } on TimeoutException catch (error) {
+      _showValidationMessage(error.message);
+    } on Exception catch (error) {
+      _showValidationMessage(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -462,9 +504,9 @@ class _AddNewProjectScreenState extends State<AddNewProjectScreen> {
                 ),
                 SizedBox(height: context.scaledV(14)),
                 PrimaryButton(
-                  onPressed: _createOrder,
+                  onPressed: _isSaving ? null : _createOrder,
                   arrow: true,
-                  label: 'Create New Order',
+                  label: _isSaving ? 'Saving Project…' : 'Create New Order',
                 ),
               ] else ...[
                 CustomPaint(

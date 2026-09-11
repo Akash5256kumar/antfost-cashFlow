@@ -70,6 +70,7 @@ class HomeDataModel extends HomeData {
     required super.userName,
     required super.companyName,
     required super.activeOrders,
+    super.projectCount,
   });
 
   /// Creates a [HomeDataModel] from a JSON map.
@@ -83,6 +84,7 @@ class HomeDataModel extends HomeData {
       userName: json['userName'] as String,
       companyName: json['companyName'] as String,
       activeOrders: orders,
+      projectCount: (json['projectCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -105,6 +107,7 @@ class HomeDataModel extends HomeData {
       activeOrders: entity.activeOrders
           .map(ActiveOrderModel.fromEntity)
           .toList(),
+      projectCount: entity.projectCount,
     );
   }
 }

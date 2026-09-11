@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/account_api_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -46,7 +48,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close', style: TextStyle(color: AppColors.primary)),
+            child: const Text(
+              'Close',
+              style: TextStyle(color: AppColors.primary),
+            ),
           ),
         ],
       ),
@@ -77,17 +82,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Account deactivation request submitted to support'),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
+            onPressed: () async {
+              try {
+                await sl<AccountApiService>().requestDeletion(
+                  reason: 'User requested account deactivation',
+                );
+                if (!mounted) return;
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Account deactivation request submitted to support',
+                    ),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(e.toString().replaceFirst('Exception: ', '')),
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Request Deactivation', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Request Deactivation',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -102,7 +125,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textDark),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textDark,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -175,7 +201,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.lock_outline_rounded,
                   title: 'Change Passcode',
                   subtitle: 'Update your 4-digit mobile passcode',
-                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.forgotPasscode),
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.forgotPasscode),
                 ),
               ]),
               SizedBox(height: context.scaledV(20)),
@@ -358,10 +385,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: (iconColor ?? AppColors.primary).withValues(alpha: 0.1),
+                  color: (iconColor ?? AppColors.primary).withValues(
+                    alpha: 0.1,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: iconColor ?? AppColors.primary, size: 20),
+                child: Icon(
+                  icon,
+                  color: iconColor ?? AppColors.primary,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -391,7 +424,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF9E9E9E), size: 22),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF9E9E9E),
+                size: 22,
+              ),
             ],
           ),
         ),

@@ -4,6 +4,8 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/utils/input_validators.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/company_api_service.dart';
 
 class CompanyInfoScreen extends StatefulWidget {
   const CompanyInfoScreen({super.key});
@@ -50,6 +52,27 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
     _websiteController = TextEditingController(
       text: 'https://www.arabiancontracting.ae',
     );
+    _loadCompany();
+  }
+
+  Future<void> _loadCompany() async {
+    try {
+      final d = await sl<CompanyApiService>().getCompany();
+      if (!mounted) return;
+      setState(() {
+        _legalNameController.text = d['legalName'] as String? ?? '';
+        _tradeNameController.text = d['tradeName'] as String? ?? '';
+        _licenseNoController.text = d['tradeLicenseNumber'] as String? ?? '';
+        _trnController.text = d['trn'] as String? ?? '';
+        _industryController.text = d['industry'] as String? ?? '';
+        _addressController.text = d['officeAddress'] as String? ?? '';
+        _emailController.text = d['officialEmail'] as String? ?? '';
+        _phoneController.text = d['corporatePhone'] as String? ?? '';
+        _websiteController.text = d['website'] as String? ?? '';
+      });
+    } catch (_) {
+      // Keep the seeded values visible when the endpoint is unavailable.
+    }
   }
 
   @override
@@ -66,15 +89,36 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
     super.dispose();
   }
 
-  void _saveChanges() {
+  Future<void> _saveChanges() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isEditing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Company information updated successfully!'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
+      try {
+        await sl<CompanyApiService>().saveCompany({
+          'legalName': _legalNameController.text.trim(),
+          'tradeName': _tradeNameController.text.trim(),
+          'tradeLicenseNumber': _licenseNoController.text.trim(),
+          'trn': _trnController.text.trim(),
+          'industry': _industryController.text.trim(),
+          'officeAddress': _addressController.text.trim(),
+          'officialEmail': _emailController.text.trim(),
+          'corporatePhone': _phoneController.text.trim(),
+          'website': _websiteController.text.trim(),
+        });
+        if (!mounted) return;
+        setState(() => _isEditing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Company information updated successfully!'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      } catch (e) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', '')),
+            ),
+          );
+      }
     }
   }
 

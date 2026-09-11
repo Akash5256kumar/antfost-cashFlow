@@ -64,6 +64,7 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
                   : _controller.text.trim(),
               isEmail: _isEmail,
               flow: VerifyAccountFlow.passwordRecovery,
+              verificationId: state.challenge.verificationId,
             ),
           );
         } else if (state is AuthError) {
@@ -113,16 +114,23 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
                   AppTabToggle(
                     tabs: const ['Email', 'Phone'],
                     selectedIndex: _tabIndex,
-                    onChanged: (i) => setState(() {
-                      _tabIndex = i;
-                      _controller.clear();
-                    }),
+                    onChanged: (i) {
+                      // Recreate the field/input connection so Android swaps
+                      // email keyboard for the phone keypad (and vice versa).
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      setState(() {
+                        _tabIndex = i;
+                        _controller.clear();
+                        _formKey.currentState?.reset();
+                      });
+                    },
                   ),
 
                   SizedBox(height: context.scaledV(16)),
 
                   // ── Input field ───────────────────────────────────────────────
                   AppTextField(
+                    key: ValueKey(_tabIndex),
                     label: _tabIndex == 0 ? 'Email' : 'Phone Number',
                     hint: _tabIndex == 0 ? 'Sample.email@.com' : '501 234 567',
                     controller: _controller,

@@ -1,51 +1,47 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
+import '../entities/auth_flow.dart';
 import '../entities/user.dart';
 
-/// Contract that the data layer must fulfill.
-/// All methods return [Either] so callers handle failures explicitly.
 abstract class AuthRepository {
-  /// Sign in with [contact] (email or phone) and [passcode].
-  /// [isEmail] indicates whether [contact] is an email address.
-  Future<Either<Failure, User>> signIn({
+  Future<Either<Failure, AuthSession>> signIn({
+    required String usernameOrMobile,
+    required String password,
+  });
+  Future<Either<Failure, OtpChallenge>> signUpBusiness({
+    required String companyName,
+    required String username,
+    required String registeredMobile,
+    required String password,
+  });
+  Future<Either<Failure, OtpChallenge>> signUpIndividual({
+    required String fullName,
+    required String mobile,
+    required String username,
+    required String password,
+    required bool termsAccepted,
+  });
+  Future<Either<Failure, AuthSession>> verifySignUpOtp({
+    required String verificationId,
+    required String otp,
+  });
+  Future<Either<Failure, OtpChallenge>> resendSignUpOtp({
+    required String verificationId,
+  });
+  Future<Either<Failure, OtpChallenge>> forgotPasscode({
     required String contact,
-    required String passcode,
     required bool isEmail,
   });
-
-  /// Register a new user account.
-  Future<Either<Failure, User>> signUp({
-    required String name,
-    required String email,
-    required String phone,
-    required String company,
-    required String passcode,
-  });
-
-  /// Verify a one-time password sent to [contact].
-  Future<Either<Failure, bool>> verifyOtp({
+  Future<Either<Failure, PasswordResetVerification>> verifyPasscodeOtp({
+    required String verificationId,
     required String contact,
     required String otp,
-    required bool isEmail,
   });
-
-  /// Initiate the forgot-passcode flow — sends OTP to [contact].
-  Future<Either<Failure, bool>> forgotPasscode({
-    required String contact,
-    required bool isEmail,
-  });
-
-  /// Reset the passcode after OTP verification.
-  Future<Either<Failure, bool>> resetPasscode({
-    required String contact,
-    required String otp,
+  Future<Either<Failure, void>> resetPasscode({
+    required String resetToken,
     required String newPasscode,
   });
-
-  /// Sign out the currently authenticated user.
-  Future<Either<Failure, bool>> signOut();
-
-  /// Return the locally cached [User], or null if none exists.
+  Future<Either<Failure, void>> signOut();
   Future<Either<Failure, User?>> getCachedUser();
 }

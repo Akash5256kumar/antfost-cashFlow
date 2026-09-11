@@ -6,20 +6,11 @@ abstract final class AppRoutes {
   static const String createIndividual = '/auth/create-individual';
   static const String createBusiness = '/auth/create-business';
   static const String forgotPasscode = '/auth/forgot-passcode';
+  static const String resetPasscode = '/auth/reset-passcode';
   static const String verifyAccount = '/auth/verify-account';
   static const String kycVerification = '/kyc/verification';
   static const String kycVerificationStatus = '/kyc/verification-status';
   static const String orderGuide = '/orders/guide';
-  static const String newCashOrder = '/orders/new-cash-order';
-  static const String newCashOrderMixCode = '/orders/new-cash-order/mix-code';
-  static const String newCashOrderQuantity = '/orders/new-cash-order/quantity';
-  static const String newCashOrderSchedule = '/orders/new-cash-order/schedule';
-  static const String newCashOrderOther = '/orders/new-cash-order/other';
-  static const String newCashOrderReview = '/orders/new-cash-order/review';
-  // Note: NewCashOrderMixSelectionScreen and NewCashOrderSiteAccessScreen
-  // stay as direct Navigator.push calls (not named routes) until Phase 7
-  // (new-order wizard redesign), when their state threading moves onto
-  // NewCashOrderBloc and a route with real arguments becomes possible.
   static const String payment = '/payment';
   static const String completePayment = '/payment/complete';
   static const String priceBreakdown = '/payment/price-breakdown';

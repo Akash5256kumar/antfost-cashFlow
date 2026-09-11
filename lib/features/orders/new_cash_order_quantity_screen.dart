@@ -9,6 +9,7 @@ import '../payment/payment_success_screen.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_schedule_screen.dart';
 import 'new_cash_order_draft.dart';
+import '../../core/utils/route_feedback.dart';
 import 'order_step_widgets.dart';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -153,6 +154,13 @@ class _NewCashOrderQuantityScreenState
                         arrow: true,
                         label: 'Continue to Schedule',
                         onPressed: () {
+                          if (_quantity <= 0) {
+                            showAppSnackBar(
+                              context,
+                              'Quantity must be greater than 0.',
+                            );
+                            return;
+                          }
                           PaymentSuccessScreen.currentOrderQuantity = _quantity;
                           Navigator.of(context).push(
                             MaterialPageRoute(

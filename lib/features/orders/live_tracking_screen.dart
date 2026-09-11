@@ -5,6 +5,8 @@ import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_api_service.dart';
 
 class LiveTrackingScreen extends StatefulWidget {
   const LiveTrackingScreen({
@@ -30,6 +32,28 @@ class LiveTrackingScreen extends StatefulWidget {
 }
 
 class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
+  Map<String, dynamic>? _tracking;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTracking();
+  }
+
+  Future<void> _loadTracking() async {
+    try {
+      final data = await sl<OrderApiService>().tracking(widget.orderId);
+      if (mounted) setState(() => _tracking = data);
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+    }
+  }
+
   static const _trucks = [
     ('01', 'Arrived', Color(0xFF4F46E5), '08:56'),
     ('02', 'Approaching', Color(0xFF4F46E5), '05 min'),
@@ -38,6 +62,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final deliveryStatus =
+        _tracking?['deliveryStatus'] as String? ?? 'Loading live status…';
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBrandHeader(
@@ -86,7 +112,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${widget.orderId} · Palm Jumeirah Villa',
+                          '${widget.orderId} · ${widget.destinationArea}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF94A3B8),
@@ -95,11 +121,11 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        const Row(
+                        Row(
                           children: [
                             Expanded(
                               child: Text(
-                                'Arrived at Site',
+                                deliveryStatus,
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,

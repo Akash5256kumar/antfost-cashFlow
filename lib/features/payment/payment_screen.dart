@@ -7,8 +7,11 @@ import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/app_outline_button.dart';
+import '../../core/utils/route_feedback.dart';
 import 'cash_payment_pending_screen.dart';
 import 'split_wallet_payment_screen.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/payment_api_service.dart';
 
 enum _PayMethodId { wallet, card, bank, cash }
 
@@ -51,11 +54,13 @@ class PaymentScreen extends StatefulWidget {
   const PaymentScreen({
     super.key,
     required this.totalAmount,
+    this.orderId,
     this.orderRef = 'AF-2057',
     this.quantity = 120,
   });
 
   final double totalAmount;
+  final String? orderId;
   final String orderRef;
   final int quantity;
 
@@ -65,8 +70,62 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   _PayMethodId _selected = _PayMethodId.card;
+  bool _submitting = false;
 
-  void _continue() {
+  Future<void> _continue() async {
+    if (widget.orderId == null || widget.orderId!.isEmpty) {
+      _showError('Payment requires a server order ID.');
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      final method = switch (_selected) {
+        _PayMethodId.card => 'card',
+        _PayMethodId.wallet => 'wallet',
+        _PayMethodId.bank => 'bankTransfer',
+        _PayMethodId.cash => 'cash',
+      };
+      final result = await sl<PaymentApiService>().initiate(
+        orderId: widget.orderId!,
+        method: method,
+        walletAmount: _selected == _PayMethodId.wallet
+            ? widget.totalAmount
+            : null,
+        termsAccepted: true,
+      );
+      final payment = Map<String, dynamic>.from(result['payment'] as Map);
+      final action = result['nextAction'] as Map?;
+      if (!mounted) return;
+      if (action?['type'] == 'redirect' || action?['type'] == 'payment_link') {
+        _showError(
+          'Payment provider redirect is required. Provider URL: ${action?['url'] ?? ''}',
+        );
+        return;
+      }
+      if (payment['status'] == 'success') {
+        Navigator.of(context).pushNamed(AppRoutes.paymentSuccess);
+        return;
+      }
+      if (_selected == _PayMethodId.bank) {
+        Navigator.of(context).pushNamed(
+          AppRoutes.uploadPaymentProof,
+          arguments: payment['id'].toString(),
+        );
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const CashPaymentPendingScreen()),
+      );
+    } catch (error) {
+      _showError(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _showError(String message) => showAppSnackBar(context, message);
+
+  void _continueLegacy() {
     switch (_selected) {
       case _PayMethodId.card:
         Navigator.of(context).pushNamed(
@@ -83,9 +142,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       case _PayMethodId.cash:
         // Cash in Advance: payment happens outside the app, admin confirms manually
         Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const CashPaymentPendingScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const CashPaymentPendingScreen()),
         );
         break;
       case _PayMethodId.wallet:
@@ -143,7 +200,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF5F3FF),
-                          borderRadius: BorderRadius.circular(context.scaled(16)),
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(16),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -167,7 +226,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                     ),
                     SizedBox(height: context.scaledV(32)),
-                    
+
                     ..._methods.map((m) {
                       final isSelected = m.id == _selected;
                       return Padding(
@@ -180,10 +239,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               vertical: context.scaledV(12),
                             ),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFFF5F7FF) : Colors.white,
-                              borderRadius: BorderRadius.circular(context.scaled(16)),
+                              color: isSelected
+                                  ? const Color(0xFFF5F7FF)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(
+                                context.scaled(16),
+                              ),
                               border: Border.all(
-                                color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : const Color(0xFFE2E8F0),
                                 width: isSelected ? 1.5 : 1.0,
                               ),
                             ),
@@ -198,7 +263,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 SizedBox(width: context.scaled(16)),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         m.label,
@@ -227,7 +293,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: isSelected ? AppColors.primary : const Color(0xFFCBD5E1),
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : const Color(0xFFCBD5E1),
                                       width: isSelected ? 5.0 : 1.0,
                                     ),
                                     color: Colors.white,
@@ -239,7 +307,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ),
                       );
                     }).toList(),
-                    
+
                     SizedBox(height: context.scaledV(16)),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,14 +338,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ],
                     ),
                     SizedBox(height: context.scaledV(32)),
-                    
+
                     // Bottom buttons
                     Container(
                       padding: EdgeInsets.fromLTRB(
                         0, // Removed horizontal padding since scroll view has it
                         context.scaled(16),
                         0,
-                        MediaQuery.paddingOf(context).bottom + context.scaled(16),
+                        MediaQuery.paddingOf(context).bottom +
+                            context.scaled(16),
                       ),
                       // Removed top border since it's no longer pinned
                       child: Column(
@@ -291,7 +360,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           SizedBox(height: context.scaledV(12)),
                           AppOutlineButton(
                             label: 'Back to Price Breakdown',
-                            onPressed: () => Navigator.of(context).pop(), // Or whatever logic
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pop(), // Or whatever logic
                           ),
                         ],
                       ),

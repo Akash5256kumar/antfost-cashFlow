@@ -1,4 +1,5 @@
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../models/user_model.dart';
 
 /// Contract for the local (on-device) authentication data source.
@@ -42,4 +43,23 @@ class MockAuthLocalDataSource implements AuthLocalDataSource {
   Future<void> clearCachedUser() async {
     _cachedUser = null;
   }
+}
+
+/// Secure, app-restart-safe cache for the authenticated user summary.
+class SecureAuthLocalDataSource implements AuthLocalDataSource {
+  SecureAuthLocalDataSource(this._storage);
+  final SecureStorageService _storage;
+
+  @override
+  Future<void> cacheUser(UserModel user) => _storage.saveUser(user.toJson());
+
+  @override
+  Future<UserModel> getCachedUser() async {
+    final user = await _storage.readUser();
+    if (user == null) throw const CacheException('No user found in cache.');
+    return UserModel.fromJson(user);
+  }
+
+  @override
+  Future<void> clearCachedUser() => _storage.clearTokens();
 }

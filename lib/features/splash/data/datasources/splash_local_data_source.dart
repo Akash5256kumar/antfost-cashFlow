@@ -1,4 +1,5 @@
 import '../../domain/entities/app_launch_state.dart';
+import '../../../../core/services/secure_storage_service.dart';
 
 /// Contract for the local splash data source.
 abstract class SplashLocalDataSource {
@@ -26,6 +27,23 @@ class MockSplashLocalDataSource implements SplashLocalDataSource {
     await _fakeSplashDelay();
 
     // Mock decision: no cached user, onboarding not yet shown → onboarding.
+    return const AppLaunchState(destination: AppLaunchDestination.onboarding);
+  }
+}
+
+/// Uses the secure access-token store as the single source of truth for a
+/// restored session. No network call is needed before rendering the app.
+class SecureSplashLocalDataSource implements SplashLocalDataSource {
+  SecureSplashLocalDataSource(this._storage);
+  final SecureStorageService _storage;
+
+  @override
+  Future<AppLaunchState> getAppLaunchState() async {
+    await _fakeSplashDelay();
+    final accessToken = await _storage.readAccessToken();
+    if (accessToken != null && accessToken.isNotEmpty) {
+      return const AppLaunchState(destination: AppLaunchDestination.home);
+    }
     return const AppLaunchState(destination: AppLaunchDestination.onboarding);
   }
 }

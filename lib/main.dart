@@ -1,13 +1,15 @@
 import 'package:device_preview/device_preview.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'app/di/injection.dart';
 import 'app/navigation/app_router.dart';
 import 'app/navigation/app_routes.dart';
 import 'core/notifications/firebase_notification_service.dart';
+import 'core/services/api_client.dart';
+import 'core/widgets/connectivity_guard.dart';
+import 'core/widgets/debug_upgrade_prompt.dart';
 import 'app/config/app_breakpoints.dart';
 import 'app/config/app_strings.dart';
 import 'app/theme/app_colors.dart';
@@ -38,9 +40,8 @@ Future<void> main() async {
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await FirebaseNotificationService.instance.initialize();
   await initDependencies();
-  runApp(
-    DevicePreview(enabled: !kReleaseMode, builder: (_) => const AntfostApp()),
-  );
+  await sl<ApiClient>().restoreAccessToken();
+  runApp(AntfostApp());
 }
 
 class AntfostApp extends StatelessWidget {
@@ -85,7 +86,15 @@ class AntfostApp extends StatelessWidget {
               ),
             ),
           );
-          return DevicePreview.appBuilder(context, cappedChild);
+          return DevicePreview.appBuilder(
+            context,
+            ConnectivityGuard(
+              child: DelayedUpgradeAlert(
+                navigatorKey: AppRouter.navigatorKey,
+                child: cappedChild,
+              ),
+            ),
+          );
         },
       ),
     );

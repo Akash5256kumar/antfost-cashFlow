@@ -1,84 +1,60 @@
 import 'package:equatable/equatable.dart';
-
+import '../../domain/entities/auth_flow.dart';
 import '../../domain/entities/user.dart';
 
-/// Sealed base class for all auth-related BLoC states.
 sealed class AuthState extends Equatable {
   const AuthState();
-
   @override
   List<Object?> get props => [];
 }
 
-// ---------------------------------------------------------------------------
-// Initial
-// ---------------------------------------------------------------------------
-
-/// Default state before any event has been processed.
 final class AuthInitial extends AuthState {
   const AuthInitial();
 }
 
-// ---------------------------------------------------------------------------
-// Loading
-// ---------------------------------------------------------------------------
-
-/// Emitted while an async auth operation is in progress.
 final class AuthLoading extends AuthState {
   const AuthLoading();
 }
 
-// ---------------------------------------------------------------------------
-// Success (authenticated)
-// ---------------------------------------------------------------------------
-
-/// Emitted after a successful sign-in, sign-up, or cached-user restoration.
 final class AuthSuccess extends AuthState {
-  final User user;
-
   const AuthSuccess(this.user);
-
+  final User user;
   @override
   List<Object?> get props => [user];
 }
 
-// ---------------------------------------------------------------------------
-// OTP sent
-// ---------------------------------------------------------------------------
-
-/// Emitted after the server dispatches an OTP (forgot-passcode / sign-up flow).
 final class AuthOtpSent extends AuthState {
-  const AuthOtpSent();
+  const AuthOtpSent(this.challenge);
+  final OtpChallenge challenge;
+  @override
+  List<Object?> get props => [challenge];
 }
 
-// ---------------------------------------------------------------------------
-// OTP verified
-// ---------------------------------------------------------------------------
-
-/// Emitted after the user's OTP has been successfully verified.
 final class AuthOtpVerified extends AuthState {
-  const AuthOtpVerified();
+  const AuthOtpVerified(this.session);
+  final AuthSession session;
+  @override
+  List<Object?> get props => [session];
 }
 
-// ---------------------------------------------------------------------------
-// Signed out
-// ---------------------------------------------------------------------------
+final class AuthResetTokenReady extends AuthState {
+  const AuthResetTokenReady(this.resetToken);
+  final String resetToken;
+  @override
+  List<Object?> get props => [resetToken];
+}
 
-/// Emitted once the user has been signed out successfully.
+final class AuthPasscodeReset extends AuthState {
+  const AuthPasscodeReset();
+}
+
 final class AuthSignedOut extends AuthState {
   const AuthSignedOut();
 }
 
-// ---------------------------------------------------------------------------
-// Error
-// ---------------------------------------------------------------------------
-
-/// Emitted when any auth operation fails.
 final class AuthError extends AuthState {
-  final String message;
-
   const AuthError(this.message);
-
+  final String message;
   @override
   List<Object?> get props => [message];
 }

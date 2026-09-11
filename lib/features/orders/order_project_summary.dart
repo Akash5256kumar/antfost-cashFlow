@@ -2,12 +2,16 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class OrderProjectSummary {
   const OrderProjectSummary({
+    this.projectId = '',
+    this.locationId = '',
     required this.projectName,
     required this.projectSite,
     required this.locationLabel,
     required this.coordinates,
   });
 
+  final String projectId;
+  final String locationId;
   final String projectName;
   final String projectSite;
   final String locationLabel;
@@ -20,12 +24,16 @@ class ProjectLocationDraft {
   const ProjectLocationDraft({
     required this.name,
     required this.address,
+    required this.latitude,
+    required this.longitude,
     this.contactName,
     this.contactPhone,
   });
 
   final String name;
   final String address;
+  final double latitude;
+  final double longitude;
   final String? contactName;
   final String? contactPhone;
 }

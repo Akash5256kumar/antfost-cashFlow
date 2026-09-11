@@ -54,9 +54,8 @@ class _SignInScreenState extends State<SignInScreen> {
     if (!_formKey.currentState!.validate()) return;
     context.read<AuthBloc>().add(
       SignInEvent(
-        contact: _contactController.text.trim(),
-        passcode: _passcodeController.text.trim(),
-        isEmail: false,
+        usernameOrMobile: _contactController.text.trim(),
+        password: _passcodeController.text.trim(),
       ),
     );
   }

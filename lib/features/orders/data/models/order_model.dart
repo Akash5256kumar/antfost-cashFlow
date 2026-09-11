@@ -70,8 +70,10 @@ class OrderModel extends Order {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   static OrderStatusType _statusFromString(String value) {
-    switch (value) {
-      case 'inProgress':
+    switch (value.trim().toLowerCase()) {
+      case 'pending':
+        return OrderStatusType.pending;
+      case 'inprogress':
         return OrderStatusType.inProgress;
       case 'scheduled':
         return OrderStatusType.scheduled;
@@ -80,12 +82,14 @@ class OrderModel extends Order {
       case 'draft':
         return OrderStatusType.draft;
       default:
-        return OrderStatusType.scheduled;
+        return OrderStatusType.draft;
     }
   }
 
   static String _statusToString(OrderStatusType status) {
     switch (status) {
+      case OrderStatusType.pending:
+        return 'pending';
       case OrderStatusType.inProgress:
         return 'inProgress';
       case OrderStatusType.scheduled:

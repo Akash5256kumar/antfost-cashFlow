@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
@@ -11,6 +12,11 @@ import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/app_status_badge.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/svg_embedded_raster_image.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/project_location_api_service.dart';
+import 'new_cash_order_draft.dart';
+import 'new_cash_order_mix_code_screen.dart';
+import 'order_project_summary.dart';
 
 /// Ported from the new Figma design's `screens/ProjectDetails.tsx`.
 ///
@@ -18,11 +24,79 @@ import '../../core/widgets/svg_embedded_raster_image.dart';
 /// wire it to the real project id once `ProjectsScreen`'s tap navigation
 /// threads a `Project` (and its orders/locations) through instead of a
 /// bare route push.
-class ProjectDetailsScreen extends StatelessWidget {
-  const ProjectDetailsScreen({super.key});
+class ProjectDetailsScreen extends StatefulWidget {
+  const ProjectDetailsScreen({super.key, this.projectId});
+  final String? projectId;
+
+  @override
+  State<ProjectDetailsScreen> createState() => _ProjectDetailsScreenState();
+}
+
+class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
+  Map<String, dynamic>? _details;
+
+  void _createOrder() {
+    final details = _details;
+    final locations = details?['locations'];
+    final location = locations is List && locations.isNotEmpty
+        ? Map<String, dynamic>.from(locations.first as Map)
+        : null;
+    if (details == null || location == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Project details are still loading. Please try again.'),
+        ),
+      );
+      return;
+    }
+    final lat = (location['latitude'] as num?)?.toDouble() ?? 0;
+    final lng = (location['longitude'] as num?)?.toDouble() ?? 0;
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => NewCashOrderMixCodeScreen(
+          draft: NewCashOrderDraft(
+            project: OrderProjectSummary(
+              projectId: details['id'].toString(),
+              locationId: location['id'].toString(),
+              projectName: details['name'] as String? ?? '',
+              projectSite: location['name'] as String? ?? '',
+              locationLabel: location['address'] as String? ?? '',
+              coordinates: LatLng(lat, lng),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.projectId;
+    if (id != null && id.isNotEmpty) {
+      sl<ProjectLocationApiService>()
+          .getProjectDetails(id)
+          .then((value) {
+            if (mounted) setState(() => _details = value);
+          })
+          .catchError((_) {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final details = _details;
+    final name = details?['name'] as String? ?? 'Palm Jumeirah Villa';
+    final id = details?['id']?.toString() ?? widget.projectId ?? 'PRJ-0318';
+    final locations = details?['locations'];
+    final locationCount = locations is List ? locations.length : 0;
+    final orders = (details?['activeOrdersCount'] as num?)?.toInt() ?? 0;
+    final delivered =
+        (details?['deliveredVolumeM3'] as num?)?.toString() ?? '0';
+    final projectType = details?['projectType'] as String?;
+    final projectLocations = locations is List
+        ? locations.whereType<Map>().map(Map<String, dynamic>.from).toList()
+        : const <Map<String, dynamic>>[];
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const AppBrandHeader(showBack: true),
@@ -61,7 +135,7 @@ class ProjectDetailsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Palm Jumeirah Villa',
+                        name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.authScreenTitle(context).copyWith(
@@ -70,11 +144,16 @@ class ProjectDetailsScreen extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'PRJ-0318',
+                        id,
                         style: AppTextStyles.cardSubtitle(
                           context,
                         ).copyWith(fontSize: context.scaled(12)),
                       ),
+                      if (projectType != null)
+                        Text(
+                          projectType,
+                          style: AppTextStyles.cardSubtitle(context),
+                        ),
                     ],
                   ),
                 ),
@@ -92,12 +171,12 @@ class ProjectDetailsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: AppColors.cardBorder),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Expanded(
                     child: _StatCell(
                       icon: Icons.article_outlined,
-                      value: '3',
+                      value: '$orders',
                       label: 'Orders',
                     ),
                   ),
@@ -105,7 +184,7 @@ class ProjectDetailsScreen extends StatelessWidget {
                   Expanded(
                     child: _StatCell(
                       icon: Icons.location_on_outlined,
-                      value: '2',
+                      value: '$locationCount',
                       label: 'Locations',
                     ),
                   ),
@@ -113,7 +192,7 @@ class ProjectDetailsScreen extends StatelessWidget {
                   Expanded(
                     child: _StatCell(
                       icon: Icons.view_in_ar_outlined,
-                      value: '46 m³',
+                      value: '$delivered m³',
                       label: 'Delivered',
                     ),
                   ),
@@ -135,51 +214,62 @@ class ProjectDetailsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: AppColors.cardBorder),
               ),
-              child: Column(
-                children: const [
-                  _LocationRow(
-                    name: 'Main Villa Entrance',
-                    area: 'Palm Jumeirah, Frond F',
-                  ),
-                  Divider(height: 1, color: AppColors.cardBorder),
-                  _LocationRow(
-                    name: 'Service Gate',
-                    area: 'Palm Jumeirah, Frond F',
-                  ),
-                ],
-              ),
+              child: projectLocations.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(18),
+                      child: Text('No locations added yet.'),
+                    )
+                  : Column(
+                      children: projectLocations.asMap().entries.map((entry) {
+                        final location = entry.value;
+                        return Column(
+                          children: [
+                            _LocationRow(
+                              name: location['name'] as String? ?? 'Location',
+                              area: location['address'] as String? ?? '',
+                            ),
+                            if (entry.key < projectLocations.length - 1)
+                              const Divider(
+                                height: 1,
+                                color: AppColors.cardBorder,
+                              ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
             ),
             SizedBox(height: context.scaledV(16)),
             Text('Recent Orders', style: AppTextStyles.cardTitle(context)),
             SizedBox(height: context.scaledV(8)),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.cardBorder),
+            if (orders > 0)
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  children: const [
+                    _OrderRow(
+                      id: 'AF-2048',
+                      loc: 'Main Villa Entrance',
+                      spec: '28 m³ · PUMP · 30 MPa',
+                      label: 'On the way',
+                      tone: AppStatusTone.onWay,
+                      assetPath: AppAssets.figmaTruck,
+                    ),
+                    Divider(height: 1, color: AppColors.cardBorder),
+                    _OrderRow(
+                      id: 'AF-1987',
+                      loc: 'Service Gate',
+                      spec: '18 m³ · PUMP · 30 MPa',
+                      label: 'Completed',
+                      tone: AppStatusTone.completed,
+                      assetPath: AppAssets.figmaTruck,
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                children: const [
-                  _OrderRow(
-                    id: 'AF-2048',
-                    loc: 'Main Villa Entrance',
-                    spec: '28 m³ · PUMP · 30 MPa',
-                    label: 'On the way',
-                    tone: AppStatusTone.onWay,
-                    assetPath: AppAssets.figmaTruck,
-                  ),
-                  Divider(height: 1, color: AppColors.cardBorder),
-                  _OrderRow(
-                    id: 'AF-1987',
-                    loc: 'Service Gate',
-                    spec: '18 m³ · PUMP · 30 MPa',
-                    label: 'Completed',
-                    tone: AppStatusTone.completed,
-                    assetPath: AppAssets.figmaTruck,
-                  ),
-                ],
-              ),
-            ),
             SizedBox(height: context.scaledV(32)),
             PrimaryButton(
               arrow: true,
@@ -189,10 +279,7 @@ class ProjectDetailsScreen extends StatelessWidget {
                 color: AppColors.white,
               ),
               label: 'Create Order for This Project',
-              onPressed: () => Navigator.of(
-                context,
-                rootNavigator: true,
-              ).pushNamed(AppRoutes.newCashOrderMixCode),
+              onPressed: _createOrder,
             ),
             SizedBox(height: context.scaledV(12)),
             PrimaryButton(

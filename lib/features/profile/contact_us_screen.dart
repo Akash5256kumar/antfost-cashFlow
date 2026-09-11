@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/support_api_service.dart';
 
 class ContactUsScreen extends StatefulWidget {
   const ContactUsScreen({super.key});
@@ -37,12 +39,17 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     super.dispose();
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSending = true);
 
-    Future.delayed(const Duration(milliseconds: 1200), () {
+    try {
+      await sl<SupportApiService>().submitTicket(
+        subject: _subjectController.text.trim(),
+        orderRef: _orderRefController.text.trim(),
+        message: _messageController.text.trim(),
+      );
       if (mounted) {
         setState(() => _isSending = false);
         _subjectController.clear();
@@ -57,7 +64,11 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
             ),
             title: const Row(
               children: [
-                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 28),
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: Color(0xFF10B981),
+                  size: 28,
+                ),
                 SizedBox(width: 10),
                 Text('Message Sent'),
               ],
@@ -69,14 +80,25 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
             actions: [
               ElevatedButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                ),
                 child: const Text('OK', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
         );
       }
-    });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isSending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -87,7 +109,10 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
         backgroundColor: AppColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textDark),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.textDark,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -117,7 +142,11 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                       color: const Color(0xFF10B981),
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Calling Dispatch Hotline: 800-ANTFAS')),
+                          const SnackBar(
+                            content: Text(
+                              'Calling Dispatch Hotline: 800-ANTFAS',
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -131,7 +160,9 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                       color: const Color(0xFF25D366),
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Opening WhatsApp Support Chat...')),
+                          const SnackBar(
+                            content: Text('Opening WhatsApp Support Chat...'),
+                          ),
                         );
                       },
                     ),
@@ -150,7 +181,11 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                       color: AppColors.primary,
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Opening Email client for support@antfast.ae')),
+                          const SnackBar(
+                            content: Text(
+                              'Opening Email client for support@antfast.ae',
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -164,7 +199,11 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                       color: const Color(0xFFFF9800),
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('AntFast ReadyMix HQ, Al Maryah Island')),
+                          const SnackBar(
+                            content: Text(
+                              'AntFast ReadyMix HQ, Al Maryah Island',
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -220,19 +259,27 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                           );
                         }).toList(),
                         onChanged: (val) {
-                          if (val != null) setState(() => _selectedCategory = val);
+                          if (val != null)
+                            setState(() => _selectedCategory = val);
                         },
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: const Color(0xFFF9F9FB),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE8E8E8),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE8E8E8),
+                            ),
                           ),
                         ),
                       ),
@@ -252,17 +299,27 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                         controller: _orderRefController,
                         decoration: InputDecoration(
                           hintText: 'e.g. ORD-2026-0842',
-                          hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13),
+                          hintStyle: const TextStyle(
+                            color: Color(0xFFAAAAAA),
+                            fontSize: 13,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF9F9FB),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE8E8E8),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE8E8E8),
+                            ),
                           ),
                         ),
                       ),
@@ -280,20 +337,32 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                       SizedBox(height: context.scaledV(6)),
                       TextFormField(
                         controller: _subjectController,
-                        validator: (v) => v == null || v.trim().isEmpty ? 'Please enter a subject' : null,
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Please enter a subject'
+                            : null,
                         decoration: InputDecoration(
                           hintText: 'Brief summary of your inquiry',
-                          hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13),
+                          hintStyle: const TextStyle(
+                            color: Color(0xFFAAAAAA),
+                            fontSize: 13,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF9F9FB),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE8E8E8),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE8E8E8),
+                            ),
                           ),
                         ),
                       ),
@@ -312,20 +381,30 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                       TextFormField(
                         controller: _messageController,
                         maxLines: 4,
-                        validator: (v) => v == null || v.trim().isEmpty ? 'Please describe your request' : null,
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Please describe your request'
+                            : null,
                         decoration: InputDecoration(
-                          hintText: 'Provide complete details regarding your concrete order, site location, or issue...',
-                          hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13),
+                          hintText:
+                              'Provide complete details regarding your concrete order, site location, or issue...',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFFAAAAAA),
+                            fontSize: 13,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF9F9FB),
                           contentPadding: const EdgeInsets.all(14),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE8E8E8),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE8E8E8)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE8E8E8),
+                            ),
                           ),
                         ),
                       ),

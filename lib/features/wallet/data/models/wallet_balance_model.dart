@@ -14,12 +14,23 @@ class WalletBalanceModel extends WalletBalance {
   factory WalletBalanceModel.fromJson(Map<String, dynamic> json) {
     return WalletBalanceModel(
       availableTokenM3:
-          (json['available_token_m3'] as num?)?.toDouble() ?? 0.0,
+          (json['availableTokenM3'] as num? ??
+                  json['available_token_m3'] as num?)
+              ?.toDouble() ??
+          0.0,
       reservedTokenM3:
-          (json['reserved_token_m3'] as num?)?.toDouble() ?? 0.0,
-      totalTokenM3: (json['total_token_m3'] as num?)?.toDouble() ?? 0.0,
+          (json['reservedTokenM3'] as num? ?? json['reserved_token_m3'] as num?)
+              ?.toDouble() ??
+          0.0,
+      totalTokenM3:
+          (json['totalTokenM3'] as num? ?? json['total_token_m3'] as num?)
+              ?.toDouble() ??
+          0.0,
       estimatedValueAed:
-          (json['estimated_value_aed'] as num?)?.toDouble() ?? 0.0,
+          (json['estimatedValueAed'] as num? ??
+                  json['estimated_value_aed'] as num?)
+              ?.toDouble() ??
+          0.0,
     );
   }
 

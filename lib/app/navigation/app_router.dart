@@ -9,6 +9,7 @@ import '../../features/auth/account_type_screen.dart';
 import '../../features/auth/create_business_screen.dart';
 import '../../features/auth/create_individual_screen.dart';
 import '../../features/auth/forgot_passcode_screen.dart';
+import '../../features/auth/reset_passcode_screen.dart';
 import '../../features/auth/sign_in_screen.dart';
 import '../../features/auth/verify_account_screen.dart';
 import '../../features/kyc/kyc_verification_screen.dart';
@@ -20,12 +21,6 @@ import '../../features/orders/add_new_project_screen.dart';
 import '../../features/orders/assigned_resources_screen.dart';
 import '../../features/orders/confirmation_needed_screen.dart';
 import '../../features/orders/loading_complete_screen.dart';
-import '../../features/orders/new_cash_order_mix_code_screen.dart';
-import '../../features/orders/new_cash_order_other_screen.dart';
-import '../../features/orders/new_cash_order_quantity_screen.dart';
-import '../../features/orders/new_cash_order_review_screen.dart';
-import '../../features/orders/new_cash_order_schedule_screen.dart';
-import '../../features/orders/new_cash_order_screen.dart';
 import '../../features/orders/order_guide_screen.dart';
 import '../../features/orders/order_details_screen.dart';
 import '../../features/orders/order_saved_screen.dart';
@@ -111,6 +106,12 @@ class AppRouter {
           settings: settings,
           builder: (_) => const ForgotPasscodeScreen(),
         );
+      case AppRoutes.resetPasscode:
+        final args = settings.arguments as ResetPasscodeRouteArgs;
+        return _materialRoute(
+          settings: settings,
+          builder: (_) => ResetPasscodeScreen(resetToken: args.resetToken),
+        );
       case AppRoutes.verifyAccount:
         final args = settings.arguments is VerifyAccountRouteArgs
             ? settings.arguments as VerifyAccountRouteArgs
@@ -126,6 +127,7 @@ class AppRouter {
             isEmail: args.isEmail,
             flow: args.flow,
             isBusiness: args.isBusiness,
+            verificationId: args.verificationId,
           ),
         );
       case AppRoutes.kycVerification:
@@ -156,89 +158,6 @@ class AppRouter {
         return _materialRoute(
           settings: settings,
           builder: (_) => const OrderGuideScreen(),
-        );
-      case AppRoutes.newCashOrder:
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => const NewCashOrderScreen(),
-        );
-      case AppRoutes.newCashOrderMixCode:
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => const NewCashOrderMixCodeScreen(),
-        );
-      case AppRoutes.newCashOrderQuantity:
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => NewCashOrderQuantityScreen(
-            mixCode: const MixCodeItem(
-              code: 'C25/30',
-              type: 'Standard Mix',
-              pricePerM3: 450,
-              aggregateSize: '20 mm',
-              slump: 'S3',
-              mpa: '30 MPa',
-              psi: '4,351 PSI',
-              imagePath: 'assets/images/art_concrete_cube.jpg',
-            ),
-          ),
-        );
-      case AppRoutes.newCashOrderSchedule:
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => NewCashOrderScheduleScreen(
-            mixCode: const MixCodeItem(
-              code: 'C25/30',
-              type: 'Standard Mix',
-              pricePerM3: 450,
-              aggregateSize: '20 mm',
-              slump: 'S3',
-              mpa: '30 MPa',
-              psi: '4,351 PSI',
-              imagePath: 'assets/images/art_concrete_cube.jpg',
-            ),
-            quantity: 25,
-          ),
-        );
-      case AppRoutes.newCashOrderOther:
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => NewCashOrderOtherScreen(
-            mixCode: const MixCodeItem(
-              code: 'C25/30',
-              type: 'Standard Mix',
-              pricePerM3: 450,
-              aggregateSize: '20 mm',
-              slump: 'S3',
-              mpa: '30 MPa',
-              psi: '4,351 PSI',
-              imagePath: 'assets/images/art_concrete_cube.jpg',
-            ),
-            quantity: 25,
-          ),
-        );
-      case AppRoutes.newCashOrderReview:
-        return _materialRoute(
-          settings: settings,
-          builder: (_) => NewCashOrderReviewScreen(
-            mixCode: const MixCodeItem(
-              code: 'C25/30',
-              type: 'Standard Mix',
-              pricePerM3: 450,
-              aggregateSize: '20 mm',
-              slump: 'S3',
-              mpa: '30 MPa',
-              psi: '4,351 PSI',
-              imagePath: 'assets/images/art_concrete_cube.jpg',
-            ),
-            quantity: 25,
-            structureRef: 'Foundation',
-            technicianRequired: false,
-            temperatureControl: false,
-            pumpRequired: false,
-            cubeMould: false,
-            numMoulds: 0,
-          ),
         );
       case AppRoutes.payment:
         return _materialRoute(
@@ -303,7 +222,10 @@ class AppRouter {
       case AppRoutes.projectDetails:
         return _materialRoute(
           settings: settings,
-          builder: (_) => const ProjectDetailsScreen(),
+          builder: (_) => ProjectDetailsScreen(
+            projectId:
+                (settings.arguments as ProjectDetailsRouteArgs?)?.projectId,
+          ),
         );
       case AppRoutes.orderStatus:
         return _materialRoute(

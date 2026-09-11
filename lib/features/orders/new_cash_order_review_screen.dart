@@ -9,12 +9,18 @@ import '../payment/price_breakdown_screen.dart';
 import '../payment/payment_success_screen.dart';
 import 'order_saved_screen.dart';
 import 'new_cash_order_mix_code_screen.dart';
+import 'new_cash_order_schedule_screen.dart';
+import 'new_cash_order_other_screen.dart';
+import 'new_cash_order_site_access_screen.dart';
 import 'order_step_widgets.dart';
 import 'new_cash_order_draft.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_state.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_api_service.dart';
+import '../../core/utils/route_feedback.dart';
 
 class NewCashOrderReviewScreen extends StatefulWidget {
   const NewCashOrderReviewScreen({
@@ -56,6 +62,139 @@ class NewCashOrderReviewScreen extends StatefulWidget {
 }
 
 class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
+  bool _submitting = false;
+
+  NewCashOrderDraft? get _draft => widget.draft;
+
+  void _openEdit(Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _editMix() {
+    final draft = _draft;
+    if (draft != null) _openEdit(NewCashOrderMixCodeScreen(draft: draft));
+  }
+
+  void _editSchedule() {
+    final draft = _draft;
+    if (draft?.mixCode != null) {
+      _openEdit(
+        NewCashOrderScheduleScreen(
+          mixCode: draft!.mixCode!,
+          quantity: draft.quantity,
+          draft: draft,
+        ),
+      );
+    }
+  }
+
+  void _editServices() {
+    final draft = _draft;
+    if (draft?.mixCode != null) {
+      _openEdit(
+        NewCashOrderOtherScreen(
+          mixCode: draft!.mixCode!,
+          quantity: draft.quantity,
+          draft: draft,
+        ),
+      );
+    }
+  }
+
+  void _editSiteAccess() {
+    final draft = _draft;
+    if (draft?.mixCode != null) {
+      _openEdit(
+        NewCashOrderSiteAccessScreen(
+          mixCode: draft!.mixCode!,
+          quantity: draft.quantity,
+          structureRef: draft.structureRef,
+          technicianRequired: draft.technicianRequired,
+          temperatureControl: draft.temperatureControl,
+          pumpRequired: draft.pumpRequired,
+          pumpName: draft.pumpName,
+          cubeMould: draft.cubeMould,
+          numMoulds: draft.numMoulds,
+          draft: draft,
+        ),
+      );
+    }
+  }
+
+  Future<void> _createOrder(NewCashOrderDraft draft) async {
+    final project = draft.project;
+    if (project == null ||
+        project.projectId.isEmpty ||
+        project.locationId.isEmpty ||
+        draft.scheduledDate == null ||
+        draft.timeWindowId == null ||
+        draft.structureTypeId == null) {
+      _showError(
+        'Select a saved project location and an available delivery time window.',
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      final order = await sl<OrderApiService>().createDraft({
+        'projectId': project.projectId,
+        'locationId': project.locationId,
+        'mixCode': draft.mixCode!.code,
+        'quantityM3': draft.quantity,
+        'schedule': {
+          'date': draft.scheduledDate!.toIso8601String().substring(0, 10),
+          'timeWindowId': draft.timeWindowId,
+          'requestedIntervalMinutes': draft.intervalMinutes,
+          if (draft.scheduleNotes.isNotEmpty) 'notes': draft.scheduleNotes,
+        },
+        'structureTypeId': draft.structureTypeId,
+        'services': {
+          'pump': {
+            'required': draft.pumpRequired,
+            if (draft.pumpRequired) 'size': 'medium',
+          },
+          'technician': {
+            'required': draft.technicianRequired,
+            'cubeMouldQuantity': draft.numMoulds,
+          },
+          'temperatureControl': draft.temperatureControl,
+          'laboratoryTesting': draft.labTesting,
+          'otherApprovedService': draft.otherService,
+        },
+        'siteAccess': {
+          'narrowAccess': draft.siteAccessRequirements.contains(
+            'Narrow Access',
+          ),
+          'roadPermitRequired': draft.siteAccessRequirements.contains(
+            'Road Permit Required',
+          ),
+          'boomPumpRequired': draft.siteAccessRequirements.contains(
+            'Boom Reach Restriction',
+          ),
+          'nightPour': draft.siteAccessRequirements.contains(
+            'Night Delivery Access',
+          ),
+          'confirmed': true,
+        },
+      });
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PriceBreakdownScreen(
+            orderId: order['orderId'].toString(),
+            mixCode: draft.mixCode!.code,
+            quantity: draft.quantity,
+          ),
+        ),
+      );
+    } catch (error) {
+      _showError(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _showError(String message) => showAppSnackBar(context, message);
   @override
   Widget build(BuildContext context) {
     final draft = widget.draft;
@@ -131,21 +270,21 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                             subtitle: draft?.project == null
                                 ? 'Project and location not selected'
                                 : '${draft!.project!.projectName} • ${draft.project!.locationLabel}',
-                            onEdit: () {},
+                            onEdit: () => Navigator.of(context).pop(),
                           ),
                           SizedBox(height: context.scaledV(6)),
                           _ReviewRow(
                             icon: Icons.local_shipping_outlined,
                             title: 'Mix & Quantity',
                             subtitle: '${mixCode.code} • $quantity m³',
-                            onEdit: () {},
+                            onEdit: _editMix,
                           ),
                           SizedBox(height: context.scaledV(6)),
                           _ReviewRow(
                             icon: Icons.calendar_today_outlined,
                             title: 'Schedule',
                             subtitle: scheduleLabel,
-                            onEdit: () {},
+                            onEdit: _editSchedule,
                           ),
                           SizedBox(height: context.scaledV(6)),
                           _ReviewRow(
@@ -154,14 +293,14 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                             subtitle: services.isEmpty
                                 ? 'No additional services selected'
                                 : services.join(' • '),
-                            onEdit: () {},
+                            onEdit: _editServices,
                           ),
                           SizedBox(height: context.scaledV(6)),
                           _ReviewRow(
                             icon: Icons.verified_user_outlined,
                             title: 'Site Access',
                             subtitle: null,
-                            onEdit: () {},
+                            onEdit: _editSiteAccess,
                             isExpanded: true,
                             child: Column(
                               children: [
@@ -367,30 +506,37 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                   return PrimaryButton(
                     label: 'Continue',
                     arrow: true,
-                    onPressed: () {
-                      if (!isKycVerified) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => OrderSavedScreen(
-                              quantity: quantity,
-                              mixCode: mixCode.code,
-                              reason: OrderSavedReason.kyc,
-                            ),
-                          ),
-                        );
-                      } else {
-                        PaymentSuccessScreen.currentOrderQuantity = quantity;
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => PriceBreakdownScreen(
-                              mixCode: mixCode.code,
-                              quantity: quantity,
-                              totalAmount: total,
-                            ),
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: _submitting
+                        ? null
+                        : () {
+                            if (draft != null) {
+                              _createOrder(draft);
+                              return;
+                            }
+                            if (!isKycVerified) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => OrderSavedScreen(
+                                    quantity: quantity,
+                                    mixCode: mixCode.code,
+                                    reason: OrderSavedReason.kyc,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              PaymentSuccessScreen.currentOrderQuantity =
+                                  quantity;
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => PriceBreakdownScreen(
+                                    mixCode: mixCode.code,
+                                    quantity: quantity,
+                                    totalAmount: total,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                   );
                 },
               ),

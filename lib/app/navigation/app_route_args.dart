@@ -6,11 +6,13 @@ class VerifyAccountRouteArgs {
     required this.isEmail,
     required this.flow,
     this.isBusiness = true,
+    this.verificationId = '',
   });
 
   final String contact;
   final bool isEmail;
   final VerifyAccountFlow flow;
+  final String verificationId;
 
   /// Which account type is being registered. Business KYC lands on Home with
   /// the verification state shown there.
@@ -21,4 +23,14 @@ class HomeRouteArgs {
   const HomeRouteArgs({this.verificationUnderReview = false});
 
   final bool verificationUnderReview;
+}
+
+class ResetPasscodeRouteArgs {
+  const ResetPasscodeRouteArgs({required this.resetToken});
+  final String resetToken;
+}
+
+class ProjectDetailsRouteArgs {
+  const ProjectDetailsRouteArgs({required this.projectId});
+  final String projectId;
 }

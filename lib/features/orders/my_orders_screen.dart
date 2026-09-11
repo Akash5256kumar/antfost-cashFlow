@@ -375,9 +375,13 @@ class _OrderRow extends StatelessWidget {
               AppStatusTone.completed,
               'Completed',
             ),
-            order_entity.OrderStatusType.draft => (
+          order_entity.OrderStatusType.draft => (
               AppStatusTone.review,
               'Draft',
+            ),
+            order_entity.OrderStatusType.pending => (
+              AppStatusTone.review,
+              'Pending payment',
             ),
           };
     final thumbnail = AppAssets.orderThumbnailFor(

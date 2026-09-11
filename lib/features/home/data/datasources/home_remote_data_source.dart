@@ -1,4 +1,6 @@
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/api_client.dart';
+import 'package:dio/dio.dart';
 import '../../domain/entities/home_data.dart';
 import '../models/home_data_model.dart';
 
@@ -57,5 +59,52 @@ class MockHomeRemoteDataSource implements HomeRemoteDataSource {
         ],
       ),
     );
+  }
+}
+
+/// Mobile API implementation for the Home screen.
+class ApiHomeRemoteDataSource implements HomeRemoteDataSource {
+  ApiHomeRemoteDataSource(this._client);
+
+  final ApiClient _client;
+
+  @override
+  Future<HomeDataModel> getHomeData() async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>('/home');
+      final data = response.data;
+      if (data == null) throw const ServerException('Empty home response.');
+      var projectCount = 0;
+      try {
+        final projects = await _client.get<Map<String, dynamic>>(
+          '/projects',
+          queryParameters: const {'page': 1, 'pageSize': 1},
+        );
+        projectCount =
+            (projects.data?['total'] as num?)?.toInt() ??
+            ((projects.data?['items'] as List?)?.length ?? 0);
+      } on DioException catch (error) {
+        final body = error.response?.data;
+        if (error.response?.statusCode != 404 ||
+            body is! Map ||
+            body['code'] != 'NO_PROJECTS_FOUND')
+          rethrow;
+      }
+      return HomeDataModel.fromJson({...data, 'projectCount': projectCount});
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      final message = body is Map && body['message'] is String
+          ? body['message'] as String
+          : error.message ?? 'Unable to load home data.';
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout) {
+        throw TimeoutException(message);
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        throw NetworkException(message);
+      }
+      throw ServerException(message);
+    }
   }
 }

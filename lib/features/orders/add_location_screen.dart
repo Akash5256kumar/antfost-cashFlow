@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
@@ -33,6 +35,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   final _addressController = TextEditingController();
   final _contactController = TextEditingController();
   final _phoneController = TextEditingController();
+  bool _isResolvingPin = false;
+  double? _currentLatitude;
+  double? _currentLongitude;
 
   @override
   void dispose() {
@@ -43,16 +48,100 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     super.dispose();
   }
 
-  void _addLocation() {
+  Future<void> _addLocation() async {
     if (!_formKey.currentState!.validate()) return;
-    Navigator.of(context).pop(
-      ProjectLocationDraft(
-        name: _nameController.text.trim(),
-        address: _addressController.text.trim(),
-        contactName: _contactController.text.trim(),
-        contactPhone: _phoneController.text.trim(),
-      ),
-    );
+    setState(() => _isResolvingPin = true);
+    try {
+      final pin = _currentLatitude != null && _currentLongitude != null
+          ? Location(
+              latitude: _currentLatitude!,
+              longitude: _currentLongitude!,
+              timestamp: DateTime.now(),
+            )
+          : await _locationFromAddress();
+      if (!mounted) return;
+      Navigator.of(context).pop(
+        ProjectLocationDraft(
+          name: _nameController.text.trim(),
+          address: _addressController.text.trim(),
+          latitude: pin.latitude,
+          longitude: pin.longitude,
+          contactName: _contactController.text.trim(),
+          contactPhone: _phoneController.text.trim(),
+        ),
+      );
+    } catch (_) {
+      _showMessage(
+        'We could not find this address. Please enter a more complete address.',
+      );
+    } finally {
+      if (mounted) setState(() => _isResolvingPin = false);
+    }
+  }
+
+  Future<Location> _locationFromAddress() async {
+    final results = await locationFromAddress(_addressController.text.trim());
+    if (results.isEmpty) {
+      throw const FormatException('Address not found');
+    }
+    return results.first;
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _useCurrentLocation() async {
+    if (_isResolvingPin) return;
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      _showMessage('Turn on location services to use your current location.');
+      return;
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      _showMessage(
+        'Location permission is needed to use your current location.',
+      );
+      return;
+    }
+    setState(() => _isResolvingPin = true);
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      final places = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      final place = places.isEmpty ? null : places.first;
+      final address = [
+        place?.name,
+        place?.street,
+        place?.locality,
+        place?.administrativeArea,
+        place?.country,
+      ].whereType<String>().where((part) => part.trim().isNotEmpty).join(', ');
+      if (mounted) {
+        setState(() {
+          _currentLatitude = position.latitude;
+          _currentLongitude = position.longitude;
+          _addressController.text = address.isEmpty
+              ? '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}'
+              : address;
+        });
+      }
+    } catch (_) {
+      _showMessage(
+        'Unable to read your current location. Please enter the address.',
+      );
+    } finally {
+      if (mounted) setState(() => _isResolvingPin = false);
+    }
   }
 
   @override
@@ -120,40 +209,44 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     Positioned(
                       right: 12,
                       bottom: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 9,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(999),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.gps_fixed_rounded,
-                              size: 14,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Use current location',
-                              style: TextStyle(
-                                fontSize: context.scaled(12),
-                                fontWeight: FontWeight.w600,
+                      child: InkWell(
+                        onTap: _useCurrentLocation,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(999),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.gps_fixed_rounded,
+                                size: 14,
                                 color: AppColors.primary,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                'Use current location',
+                                style: TextStyle(
+                                  fontSize: context.scaled(12),
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -231,8 +324,10 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     ),
                     SizedBox(height: context.scaledV(18)),
                     PrimaryButton(
-                      onPressed: _addLocation,
-                      label: 'Add Location',
+                      onPressed: _isResolvingPin ? null : _addLocation,
+                      label: _isResolvingPin
+                          ? 'Finding location…'
+                          : 'Add Location',
                     ),
                     SizedBox(height: context.scaledV(10)),
                     Center(

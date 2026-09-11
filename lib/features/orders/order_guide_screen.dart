@@ -110,7 +110,7 @@ class OrderGuideScreen extends StatelessWidget {
                       label: 'Start New Order',
                       onPressed: () => Navigator.of(
                         context,
-                      ).pushNamed(AppRoutes.newCashOrder),
+                      ).pushNamed(AppRoutes.addNewProject),
                     ),
                   ],
                 ),

@@ -14,9 +14,9 @@ class ProjectModel extends Project {
 
   factory ProjectModel.fromJson(Map<String, dynamic> json) {
     return ProjectModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      location: json['location'] as String,
+      id: json['id'].toString(),
+      name: json['name'] as String? ?? '',
+      location: json['location'] as String? ?? '',
       description: json['description'] as String?,
     );
   }

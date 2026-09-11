@@ -18,6 +18,7 @@ import '../../core/widgets/primary_button.dart';
 import 'presentation/bloc/auth_bloc.dart';
 import 'presentation/bloc/auth_event.dart';
 import 'presentation/bloc/auth_state.dart';
+import 'domain/entities/auth_flow.dart';
 
 /// Six-digit OTP verification with the device's native numeric keyboard.
 class VerifyAccountScreen extends StatefulWidget {
@@ -27,12 +28,14 @@ class VerifyAccountScreen extends StatefulWidget {
     this.isEmail = true,
     this.flow = VerifyAccountFlow.signUp,
     this.isBusiness = true,
+    this.verificationId = '',
   });
 
   final String contact;
   final bool isEmail;
   final VerifyAccountFlow flow;
   final bool isBusiness;
+  final String verificationId;
 
   @override
   State<VerifyAccountScreen> createState() => _VerifyAccountScreenState();
@@ -44,6 +47,7 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
 
   final _otpController = TextEditingController();
   final _otpFocusNode = FocusNode();
+  late String _verificationId;
   int _secondsLeft = _resendSeconds;
   Timer? _timer;
 
@@ -52,6 +56,7 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
   @override
   void initState() {
     super.initState();
+    _verificationId = widget.verificationId;
     _otpController.addListener(_onOtpChanged);
     _otpFocusNode.addListener(_onOtpChanged);
     _startTimer();
@@ -92,17 +97,24 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
       return;
     }
     context.read<AuthBloc>().add(
-      VerifyOtpEvent(
-        contact: widget.contact,
-        otp: _code,
-        isEmail: widget.isEmail,
-      ),
+      widget.flow == VerifyAccountFlow.signUp
+          ? VerifySignUpOtpEvent(verificationId: _verificationId, otp: _code)
+          : VerifyPasscodeOtpEvent(
+              verificationId: _verificationId,
+              contact: widget.contact,
+              otp: _code,
+            ),
     );
   }
 
   void _handleResend() {
     context.read<AuthBloc>().add(
-      ForgotPasscodeEvent(contact: widget.contact, isEmail: widget.isEmail),
+      widget.flow == VerifyAccountFlow.signUp
+          ? ResendSignUpOtpEvent(_verificationId)
+          : ForgotPasscodeEvent(
+              contact: widget.contact,
+              isEmail: widget.isEmail,
+            ),
     );
     _startTimer();
     setState(() {});
@@ -123,7 +135,7 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
         if (state is AuthOtpVerified) {
           switch (widget.flow) {
             case VerifyAccountFlow.signUp:
-              if (widget.isBusiness) {
+              if (state.session.nextStep == AuthNextStep.kyc) {
                 Navigator.of(context).pushReplacementNamed(
                   AppRoutes.kycVerification,
                   arguments: true,
@@ -143,7 +155,13 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
                 context,
               ).pushNamedAndRemoveUntil(AppRoutes.signIn, (route) => false);
           }
+        } else if (state is AuthResetTokenReady) {
+          Navigator.of(context).pushReplacementNamed(
+            AppRoutes.resetPasscode,
+            arguments: ResetPasscodeRouteArgs(resetToken: state.resetToken),
+          );
         } else if (state is AuthOtpSent) {
+          _verificationId = state.challenge.verificationId;
           showSingleSnackBar(
             context,
             const SnackBar(content: Text('OTP resent successfully.')),

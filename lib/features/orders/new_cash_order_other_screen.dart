@@ -5,10 +5,13 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_api_service.dart';
 import 'new_cash_order_mix_code_screen.dart';
 import 'new_cash_order_site_access_screen.dart';
 import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
+import '../../core/utils/route_feedback.dart';
 
 // ── Pump option enum ─────────────────────────────────────────────────────────
 
@@ -42,6 +45,11 @@ class NewCashOrderOtherScreen extends StatefulWidget {
 
 class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
   String _structureRef = 'Slab';
+  Map<String, String> _structureIds = const {};
+  List<Map<String, String>> _structureOptions = [
+    for (final item in _structureRefs)
+      {'title': item['title']!, 'image': item['image']!},
+  ];
 
   bool _pump = true;
   _PumpSize _pumpSize = _PumpSize.medium;
@@ -49,6 +57,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
 
   bool _technician = true;
   int _cubeMoulds = 6;
+  late final TextEditingController _cubeMouldController;
   bool _technicianExpanded = true;
 
   bool _temperature = false;
@@ -60,7 +69,85 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
   bool _otherService = false;
   bool _otherServiceExpanded = false;
 
+  @override
+  void initState() {
+    super.initState();
+    final saved = widget.draft;
+    if (saved != null) {
+      _structureRef = saved.structureRef;
+      _pump = saved.pumpRequired;
+      _technician = saved.technicianRequired;
+      _cubeMoulds = saved.numMoulds;
+      _temperature = saved.temperatureControl;
+      _labTesting = saved.labTesting;
+      _otherService = saved.otherService;
+    }
+    _cubeMouldController = TextEditingController(text: '$_cubeMoulds');
+    _cubeMouldController.addListener(() {
+      final value = int.tryParse(_cubeMouldController.text) ?? 0;
+      if (value != _cubeMoulds) {
+        setState(() => _cubeMoulds = value);
+      }
+    });
+    _loadStructureTypes();
+  }
+
+  @override
+  void dispose() {
+    _cubeMouldController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadStructureTypes() async {
+    final project = widget.draft?.project;
+    if (project == null || project.projectId.isEmpty) return;
+    try {
+      final items = await sl<OrderApiService>().structureTypes(
+        projectId: project.projectId,
+        mixCode: widget.mixCode.code,
+      );
+      final ids = <String, String>{
+        for (final item in items)
+          if (item['available'] != false && item['name'] is String)
+            item['name'] as String: item['id'].toString(),
+      };
+      final options = items
+          .where((item) => item['available'] != false && item['name'] is String)
+          .map(
+            (item) => {
+              'title': item['name'] as String,
+              // API imageUrl is nullable; retain the design thumbnail when
+              // the backend has no image yet.
+              'image':
+                  item['imageUrl'] is String &&
+                      (item['imageUrl'] as String).isNotEmpty
+                  ? item['imageUrl'] as String
+                  : AppAssets.mixThumb4,
+            },
+          )
+          .toList();
+      if (mounted)
+        setState(() {
+          _structureIds = ids;
+          if (options.isNotEmpty) _structureOptions = options;
+          if (!ids.containsKey(_structureRef) && ids.isNotEmpty)
+            _structureRef = ids.keys.first;
+        });
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+    }
+  }
+
   void _onContinue() {
+    if (_technician && _cubeMoulds < 6) {
+      showAppSnackBar(context, 'Cube mould quantity must be at least 6.');
+      return;
+    }
     String pumpName = 'No Pump';
     if (_pump) {
       switch (_pumpSize) {
@@ -91,6 +178,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
           numMoulds: _technician ? _cubeMoulds : 0,
           draft: widget.draft?.copyWith(
             structureRef: _structureRef,
+            structureTypeId: _structureIds[_structureRef],
             technicianRequired: _technician,
             temperatureControl: _temperature,
             pumpRequired: _pump,
@@ -158,6 +246,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                     SizedBox(height: context.scaledV(6)),
                     _StructureTypeDropdown(
                       value: _structureRef,
+                      options: _structureOptions,
                       onChanged: (v) => setState(() => _structureRef = v),
                     ),
                     SizedBox(height: context.scaledV(14)),
@@ -280,7 +369,10 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                             GestureDetector(
                               onTap: () {
                                 if (_cubeMoulds > 6) {
-                                  setState(() => _cubeMoulds--);
+                                  setState(() {
+                                    _cubeMoulds--;
+                                    _cubeMouldController.text = '$_cubeMoulds';
+                                  });
                                 }
                               },
                               child: Container(
@@ -310,12 +402,33 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                               alignment: Alignment.center,
                               child: Column(
                                 children: [
-                                  Text(
-                                    '$_cubeMoulds',
-                                    style: TextStyle(
-                                      fontSize: context.scaled(15),
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF1F2533),
+                                  SizedBox(
+                                    height: context.scaledV(22),
+                                    width: context.scaled(42),
+                                    child: TextField(
+                                      controller: _cubeMouldController,
+                                      textAlign: TextAlign.center,
+                                      keyboardType: TextInputType.number,
+                                      style: TextStyle(
+                                        fontSize: context.scaled(15),
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1F2533),
+                                      ),
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                      onEditingComplete: () {
+                                        final value = int.tryParse(
+                                          _cubeMouldController.text,
+                                        );
+                                        if (value == null || value < 6) {
+                                          _cubeMouldController.text = '6';
+                                          setState(() => _cubeMoulds = 6);
+                                        }
+                                        FocusScope.of(context).unfocus();
+                                      },
                                     ),
                                   ),
                                   Text(
@@ -330,7 +443,10 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                             ),
                             GestureDetector(
                               onTap: () {
-                                setState(() => _cubeMoulds++);
+                                setState(() {
+                                  _cubeMoulds++;
+                                  _cubeMouldController.text = '$_cubeMoulds';
+                                });
                               },
                               child: Container(
                                 width: context.scaled(32),
@@ -426,8 +542,13 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
 // ── Dropdown structure card ───────────────────────────────────────────────────
 
 class _StructureTypeDropdown extends StatefulWidget {
-  const _StructureTypeDropdown({required this.value, required this.onChanged});
+  const _StructureTypeDropdown({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
   final String value;
+  final List<Map<String, String>> options;
   final ValueChanged<String> onChanged;
 
   @override
@@ -439,8 +560,15 @@ class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedItem = _structureRefs.firstWhere(
+    // The structure-types endpoint may return a value that is not part of
+    // the original design-time options (or the value can briefly be empty
+    // while the request is loading).  Never call firstWhere without a
+    // fallback here: a missing option must not crash the whole order flow.
+    final selectedItem = widget.options.firstWhere(
       (e) => e['title'] == widget.value,
+      orElse: () => widget.options.isNotEmpty
+          ? widget.options.first
+          : _structureRefs.first,
     );
 
     return AnimatedContainer(
@@ -481,10 +609,15 @@ class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(context.scaled(12)),
-                      child: Image.asset(
-                        selectedItem['image']!,
-                        fit: BoxFit.cover,
-                      ),
+                      child: (selectedItem['image'] ?? '').startsWith('http')
+                          ? Image.network(
+                              selectedItem['image']!,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.asset(
+                              selectedItem['image']!,
+                              fit: BoxFit.cover,
+                            ),
                     ),
                   ),
                   SizedBox(width: context.scaled(14)),
@@ -512,7 +645,7 @@ class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
           if (_isExpanded) ...[
             const Divider(color: Color(0xFFE2E8F0), height: 1),
             // Expanded List
-            ..._structureRefs.map((item) {
+            ...widget.options.map((item) {
               final isSelected = item['title'] == widget.value;
               return GestureDetector(
                 onTap: () {
@@ -540,7 +673,9 @@ class _StructureTypeDropdownState extends State<_StructureTypeDropdown> {
                           borderRadius: BorderRadius.circular(
                             context.scaled(10),
                           ),
-                          child: Image.asset(item['image']!, fit: BoxFit.cover),
+                          child: (item['image'] ?? '').startsWith('http')
+                              ? Image.network(item['image']!, fit: BoxFit.cover)
+                              : Image.asset(item['image']!, fit: BoxFit.cover),
                         ),
                       ),
                       SizedBox(width: context.scaled(14)),
@@ -680,12 +815,11 @@ class _ServiceCard extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: EdgeInsets.only(left: context.scaled(12)),
-                    child: Icon(
-                      isExpanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      color: kOrderTextGrey,
-                      size: context.scaled(20),
+                    // Expansion remains available by tapping the card;
+                    // the design does not show chevrons on service cards.
+                    child: SizedBox(
+                      width: context.scaled(8),
+                      height: context.scaled(20),
                     ),
                   ),
                 ),
@@ -759,6 +893,7 @@ class _PumpSizeCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: context.scaledV(112),
         padding: EdgeInsets.symmetric(
           vertical: context.scaledV(14),
           horizontal: context.scaled(4),

@@ -1,19 +1,23 @@
 import 'package:get_it/get_it.dart';
 
 import '../../core/network/network_info.dart';
+import '../../core/services/api_client.dart';
+import '../../core/services/project_location_api_service.dart';
+import '../../core/services/order_api_service.dart';
+import '../../core/services/payment_api_service.dart';
+import '../../core/services/support_api_service.dart';
+import '../../core/services/company_api_service.dart';
+import '../../core/services/account_api_service.dart';
+import '../../core/services/order_feedback_api_service.dart';
+import '../../core/services/order_chat_api_service.dart';
+import '../../core/services/document_api_service.dart';
+import '../../core/services/secure_storage_service.dart';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 import '../../features/auth/data/datasources/auth_local_data_source.dart';
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
-import '../../features/auth/domain/usecases/forgot_passcode_use_case.dart';
-import '../../features/auth/domain/usecases/get_cached_user_use_case.dart';
-import '../../features/auth/domain/usecases/reset_passcode_use_case.dart';
-import '../../features/auth/domain/usecases/sign_in_use_case.dart';
-import '../../features/auth/domain/usecases/sign_out_use_case.dart';
-import '../../features/auth/domain/usecases/sign_up_use_case.dart';
-import '../../features/auth/domain/usecases/verify_otp_use_case.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -115,44 +119,46 @@ final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
   // ── Core ───────────────────────────────────────────────────────────────────
-  sl.registerLazySingleton<NetworkInfo>(() => const NetworkInfoImpl());
+  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl());
+  sl.registerLazySingleton<SecureStorageService>(SecureStorageService.new);
+  sl.registerLazySingleton<ApiClient>(() => ApiClient(secureStorage: sl()));
+  sl.registerLazySingleton<ProjectLocationApiService>(
+    () => ProjectLocationApiService(sl()),
+  );
+  sl.registerLazySingleton<OrderApiService>(() => OrderApiService(sl()));
+  sl.registerLazySingleton<PaymentApiService>(() => PaymentApiService(sl()));
+  sl.registerLazySingleton<SupportApiService>(() => SupportApiService(sl()));
+  sl.registerLazySingleton<CompanyApiService>(() => CompanyApiService(sl()));
+  sl.registerLazySingleton<AccountApiService>(() => AccountApiService(sl()));
+  sl.registerLazySingleton<OrderFeedbackApiService>(
+    () => OrderFeedbackApiService(sl()),
+  );
+  sl.registerLazySingleton<OrderChatApiService>(
+    () => OrderChatApiService(sl()),
+  );
+  sl.registerLazySingleton<DocumentApiService>(() => DocumentApiService(sl()));
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => MockAuthRemoteDataSource(),
+    () => ApiAuthRemoteDataSource(sl()),
   );
   sl.registerLazySingleton<AuthLocalDataSource>(
-    () => MockAuthLocalDataSource(),
+    () => SecureAuthLocalDataSource(sl()),
   );
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       remoteDataSource: sl(),
       localDataSource: sl(),
       networkInfo: sl(),
+      secureStorage: sl(),
+      apiClient: sl(),
     ),
   );
-  sl.registerLazySingleton(() => SignInUseCase(sl()));
-  sl.registerLazySingleton(() => SignUpUseCase(sl()));
-  sl.registerLazySingleton(() => VerifyOtpUseCase(sl()));
-  sl.registerLazySingleton(() => ForgotPasscodeUseCase(sl()));
-  sl.registerLazySingleton(() => ResetPasscodeUseCase(sl()));
-  sl.registerLazySingleton(() => SignOutUseCase(sl()));
-  sl.registerLazySingleton(() => GetCachedUserUseCase(sl()));
-  sl.registerFactory(
-    () => AuthBloc(
-      signInUseCase: sl(),
-      signUpUseCase: sl(),
-      verifyOtpUseCase: sl(),
-      forgotPasscodeUseCase: sl(),
-      resetPasscodeUseCase: sl(),
-      signOutUseCase: sl(),
-      getCachedUserUseCase: sl(),
-    ),
-  );
+  sl.registerFactory(() => AuthBloc(sl()));
 
   // ── Home ───────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<HomeRemoteDataSource>(
-    () => MockHomeRemoteDataSource(),
+    () => ApiHomeRemoteDataSource(sl()),
   );
   sl.registerLazySingleton<HomeLocalDataSource>(
     () => MockHomeLocalDataSource(),
@@ -169,7 +175,7 @@ Future<void> initDependencies() async {
 
   // ── Orders ─────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<OrdersRemoteDataSource>(
-    () => MockOrdersRemoteDataSource(),
+    () => ApiOrdersRemoteDataSource(sl()),
   );
   sl.registerLazySingleton<OrdersLocalDataSource>(
     () => MockOrdersLocalDataSource(),
@@ -198,7 +204,7 @@ Future<void> initDependencies() async {
 
   // ── Invoices ───────────────────────────────────────────────────────────────
   sl.registerLazySingleton<InvoicesRemoteDataSource>(
-    () => MockInvoicesRemoteDataSource(),
+    () => ApiInvoicesRemoteDataSource(sl()),
   );
   sl.registerLazySingleton<InvoicesLocalDataSource>(
     () => MockInvoicesLocalDataSource(),
@@ -223,7 +229,7 @@ Future<void> initDependencies() async {
 
   // ── Wallet ─────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<WalletRemoteDataSource>(
-    () => MockWalletRemoteDataSource(),
+    () => ApiWalletRemoteDataSource(sl()),
   );
   sl.registerLazySingleton<WalletLocalDataSource>(
     () => MockWalletLocalDataSource(),
@@ -263,15 +269,12 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => InitiatePaymentUseCase(sl()));
   sl.registerLazySingleton(() => VerifyPaymentUseCase(sl()));
   sl.registerFactory(
-    () => PaymentBloc(
-      initiatePaymentUseCase: sl(),
-      verifyPaymentUseCase: sl(),
-    ),
+    () => PaymentBloc(initiatePaymentUseCase: sl(), verifyPaymentUseCase: sl()),
   );
 
   // ── Profile ────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<ProfileRemoteDataSource>(
-    () => MockProfileRemoteDataSource(),
+    () => ApiProfileRemoteDataSource(sl()),
   );
   sl.registerLazySingleton<ProfileLocalDataSource>(
     () => MockProfileLocalDataSource(),
@@ -286,15 +289,12 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetProfileUseCase(sl()));
   sl.registerLazySingleton(() => UpdateProfileUseCase(sl()));
   sl.registerFactory(
-    () => ProfileBloc(
-      getProfileUseCase: sl(),
-      updateProfileUseCase: sl(),
-    ),
+    () => ProfileBloc(getProfileUseCase: sl(), updateProfileUseCase: sl()),
   );
 
   // ── Notifications ──────────────────────────────────────────────────────────
   sl.registerLazySingleton<NotificationsRemoteDataSource>(
-    () => MockNotificationsRemoteDataSource(),
+    () => ApiNotificationsRemoteDataSource(sl()),
   );
   sl.registerLazySingleton<NotificationsLocalDataSource>(
     () => MockNotificationsLocalDataSource(),
@@ -319,11 +319,9 @@ Future<void> initDependencies() async {
 
   // ── KYC ────────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<KycRemoteDataSource>(
-    () => MockKycRemoteDataSource(),
+    () => ApiKycRemoteDataSource(sl()),
   );
-  sl.registerLazySingleton<KycLocalDataSource>(
-    () => MockKycLocalDataSource(),
-  );
+  sl.registerLazySingleton<KycLocalDataSource>(() => MockKycLocalDataSource());
   sl.registerLazySingleton<KycRepository>(
     () => KycRepositoryImpl(
       remoteDataSource: sl(),
@@ -334,10 +332,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetKycStatusUseCase(sl()));
   sl.registerLazySingleton(() => SubmitKycUseCase(sl()));
   sl.registerFactory(
-    () => KycBloc(
-      getKycStatusUseCase: sl(),
-      submitKycUseCase: sl(),
-    ),
+    () => KycBloc(getKycStatusUseCase: sl(), submitKycUseCase: sl()),
   );
 
   // ── Onboarding ─────────────────────────────────────────────────────────────
@@ -358,7 +353,7 @@ Future<void> initDependencies() async {
 
   // ── Splash ─────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<SplashLocalDataSource>(
-    () => MockSplashLocalDataSource(),
+    () => SecureSplashLocalDataSource(sl()),
   );
   sl.registerLazySingleton<SplashRepository>(
     () => SplashRepositoryImpl(localDataSource: sl()),

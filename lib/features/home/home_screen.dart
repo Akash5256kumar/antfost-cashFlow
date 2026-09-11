@@ -6,6 +6,7 @@ import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
+import '../payment/payment_screen.dart';
 import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
@@ -55,7 +56,9 @@ class HomeScreen extends StatelessWidget {
                 Center(
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.of(context).pushNamed(AppRoutes.kycVerificationStatus);
+                      Navigator.of(
+                        context,
+                      ).pushNamed(AppRoutes.kycVerificationStatus);
                     },
                     child: AppStatusBadge(
                       label: verificationUnderReview
@@ -96,7 +99,9 @@ class HomeScreen extends StatelessWidget {
                 else if (state is HomeSuccess)
                   _StatsRow(
                     orders: activeOrders,
-                    projectCount: verificationUnderReview ? 0 : 5,
+                    projectCount: verificationUnderReview
+                        ? 0
+                        : state.data.projectCount,
                   )
                 else
                   const SizedBox.shrink(),
@@ -201,7 +206,9 @@ class _StatsRow extends StatelessWidget {
             icon: Icons.business_rounded,
             label: 'Projects',
             value: '$projectCount',
-            onTap: () => Navigator.of(context).pushNamed(AppRoutes.projects),
+            onTap: () => AppTabControllerScope.of(context).onSelectTab(
+              AppTab.projects.index,
+            ),
           ),
         ),
         SizedBox(width: AppSpacing.md(context)),
@@ -210,7 +217,9 @@ class _StatsRow extends StatelessWidget {
             icon: Icons.assignment_outlined,
             label: 'Active Orders',
             value: '${orders.length}',
-            onTap: () => Navigator.of(context).pushNamed(AppRoutes.myOrders),
+            onTap: () => AppTabControllerScope.of(context).onSelectTab(
+              AppTab.orders.index,
+            ),
           ),
         ),
       ],
@@ -433,19 +442,36 @@ class _RecentOrderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badgeLabel = switch (order.status) {
-      'inProgress' => 'On the way',
-      'confirmationNeeded' => 'Confirmation\nneeded',
+    final normalizedStatus = order.status.trim().toLowerCase();
+    final badgeLabel = switch (normalizedStatus) {
+      'inprogress' => 'On the way',
+      'confirmationneeded' => 'Confirmation\nneeded',
+      'pending' => 'Pending payment',
       _ => 'Scheduled',
     };
-    final badgeTone = switch (order.status) {
-      'inProgress' => AppStatusTone.onWay,
-      'confirmationNeeded' => AppStatusTone.confirm,
+    final badgeTone = switch (normalizedStatus) {
+      'inprogress' => AppStatusTone.onWay,
+      'confirmationneeded' => AppStatusTone.confirm,
+      'pending' => AppStatusTone.review,
       _ => AppStatusTone.scheduled,
     };
 
     return InkWell(
-      onTap: () => Navigator.of(context).pushNamed(AppRoutes.orderDetails),
+      onTap: () {
+        if (normalizedStatus == 'pending') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => PaymentScreen(
+                totalAmount: order.amount,
+                orderId: order.orderId,
+                orderRef: order.orderId,
+              ),
+            ),
+          );
+          return;
+        }
+        Navigator.of(context).pushNamed(AppRoutes.orderDetails);
+      },
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(

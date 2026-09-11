@@ -35,17 +35,17 @@ class ActiveOrder extends Equatable {
 
   @override
   List<Object?> get props => [
-        orderId,
-        status,
-        grade,
-        location,
-        timeSlot,
-        volume,
-        date,
-        amount,
-        delivered,
-        total,
-      ];
+    orderId,
+    status,
+    grade,
+    location,
+    timeSlot,
+    volume,
+    date,
+    amount,
+    delivered,
+    total,
+  ];
 }
 
 /// Aggregated data displayed on the home screen.
@@ -53,13 +53,20 @@ class HomeData extends Equatable {
   final String userName;
   final String companyName;
   final List<ActiveOrder> activeOrders;
+  final int projectCount;
 
   const HomeData({
     required this.userName,
     required this.companyName,
     required this.activeOrders,
+    this.projectCount = 0,
   });
 
   @override
-  List<Object?> get props => [userName, companyName, activeOrders];
+  List<Object?> get props => [
+    userName,
+    companyName,
+    activeOrders,
+    projectCount,
+  ];
 }

@@ -1,4 +1,6 @@
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/api_client.dart';
+import 'package:dio/dio.dart';
 import '../../domain/entities/user_profile.dart';
 import '../models/user_profile_model.dart';
 
@@ -42,5 +44,46 @@ class MockProfileRemoteDataSource implements ProfileRemoteDataSource {
     // Simulate network latency.
     await Future<void>.delayed(const Duration(milliseconds: 300));
     return true;
+  }
+}
+
+class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
+  ApiProfileRemoteDataSource(this._client);
+  final ApiClient _client;
+  @override
+  Future<UserProfileModel> getProfile() => _request(() async {
+    final response = await _client.get<Map<String, dynamic>>('/me');
+    if (response.data == null)
+      throw const ServerException('Profile response is invalid.');
+    return UserProfileModel.fromJson(response.data!);
+  });
+  @override
+  Future<bool> updateProfile(UserProfileModel profile) => _request(() async {
+    final response = await _client.dio.put<Map<String, dynamic>>(
+      '/me',
+      data: {
+        'name': profile.name,
+        'email': profile.email,
+        'phone': profile.phone,
+        'company': profile.company,
+        if (profile.avatarUrl != null) 'avatarUrl': profile.avatarUrl,
+      },
+    );
+    if (response.data == null)
+      throw const ServerException('Profile update response is invalid.');
+    return true;
+  });
+  Future<T> _request<T>(Future<T> Function() callback) async {
+    try {
+      return await callback();
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      final message = data is Map && data['message'] is String
+          ? data['message'] as String
+          : error.message ?? 'Unable to load profile.';
+      if (error.type == DioExceptionType.connectionError)
+        throw NetworkException(message);
+      throw ServerException(message);
+    }
   }
 }

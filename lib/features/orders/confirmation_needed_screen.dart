@@ -8,11 +8,13 @@ import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/primary_button.dart';
 import 'schedule_proposed_screen.dart';
+import '../../app/di/injection.dart';
+import '../../core/services/order_api_service.dart';
 
 /// Ported from the new Figma design's `screens/ConfirmationNeeded.tsx` —
 /// shown when ANTFAST proposes a different schedule/service mix than what
 /// was requested, part of the granular delivery-tracking flow.
-class ConfirmationNeededScreen extends StatelessWidget {
+class ConfirmationNeededScreen extends StatefulWidget {
   const ConfirmationNeededScreen({
     super.key,
     this.orderRef = 'AF-2057',
@@ -23,12 +25,42 @@ class ConfirmationNeededScreen extends StatelessWidget {
   final String projectName;
 
   @override
+  State<ConfirmationNeededScreen> createState() =>
+      _ConfirmationNeededScreenState();
+}
+
+class _ConfirmationNeededScreenState extends State<ConfirmationNeededScreen> {
+  bool _accepting = false;
+  Future<void> _accept() async {
+    setState(() => _accepting = true);
+    try {
+      await sl<OrderApiService>().acceptScheduleProposal(widget.orderRef);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ScheduleProposedScreen(orderId: widget.orderRef),
+        ),
+      );
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBrandHeader(
         showBack: true,
-        onBellTap: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
+        onBellTap: () =>
+            Navigator.of(context).pushNamed(AppRoutes.notifications),
       ),
       bottomNavigationBar: AppTabControllerScope(
         currentTab: AppTab.home,
@@ -46,27 +78,52 @@ class ConfirmationNeededScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 12),
-            Text('Confirmation Needed', style: AppTextStyles.authScreenTitle(context).copyWith(fontSize: 26, color: const Color(0xFF1E1B4B))),
+            Text(
+              'Confirmation Needed',
+              style: AppTextStyles.authScreenTitle(
+                context,
+              ).copyWith(fontSize: 26, color: const Color(0xFF1E1B4B)),
+            ),
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(999)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(999),
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.hourglass_bottom_rounded, size: 14, color: Color(0xFFEA580C)),
+                    const Icon(
+                      Icons.hourglass_bottom_rounded,
+                      size: 14,
+                      color: Color(0xFFEA580C),
+                    ),
                     const SizedBox(width: 6),
-                    const Text('Confirmation needed', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFFEA580C))),
+                    const Text(
+                      'Confirmation needed',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFFEA580C),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            Text('$orderRef • $projectName', style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+            Text(
+              '${widget.orderRef} • ${widget.projectName}',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
             const SizedBox(height: 24),
-            
+
             // The Table
             Container(
               decoration: BoxDecoration(
@@ -84,9 +141,15 @@ class ConfirmationNeededScreen extends StatelessWidget {
                         children: [
                           const SizedBox(height: 52), // Header space
                           const Divider(height: 1, color: AppColors.cardBorder),
-                          const _SideHeaderCell(icon: Icons.access_time_rounded, text: 'Shift'),
+                          const _SideHeaderCell(
+                            icon: Icons.access_time_rounded,
+                            text: 'Shift',
+                          ),
                           const Divider(height: 1, color: AppColors.cardBorder),
-                          const _SideHeaderCell(icon: Icons.local_shipping_outlined, text: 'Services'),
+                          const _SideHeaderCell(
+                            icon: Icons.local_shipping_outlined,
+                            text: 'Services',
+                          ),
                         ],
                       ),
                     ),
@@ -99,9 +162,15 @@ class ConfirmationNeededScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             const _HeaderCell('You Requested'),
-                            const Divider(height: 1, color: AppColors.cardBorder),
+                            const Divider(
+                              height: 1,
+                              color: AppColors.cardBorder,
+                            ),
                             const _ValueCell('Morning\n06:00 - 12:00'),
-                            const Divider(height: 1, color: AppColors.cardBorder),
+                            const Divider(
+                              height: 1,
+                              color: AppColors.cardBorder,
+                            ),
                             const _ValueCell('Medium Pump\n43–52 m'),
                           ],
                         ),
@@ -136,18 +205,31 @@ class ConfirmationNeededScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const _EstimateRow(label: 'Estimated starting time', value: '8:30 AM'),
-                  const Divider(height: 1, color: AppColors.cardBorder, indent: 16, endIndent: 16),
-                  const _EstimateRow(label: 'Estimated completion', value: 'About 2 hr 30 min'),
+                  const _EstimateRow(
+                    label: 'Estimated starting time',
+                    value: '8:30 AM',
+                  ),
+                  const Divider(
+                    height: 1,
+                    color: AppColors.cardBorder,
+                    indent: 16,
+                    endIndent: 16,
+                  ),
+                  const _EstimateRow(
+                    label: 'Estimated completion',
+                    value: 'About 2 hr 30 min',
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Shield Info Card
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC), // slightly grey/blue tint like in image
+                color: const Color(
+                  0xFFF8FAFC,
+                ), // slightly grey/blue tint like in image
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.cardBorder),
               ),
@@ -165,13 +247,21 @@ class ConfirmationNeededScreen extends StatelessWidget {
                               color: Colors.white,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.shield_outlined, size: 18, color: AppColors.primary),
+                            child: const Icon(
+                              Icons.shield_outlined,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
                               'This sequence provides a steadier concrete flow for your selected volume and site access.',
-                              style: TextStyle(fontSize: 12.5, color: Color(0xFF1E1B4B), height: 1.4),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Color(0xFF1E1B4B),
+                                height: 1.4,
+                              ),
                             ),
                           ),
                         ],
@@ -200,25 +290,26 @@ class ConfirmationNeededScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.inventory_2_outlined, size: 18, color: Color(0xFF64748B)),
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    size: 18,
+                    color: Color(0xFF64748B),
+                  ),
                   const SizedBox(width: 12),
-                  const Text('120 m³ • C30/37 • Main Villa Entrance', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                  const Text(
+                    '120 m³ • C30/37 • Main Villa Entrance',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Buttons
             PrimaryButton(
               arrow: true,
               label: 'Accept Proposal',
-              onPressed: () {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) => const ScheduleProposedScreen(),
-                  ),
-                );
-              },
+              onPressed: _accepting ? null : _accept,
             ),
             const SizedBox(height: 12),
             PrimaryButton(
@@ -248,7 +339,10 @@ class _SideHeaderCell extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: const Color(0xFF4F46E5)),
             const SizedBox(width: 6),
-            Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            Text(
+              text,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
           ],
         ),
       ),
@@ -319,15 +413,29 @@ class _EstimateRow extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 2),
-            child: Icon(Icons.access_time_rounded, size: 20, color: Color(0xFF4F46E5)),
+            child: Icon(
+              Icons.access_time_rounded,
+              size: 20,
+              color: Color(0xFF4F46E5),
+            ),
           ),
           const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
               const SizedBox(height: 4),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF4F46E5), fontSize: 20)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF4F46E5),
+                  fontSize: 20,
+                ),
+              ),
             ],
           ),
         ],

@@ -33,8 +33,8 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
 
     if (isConnected) {
       try {
-        final List<AppNotificationModel> models =
-            await remoteDataSource.getNotifications();
+        final List<AppNotificationModel> models = await remoteDataSource
+            .getNotifications();
         await localDataSource.cacheNotifications(models);
         return Right(models);
       } on ServerException catch (e) {
@@ -48,8 +48,8 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
       }
     } else {
       try {
-        final List<AppNotificationModel> cached =
-            await localDataSource.getCachedNotifications();
+        final List<AppNotificationModel> cached = await localDataSource
+            .getCachedNotifications();
         return Right(cached);
       } on CacheException {
         return const Left(NetworkFailure());
@@ -61,8 +61,9 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
 
   @override
   Future<Either<Failure, bool>> markAsRead(String notificationId) async {
-    // For the mock layer: update local in-memory state without a network call.
     try {
+      if (await networkInfo.isConnected)
+        await remoteDataSource.markAsRead(notificationId);
       await localDataSource.markAsRead(notificationId);
       return const Right(true);
     } on CacheException catch (e) {
@@ -74,8 +75,8 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
 
   @override
   Future<Either<Failure, bool>> markAllAsRead() async {
-    // For the mock layer: update local in-memory state without a network call.
     try {
+      if (await networkInfo.isConnected) await remoteDataSource.markAllAsRead();
       await localDataSource.markAllAsRead();
       return const Right(true);
     } on CacheException catch (e) {

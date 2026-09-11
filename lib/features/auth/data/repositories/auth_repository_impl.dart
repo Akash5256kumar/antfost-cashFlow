@@ -3,214 +3,169 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
+import '../../../../core/services/api_client.dart';
+import '../../../../core/services/secure_storage_service.dart';
+import '../../domain/entities/auth_flow.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_data_source.dart';
 import '../datasources/auth_remote_data_source.dart';
+import '../models/user_model.dart';
 
-/// Concrete implementation of [AuthRepository].
-/// Delegates to [AuthRemoteDataSource] when online,
-/// and caches results via [AuthLocalDataSource].
 class AuthRepositoryImpl implements AuthRepository {
-  final AuthRemoteDataSource remoteDataSource;
-  final AuthLocalDataSource localDataSource;
-  final NetworkInfo networkInfo;
-
   const AuthRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     required this.networkInfo,
+    required this.secureStorage,
+    required this.apiClient,
   });
-
-  // ---------------------------------------------------------------------------
-  // Sign in
-  // ---------------------------------------------------------------------------
+  final AuthRemoteDataSource remoteDataSource;
+  final AuthLocalDataSource localDataSource;
+  final NetworkInfo networkInfo;
+  final SecureStorageService secureStorage;
+  final ApiClient apiClient;
 
   @override
-  Future<Either<Failure, User>> signIn({
+  Future<Either<Failure, AuthSession>> signIn({
+    required String usernameOrMobile,
+    required String password,
+  }) => _online(() async {
+    final session = await remoteDataSource.signIn(
+      usernameOrMobile: usernameOrMobile,
+      password: password,
+    );
+    await _saveSession(session);
+    return session;
+  });
+  @override
+  Future<Either<Failure, OtpChallenge>> signUpBusiness({
+    required String companyName,
+    required String username,
+    required String registeredMobile,
+    required String password,
+  }) => _online(
+    () => remoteDataSource.signUpBusiness(
+      companyName: companyName,
+      username: username,
+      registeredMobile: registeredMobile,
+      password: password,
+    ),
+  );
+  @override
+  Future<Either<Failure, OtpChallenge>> signUpIndividual({
+    required String fullName,
+    required String mobile,
+    required String username,
+    required String password,
+    required bool termsAccepted,
+  }) => _online(
+    () => remoteDataSource.signUpIndividual(
+      fullName: fullName,
+      mobile: mobile,
+      username: username,
+      password: password,
+      termsAccepted: termsAccepted,
+    ),
+  );
+  @override
+  Future<Either<Failure, AuthSession>> verifySignUpOtp({
+    required String verificationId,
+    required String otp,
+  }) => _online(() async {
+    final session = await remoteDataSource.verifySignUpOtp(
+      verificationId: verificationId,
+      otp: otp,
+    );
+    await _saveSession(session);
+    return session;
+  });
+  @override
+  Future<Either<Failure, OtpChallenge>> resendSignUpOtp({
+    required String verificationId,
+  }) => _online(
+    () => remoteDataSource.resendSignUpOtp(verificationId: verificationId),
+  );
+  @override
+  Future<Either<Failure, OtpChallenge>> forgotPasscode({
     required String contact,
-    required String passcode,
     required bool isEmail,
-  }) async {
-    if (!await networkInfo.isConnected) {
-      return const Left(NetworkFailure());
-    }
-
-    try {
-      final userModel = await remoteDataSource.signIn(
-        contact: contact,
-        passcode: passcode,
-        isEmail: isEmail,
-      );
-      await localDataSource.cacheUser(userModel);
-      return Right(userModel);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
-    } on NetworkException catch (e) {
-      return Left(NetworkFailure(e.message));
-    } catch (_) {
-      return const Left(UnexpectedFailure());
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Sign up
-  // ---------------------------------------------------------------------------
-
+  }) => _online(
+    () => remoteDataSource.forgotPasscode(contact: contact, isEmail: isEmail),
+  );
   @override
-  Future<Either<Failure, User>> signUp({
-    required String name,
-    required String email,
-    required String phone,
-    required String company,
-    required String passcode,
-  }) async {
-    if (!await networkInfo.isConnected) {
-      return const Left(NetworkFailure());
-    }
-
-    try {
-      final userModel = await remoteDataSource.signUp(
-        name: name,
-        email: email,
-        phone: phone,
-        company: company,
-        passcode: passcode,
-      );
-      await localDataSource.cacheUser(userModel);
-      return Right(userModel);
-    } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
-    } on NetworkException catch (e) {
-      return Left(NetworkFailure(e.message));
-    } catch (_) {
-      return const Left(UnexpectedFailure());
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Verify OTP
-  // ---------------------------------------------------------------------------
-
-  @override
-  Future<Either<Failure, bool>> verifyOtp({
+  Future<Either<Failure, PasswordResetVerification>> verifyPasscodeOtp({
+    required String verificationId,
     required String contact,
     required String otp,
-    required bool isEmail,
-  }) async {
-    if (!await networkInfo.isConnected) {
-      return const Left(NetworkFailure());
-    }
-
-    try {
-      final result = await remoteDataSource.verifyOtp(
-        contact: contact,
-        otp: otp,
-        isEmail: isEmail,
-      );
-      return Right(result);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
-    } catch (_) {
-      return const Left(UnexpectedFailure());
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Forgot passcode
-  // ---------------------------------------------------------------------------
-
+  }) => _online(
+    () => remoteDataSource.verifyPasscodeOtp(
+      verificationId: verificationId,
+      contact: contact,
+      otp: otp,
+    ),
+  );
   @override
-  Future<Either<Failure, bool>> forgotPasscode({
-    required String contact,
-    required bool isEmail,
-  }) async {
-    if (!await networkInfo.isConnected) {
-      return const Left(NetworkFailure());
-    }
-
-    try {
-      final result = await remoteDataSource.forgotPasscode(
-        contact: contact,
-        isEmail: isEmail,
-      );
-      return Right(result);
-    } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
-    } catch (_) {
-      return const Left(UnexpectedFailure());
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Reset passcode
-  // ---------------------------------------------------------------------------
-
-  @override
-  Future<Either<Failure, bool>> resetPasscode({
-    required String contact,
-    required String otp,
+  Future<Either<Failure, void>> resetPasscode({
+    required String resetToken,
     required String newPasscode,
-  }) async {
-    if (!await networkInfo.isConnected) {
-      return const Left(NetworkFailure());
-    }
-
-    try {
-      final result = await remoteDataSource.resetPasscode(
-        contact: contact,
-        otp: otp,
-        newPasscode: newPasscode,
-      );
-      return Right(result);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
-    } catch (_) {
-      return const Left(UnexpectedFailure());
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Sign out
-  // ---------------------------------------------------------------------------
-
+  }) => _online(
+    () => remoteDataSource.resetPasscode(
+      resetToken: resetToken,
+      newPasscode: newPasscode,
+    ),
+  );
   @override
-  Future<Either<Failure, bool>> signOut() async {
+  Future<Either<Failure, void>> signOut() async {
     try {
-      // Attempt remote sign-out if online; clear local cache regardless.
-      if (await networkInfo.isConnected) {
-        await remoteDataSource.signOut();
-      }
+      final token = await secureStorage.readRefreshToken();
+      if (await networkInfo.isConnected && token != null)
+        await remoteDataSource.signOut(refreshToken: token);
       await localDataSource.clearCachedUser();
-      return const Right(true);
-    } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
-    } catch (_) {
-      return const Left(UnexpectedFailure());
+      await secureStorage.clearTokens();
+      apiClient.clearAccessToken();
+      return const Right(null);
+    } catch (e) {
+      return Left(_failure(e));
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // Get cached user
-  // ---------------------------------------------------------------------------
 
   @override
   Future<Either<Failure, User?>> getCachedUser() async {
     try {
-      final userModel = await localDataSource.getCachedUser();
-      return Right(userModel);
-    } on CacheException catch (_) {
-      // No cached user is a valid "not signed in" state — return null.
+      return Right(await localDataSource.getCachedUser());
+    } on CacheException {
       return const Right(null);
-    } catch (_) {
-      return const Left(UnexpectedFailure());
+    } catch (e) {
+      return Left(_failure(e));
     }
   }
 
+  Future<void> _saveSession(AuthSession session) async {
+    await secureStorage.saveTokens(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    );
+    apiClient.setAccessToken(session.accessToken);
+    await localDataSource.cacheUser(UserModel.fromEntity(session.user));
+  }
+
+  Future<Either<Failure, T>> _online<T>(Future<T> Function() action) async {
+    if (!await networkInfo.isConnected) return const Left(NetworkFailure());
+    try {
+      return Right(await action());
+    } catch (e) {
+      return Left(_failure(e));
+    }
+  }
+
+  Failure _failure(Object e) => e is AuthException
+      ? AuthFailure(e.message)
+      : e is NetworkException
+      ? NetworkFailure(e.message)
+      : e is TimeoutException
+      ? NetworkFailure(e.message)
+      : e is ServerException
+      ? ServerFailure(e.message)
+      : const UnexpectedFailure();
 }
