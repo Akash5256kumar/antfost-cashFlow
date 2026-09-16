@@ -13,10 +13,6 @@ import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
 import '../../core/utils/route_feedback.dart';
 
-// ── Pump option enum ─────────────────────────────────────────────────────────
-
-enum _PumpSize { small, medium, big }
-
 const _structureRefs = [
   {'title': 'Slab', 'image': AppAssets.mixThumb4},
   {'title': 'Raft', 'image': AppAssets.mixThumb5},
@@ -52,7 +48,11 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
   ];
 
   bool _pump = true;
-  _PumpSize _pumpSize = _PumpSize.medium;
+  List<Map<String, dynamic>> _pumpTypes = const [];
+  List<Map<String, dynamic>> _pumpSizes = const [];
+  String? _pumpType;
+  double? _pumpSizeFromM;
+  double? _pumpSizeUpToM;
   bool _pumpExpanded = true;
 
   bool _technician = true;
@@ -76,8 +76,13 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
     if (saved != null) {
       _structureRef = saved.structureRef;
       _pump = saved.pumpRequired;
+      _pumpType = saved.pumpType;
+      _pumpSizeFromM = saved.pumpSizeFromM;
+      _pumpSizeUpToM = saved.pumpSizeUpToM;
       _technician = saved.technicianRequired;
-      _cubeMoulds = saved.numMoulds;
+      // A technician order always starts at the documented minimum of 6.
+      // Old drafts can contain 0 from before this rule existed.
+      _cubeMoulds = saved.numMoulds < 6 ? 6 : saved.numMoulds;
       _temperature = saved.temperatureControl;
       _labTesting = saved.labTesting;
       _otherService = saved.otherService;
@@ -90,6 +95,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
       }
     });
     _loadStructureTypes();
+    _loadPumpTypes();
   }
 
   @override
@@ -143,25 +149,70 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
     }
   }
 
+  Future<void> _loadPumpTypes() async {
+    try {
+      final items = await sl<OrderApiService>().pumpTypes(
+        locationId: widget.draft?.project?.locationId,
+      );
+      final available = items
+          .where((item) => item['available'] != false)
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _pumpTypes = available;
+        _pumpType ??= available.isEmpty
+            ? null
+            : available.first['type']?.toString();
+      });
+      if (_pumpType != null) await _loadPumpSizes(_pumpType!);
+    } catch (_) {
+      // The card remains usable only after live catalogue data is available;
+      // no static pump size is sent to the v1.1 API.
+    }
+  }
+
+  Future<void> _loadPumpSizes(String type) async {
+    try {
+      final data = await sl<OrderApiService>().pumpSizes(
+        pumpType: type,
+        locationId: widget.draft?.project?.locationId,
+      );
+      final items = (data['items'] as List? ?? const [])
+          .whereType<Map>()
+          .map(Map<String, dynamic>.from)
+          .where((item) => item['available'] != false)
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _pumpSizes = items;
+        final first = items.isEmpty
+            ? null
+            : (items.first['size'] as num?)?.toDouble();
+        _pumpSizeFromM ??= first;
+        _pumpSizeUpToM ??= items.isEmpty
+            ? null
+            : (items.last['size'] as num?)?.toDouble();
+      });
+    } catch (_) {
+      if (mounted) setState(() => _pumpSizes = const []);
+    }
+  }
+
   void _onContinue() {
     if (_technician && _cubeMoulds < 6) {
       showAppSnackBar(context, 'Cube mould quantity must be at least 6.');
       return;
     }
-    String pumpName = 'No Pump';
-    if (_pump) {
-      switch (_pumpSize) {
-        case _PumpSize.small:
-          pumpName = 'Small Pump (Up to 42 m)';
-          break;
-        case _PumpSize.medium:
-          pumpName = 'Medium Pump (43-52 m)';
-          break;
-        case _PumpSize.big:
-          pumpName = 'Big Pump (53 m and above)';
-          break;
-      }
+    if (_pump &&
+        (_pumpType == null ||
+            _pumpSizeFromM == null ||
+            _pumpSizeUpToM == null)) {
+      showAppSnackBar(context, 'Choose an available pump type and size range.');
+      return;
     }
+    final pumpName = !_pump
+        ? 'No Pump'
+        : '$_pumpType (${_pumpSizeFromM!.toStringAsFixed(0)}–${_pumpSizeUpToM!.toStringAsFixed(0)} m)';
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -183,6 +234,9 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
             temperatureControl: _temperature,
             pumpRequired: _pump,
             pumpName: pumpName,
+            pumpType: _pump ? _pumpType : null,
+            pumpSizeFromM: _pump ? _pumpSizeFromM : null,
+            pumpSizeUpToM: _pump ? _pumpSizeUpToM : null,
             cubeMould: _technician,
             numMoulds: _technician ? _cubeMoulds : 0,
             labTesting: _labTesting,
@@ -273,7 +327,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Choose Pump Size',
+                            'Choose pump type and reach range',
                             style: TextStyle(
                               fontSize: context.scaled(13),
                               fontWeight: FontWeight.w600,
@@ -281,37 +335,61 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                             ),
                           ),
                           SizedBox(height: context.scaledV(10)),
+                          DropdownButtonFormField<String>(
+                            value:
+                                _pumpTypes.any(
+                                  (item) =>
+                                      item['type']?.toString() == _pumpType,
+                                )
+                                ? _pumpType
+                                : null,
+                            hint: const Text('Select pump type'),
+                            isExpanded: true,
+                            items: _pumpTypes
+                                .map(
+                                  (item) => DropdownMenuItem(
+                                    value: item['type']?.toString(),
+                                    child: Text(item['type']?.toString() ?? ''),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (type) async {
+                              if (type == null) return;
+                              setState(() {
+                                _pumpType = type;
+                                _pumpSizes = const [];
+                                _pumpSizeFromM = null;
+                                _pumpSizeUpToM = null;
+                              });
+                              await _loadPumpSizes(type);
+                            },
+                          ),
+                          SizedBox(height: context.scaledV(10)),
                           Row(
                             children: [
                               Expanded(
-                                child: _PumpSizeCard(
-                                  title: 'Small Pump',
-                                  subtitle: 'Up to 42 m',
-                                  isSelected: _pumpSize == _PumpSize.small,
-                                  onTap: () => setState(
-                                    () => _pumpSize = _PumpSize.small,
-                                  ),
+                                child: _PumpRangeDropdown(
+                                  label: 'From',
+                                  value: _pumpSizeFromM,
+                                  sizes: _pumpSizes,
+                                  onChanged: (value) =>
+                                      setState(() => _pumpSizeFromM = value),
                                 ),
                               ),
                               SizedBox(width: context.scaled(8)),
                               Expanded(
-                                child: _PumpSizeCard(
-                                  title: 'Medium Pump',
-                                  subtitle: '43–52 m',
-                                  isSelected: _pumpSize == _PumpSize.medium,
-                                  onTap: () => setState(
-                                    () => _pumpSize = _PumpSize.medium,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: context.scaled(8)),
-                              Expanded(
-                                child: _PumpSizeCard(
-                                  title: 'Big Pump',
-                                  subtitle: '53 m and above',
-                                  isSelected: _pumpSize == _PumpSize.big,
-                                  onTap: () =>
-                                      setState(() => _pumpSize = _PumpSize.big),
+                                child: _PumpRangeDropdown(
+                                  label: 'Up to',
+                                  value: _pumpSizeUpToM,
+                                  sizes: _pumpSizes.where((item) {
+                                    final size = (item['size'] as num?)
+                                        ?.toDouble();
+                                    return _pumpSizeFromM == null ||
+                                        (size != null &&
+                                            size >= _pumpSizeFromM!);
+                                  }).toList(),
+                                  onChanged: (value) =>
+                                      setState(() => _pumpSizeUpToM = value),
                                 ),
                               ),
                             ],
@@ -776,54 +854,63 @@ class _ServiceCard extends StatelessWidget {
       child: Column(
         children: [
           // Header
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.scaled(18),
-              vertical: context.scaledV(14),
+          InkWell(
+            onTap: () => onToggleCheck(!isSelected),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(context.scaled(16)),
+              bottom: isSelected && isExpanded && child != null
+                  ? Radius.zero
+                  : Radius.circular(context.scaled(16)),
             ),
-            child: Row(
-              children: [
-                _FigmaCheckbox(value: isSelected, onChanged: onToggleCheck),
-                SizedBox(width: context.scaled(12)),
-                leading,
-                SizedBox(width: context.scaled(12)),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: context.scaled(14),
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1F2533),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.scaled(18),
+                vertical: context.scaledV(14),
+              ),
+              child: Row(
+                children: [
+                  _FigmaCheckbox(value: isSelected, onChanged: onToggleCheck),
+                  SizedBox(width: context.scaled(12)),
+                  leading,
+                  SizedBox(width: context.scaled(12)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: context.scaled(14),
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1F2533),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: context.scaledV(2)),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: context.scaled(11.5),
-                          color: kOrderTextGrey,
+                        SizedBox(height: context.scaledV(2)),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: context.scaled(11.5),
+                            color: kOrderTextGrey,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: onToggleExpand,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: EdgeInsets.only(left: context.scaled(12)),
-                    // Expansion remains available by tapping the card;
-                    // the design does not show chevrons on service cards.
-                    child: SizedBox(
-                      width: context.scaled(8),
-                      height: context.scaled(20),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  GestureDetector(
+                    onTap: onToggleExpand,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: context.scaled(12)),
+                      // Expansion remains available by tapping the card;
+                      // the design does not show chevrons on service cards.
+                      child: SizedBox(
+                        width: context.scaled(8),
+                        height: context.scaled(20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           if (isSelected && isExpanded && child != null) ...[
@@ -875,88 +962,41 @@ class _FigmaCheckbox extends StatelessWidget {
   }
 }
 
-class _PumpSizeCard extends StatelessWidget {
-  const _PumpSizeCard({
-    required this.title,
-    required this.subtitle,
-    required this.isSelected,
-    required this.onTap,
+class _PumpRangeDropdown extends StatelessWidget {
+  const _PumpRangeDropdown({
+    required this.label,
+    required this.value,
+    required this.sizes,
+    required this.onChanged,
   });
 
-  final String title;
-  final String subtitle;
-  final bool isSelected;
-  final VoidCallback onTap;
+  final String label;
+  final double? value;
+  final List<Map<String, dynamic>> sizes;
+  final ValueChanged<double?> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: context.scaledV(112),
-        padding: EdgeInsets.symmetric(
-          vertical: context.scaledV(14),
-          horizontal: context.scaled(4),
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF5F7FF) : Colors.white,
-          borderRadius: BorderRadius.circular(context.scaled(12)),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
-            width: isSelected ? 1.5 : 1.0,
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: context.scaled(18),
-              height: context.scaled(18),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? AppColors.primary
-                      : const Color(0xFFD3D1E4),
-                  width: 1.5,
-                ),
-                color: isSelected ? AppColors.primary : Colors.white,
-              ),
-              child: isSelected
-                  ? Container(
-                      width: context.scaled(8),
-                      height: context.scaled(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                    )
-                  : null,
+  Widget build(BuildContext context) => DropdownButtonFormField<double>(
+    value: sizes.any((item) => (item['size'] as num?)?.toDouble() == value)
+        ? value
+        : null,
+    isExpanded: true,
+    decoration: InputDecoration(labelText: label),
+    items: sizes
+        .map((item) {
+          final size = (item['size'] as num?)?.toDouble();
+          if (size == null) return null;
+          return DropdownMenuItem<double>(
+            value: size,
+            child: Text(
+              item['label']?.toString() ?? '${size.toStringAsFixed(0)} m',
             ),
-            SizedBox(height: context.scaledV(12)),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: context.scaled(12),
-                fontWeight: FontWeight.w600,
-                color: isSelected ? AppColors.primary : const Color(0xFF1F2533),
-              ),
-            ),
-            SizedBox(height: context.scaledV(4)),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: context.scaled(11),
-                color: kOrderTextGrey,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+          );
+        })
+        .whereType<DropdownMenuItem<double>>()
+        .toList(),
+    onChanged: onChanged,
+  );
 }
 
 class _ServiceIcon extends StatelessWidget {

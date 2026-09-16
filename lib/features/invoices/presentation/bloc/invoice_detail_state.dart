@@ -44,11 +44,12 @@ class InvoiceDetailDownloading extends InvoiceDetailState {
 /// Emitted when the invoice PDF download has completed successfully.
 class InvoiceDetailDownloaded extends InvoiceDetailState {
   final InvoiceDetail detail;
+  final String downloadUrl;
 
-  const InvoiceDetailDownloaded(this.detail);
+  const InvoiceDetailDownloaded(this.detail, this.downloadUrl);
 
   @override
-  List<Object?> get props => [detail];
+  List<Object?> get props => [detail, downloadUrl];
 }
 
 /// Emitted when an operation fails.

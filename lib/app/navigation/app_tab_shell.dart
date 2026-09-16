@@ -112,6 +112,11 @@ class _AppTabShellState extends State<AppTabShell> {
   void _onTabSelected(int index) {
     final selectedTab = AppTab.values[index];
     if (selectedTab == _currentTab) {
+      // Tapping the active tab again returns its nested navigator to the
+      // tab's root screen (for example, Saved Locations → Profile).
+      _navigatorKeys[selectedTab]?.currentState?.popUntil(
+        (route) => route.isFirst,
+      );
       return;
     }
 
@@ -418,12 +423,12 @@ Route<dynamic> _buildRouteForTab(
         builder: (_) => const RateDeliveryScreen(),
       );
     case AppRoutes.qcCheckpoint:
-      final invoiceId = settings.arguments is String
+      final orderId = settings.arguments is String
           ? settings.arguments as String
-          : 'INV-2026-02-00001';
+          : 'ord-001';
       return _materialRoute(
         settings: settings,
-        builder: (_) => QcCheckpointScreen(invoiceId: invoiceId),
+        builder: (_) => QcCheckpointScreen(orderId: orderId),
       );
     default:
       return _materialRoute(

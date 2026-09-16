@@ -2,12 +2,14 @@ import 'package:device_preview/device_preview.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'app/di/injection.dart';
 import 'app/navigation/app_router.dart';
 import 'app/navigation/app_routes.dart';
 import 'core/notifications/firebase_notification_service.dart';
 import 'core/services/api_client.dart';
+import 'core/services/secure_storage_service.dart';
 import 'core/widgets/connectivity_guard.dart';
 import 'core/widgets/debug_upgrade_prompt.dart';
 import 'app/config/app_breakpoints.dart';
@@ -15,6 +17,7 @@ import 'app/config/app_strings.dart';
 import 'app/theme/app_colors.dart';
 import 'app/theme/app_theme.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/home/presentation/bloc/home_bloc.dart';
 import 'features/invoices/presentation/bloc/invoice_detail_bloc.dart';
 import 'features/invoices/presentation/bloc/invoices_bloc.dart';
@@ -41,6 +44,10 @@ Future<void> main() async {
   await FirebaseNotificationService.instance.initialize();
   await initDependencies();
   await sl<ApiClient>().restoreAccessToken();
+  if (kDebugMode) {
+    final token = await sl<SecureStorageService>().readAccessToken();
+    debugPrint('[AUTH] Splash access token: ${token ?? '(none)'}');
+  }
   runApp(AntfostApp());
 }
 
@@ -48,11 +55,50 @@ class AntfostApp extends StatelessWidget {
   const AntfostApp({super.key});
 
   @override
+  Widget build(BuildContext context) => BlocProvider<AuthBloc>(
+    create: (_) => sl<AuthBloc>(),
+    child: const _SessionScopedApp(),
+  );
+}
+
+/// Recreates every account-scoped BLoC after logout. Tokens alone are not
+/// enough: BLoCs retain their last response in memory until they are disposed.
+class _SessionScopedApp extends StatefulWidget {
+  const _SessionScopedApp();
+
+  @override
+  State<_SessionScopedApp> createState() => _SessionScopedAppState();
+}
+
+class _SessionScopedAppState extends State<_SessionScopedApp> {
+  int _sessionGeneration = 0;
+
+  void _clearSessionUi() {
+    setState(() => _sessionGeneration++);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        AppRoutes.signIn,
+        (_) => false,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listenWhen: (_, state) => state is AuthSignedOut,
+      listener: (context, state) => _clearSessionUi(),
+      child: KeyedSubtree(
+        key: ValueKey(_sessionGeneration),
+        child: _buildSessionApp(context),
+      ),
+    );
+  }
+
+  Widget _buildSessionApp(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider<SplashBloc>(create: (_) => sl<SplashBloc>()),
-        BlocProvider<AuthBloc>(create: (_) => sl<AuthBloc>()),
         BlocProvider<OnboardingBloc>(create: (_) => sl<OnboardingBloc>()),
         BlocProvider<HomeBloc>(create: (_) => sl<HomeBloc>()),
         BlocProvider<OrdersBloc>(create: (_) => sl<OrdersBloc>()),

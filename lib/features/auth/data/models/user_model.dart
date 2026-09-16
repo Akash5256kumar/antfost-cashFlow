@@ -10,6 +10,13 @@ class UserModel extends User {
     required super.phone,
     required super.company,
     required super.isKycVerified,
+    super.kycStatus,
+    super.accountState,
+    super.canUseApp,
+    super.canCreateDraftOrders,
+    super.canSubmitOrders,
+    super.canMakePayments,
+    super.blockedMessage,
   });
 
   // ---------------------------------------------------------------------------
@@ -19,12 +26,31 @@ class UserModel extends User {
   /// Deserialises a [UserModel] from a JSON map returned by the remote API.
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as String? ?? '',
+      id: json['id']?.toString() ?? '',
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       company: json['company'] as String? ?? '',
-      isKycVerified: json['is_kyc_verified'] as bool? ?? false,
+      isKycVerified:
+          json['isKycVerified'] as bool? ??
+          json['is_kyc_verified'] as bool? ??
+          (json['kyc'] == 'approved'),
+      kycStatus:
+          json['kycStatus'] as String? ??
+          json['kyc'] as String? ??
+          'not_required',
+      accountState:
+          json['accountState'] as String? ??
+          (json['access'] as Map?)?['state'] as String? ??
+          'active',
+      canUseApp: (json['access'] as Map?)?['canUseApp'] as bool? ?? true,
+      canCreateDraftOrders:
+          (json['access'] as Map?)?['canCreateDraftOrders'] as bool? ?? true,
+      canSubmitOrders:
+          (json['access'] as Map?)?['canSubmitOrders'] as bool? ?? true,
+      canMakePayments:
+          (json['access'] as Map?)?['canMakePayments'] as bool? ?? true,
+      blockedMessage: (json['access'] as Map?)?['blockedMessage'] as String?,
     );
   }
 
@@ -37,6 +63,13 @@ class UserModel extends User {
       phone: user.phone,
       company: user.company,
       isKycVerified: user.isKycVerified,
+      kycStatus: user.kycStatus,
+      accountState: user.accountState,
+      canUseApp: user.canUseApp,
+      canCreateDraftOrders: user.canCreateDraftOrders,
+      canSubmitOrders: user.canSubmitOrders,
+      canMakePayments: user.canMakePayments,
+      blockedMessage: user.blockedMessage,
     );
   }
 
@@ -53,6 +86,16 @@ class UserModel extends User {
       'phone': phone,
       'company': company,
       'is_kyc_verified': isKycVerified,
+      'kycStatus': kycStatus,
+      'accountState': accountState,
+      'access': {
+        'state': accountState,
+        'canUseApp': canUseApp,
+        'canCreateDraftOrders': canCreateDraftOrders,
+        'canSubmitOrders': canSubmitOrders,
+        'canMakePayments': canMakePayments,
+        'blockedMessage': blockedMessage,
+      },
     };
   }
 }

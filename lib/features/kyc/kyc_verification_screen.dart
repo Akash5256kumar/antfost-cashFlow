@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/di/injection.dart';
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_route_args.dart';
 import '../../app/navigation/app_routes.dart';
@@ -12,7 +14,12 @@ import '../../core/widgets/app_illustration_image.dart';
 import '../../core/widgets/app_svg_icons.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/uploads/document_picker_service.dart';
+import '../../core/services/document_api_service.dart';
+import '../../core/services/api_client.dart';
 import '../../core/utils/input_validators.dart';
+import '../../core/utils/route_feedback.dart';
+import 'presentation/bloc/kyc_bloc.dart';
+import 'presentation/bloc/kyc_event.dart';
 
 /// Ported from the new Figma design's `screens/VerifyBusiness.tsx`. The
 /// Business accounts reach this screen after OTP verification. Individual
@@ -31,6 +38,17 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
   final _legalNameController = TextEditingController();
   final _registrationNumberController = TextEditingController();
   final Map<String, SelectedDocument> _documents = {};
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // The login response asked the customer to complete KYC. Load the latest
+    // server state immediately, including any document status from an earlier
+    // attempt, instead of treating this page as a local-only form.
+    context.read<KycBloc>().add(const FetchKycStatusEvent());
+    if (widget.isBusiness) _loadCompanyDetails();
+  }
 
   @override
   void dispose() {
@@ -39,18 +57,102 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     super.dispose();
   }
 
-  void _goHome() {
+  Future<void> _loadCompanyDetails() async {
+    try {
+      final response = await sl<ApiClient>().get<Map<String, dynamic>>(
+        '/kyc/company-details',
+      );
+      final fields = response.data?['fields'];
+      if (!mounted || fields is! Map) return;
+      _legalNameController.text = fields['legalName']?.toString() ?? '';
+      _registrationNumberController.text =
+          fields['registrationNumber']?.toString() ?? '';
+    } catch (_) {
+      // New businesses legitimately have no saved details yet. The submit
+      // request will surface any meaningful server error to the customer.
+    }
+  }
+
+  Future<void> _saveCompanyDetails() async {
+    await sl<ApiClient>().dio.put<Map<String, dynamic>>(
+      '/kyc/company-details',
+      data: {
+        'legalName': _legalNameController.text.trim(),
+        'registrationNumber': _registrationNumberController.text.trim(),
+        // These fields have no current UI in the approved KYC flow. Send
+        // explicit nulls until their product fields are introduced.
+        'taxId': null,
+        'billingAddress': null,
+      },
+    );
+  }
+
+  Future<void> _submitKyc() async {
     if (!_formKey.currentState!.validate()) return;
     final requiredDocuments = _docSpecs.where((doc) => !doc.optional);
     final missing = requiredDocuments.where(
       (doc) => !_documents.containsKey(doc.id),
     );
     if (missing.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Upload ${missing.first.title} to continue.')),
-      );
+      showAppSnackBar(context, 'Upload ${missing.first.title} to continue.');
       return;
     }
+    setState(() => _submitting = true);
+    try {
+      if (widget.isBusiness) await _saveCompanyDetails();
+      final documentsApi = sl<DocumentApiService>();
+      for (final entry in _documents.entries) {
+        final document = entry.value;
+        final path = document.path;
+        if (path == null || path.isEmpty) {
+          throw const DocumentPickerException(
+            'The selected document is no longer available. Choose it again.',
+          );
+        }
+        final upload = await documentsApi.requestUploadUrl(
+          documentType: entry.key,
+          fileName: document.name,
+          mimeType: document.mimeType,
+          fileSizeBytes: document.sizeBytes,
+        );
+        final uploadUrl = upload['uploadUrl'];
+        final fileId = upload['fileId'];
+        // Step 3 must use the document type that the server reserved in step
+        // 1. This confirms the raw upload and creates the KYC document record.
+        final reservedDocumentType = upload['documentType'];
+        final documentType =
+            reservedDocumentType is String && reservedDocumentType.isNotEmpty
+            ? reservedDocumentType
+            : entry.key;
+        if (uploadUrl is! String || uploadUrl.isEmpty) {
+          throw StateError('KYC upload URL response is invalid.');
+        }
+        if (fileId is! String || fileId.isEmpty) {
+          throw StateError('KYC upload response is missing its file ID.');
+        }
+        await documentsApi.uploadFile(uploadUrl, path, document.mimeType);
+        await documentsApi.create(type: documentType, fileId: fileId);
+      }
+      if (!mounted) return;
+      // The latest contract marks KYC ready for review once both company
+      // details and all required document bytes are present.
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.kycVerificationStatus,
+        (route) => false,
+      );
+    } catch (error) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          error.toString().replaceFirst('Exception: ', ''),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _goHome() {
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.home,
       (route) => false,
@@ -93,7 +195,9 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
 
   Future<void> _pickDocument(_DocSpec document) async {
     try {
-      final selected = await DocumentPickerService.pickDocument();
+      final selected = await DocumentPickerService.pickDocument(
+        allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+      );
       if (selected == null || !mounted) return;
       setState(() => _documents[document.id] = selected);
     } on DocumentPickerException catch (error) {
@@ -316,9 +420,10 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                 ),
                 SizedBox(height: context.scaledV(18)),
                 PrimaryButton(
-                  onPressed: _goHome,
+                  onPressed: _submitting ? null : _submitKyc,
+                  isLoading: _submitting,
                   arrow: true,
-                  label: 'Continue',
+                  label: 'Submit for Verification',
                 ),
                 SizedBox(height: context.scaledV(10)),
                 Center(

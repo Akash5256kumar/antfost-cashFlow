@@ -14,6 +14,7 @@ abstract class AuthRemoteDataSource {
     required String companyName,
     required String username,
     required String registeredMobile,
+    required String email,
     required String password,
   });
   Future<OtpChallenge> signUpIndividual({
@@ -66,6 +67,7 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
     required String companyName,
     required String username,
     required String registeredMobile,
+    required String email,
     required String password,
   }) => _request(() async {
     final response = await _client.post<Map<String, dynamic>>(
@@ -74,6 +76,8 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
         'companyName': companyName,
         'username': username,
         'registeredMobile': registeredMobile,
+        'channel': 'sms',
+        'email_id': email,
         'password': password,
       },
     );
@@ -182,6 +186,16 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
       final message = responseData is Map && responseData['message'] is String
           ? responseData['message'] as String
           : error.message ?? 'Unable to reach the server.';
+      final fields = responseData is Map && responseData['fields'] is Map
+          ? Map<String, String>.fromEntries(
+              (responseData['fields'] as Map).entries
+                  .where((entry) => entry.key is String)
+                  .map(
+                    (entry) =>
+                        MapEntry(entry.key as String, entry.value.toString()),
+                  ),
+            )
+          : const <String, String>{};
       switch (error.type) {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.receiveTimeout:
@@ -190,6 +204,9 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
         case DioExceptionType.connectionError:
           throw NetworkException(message);
         default:
+          if (error.response?.statusCode == 422) {
+            throw ValidationException(message, fields);
+          }
           if (error.response?.statusCode == 401 ||
               error.response?.statusCode == 403)
             throw AuthException(message);
@@ -245,11 +262,22 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
         ? AuthNextStep.kyc
         : data['nextStep'] == 'home'
         ? AuthNextStep.home
+        : data['nextStep'] == 'verify_otp'
+        ? AuthNextStep.verifyOtp
         : null;
     if (includeNextStep && nextStep == null)
       throw const ServerException('Authentication next step is invalid.');
+    // Sign-in v1.1 puts the KYC and capability flags beside `user`, while
+    // verification responses may put the same data on `user`. Merge them so
+    // the cached session always describes the server's actual permissions.
+    final sessionUser = Map<String, dynamic>.from(user);
+    for (final key in ['kyc', 'accountState', 'access']) {
+      if (!sessionUser.containsKey(key) && data.containsKey(key)) {
+        sessionUser[key] = data[key];
+      }
+    }
     return AuthSession(
-      user: UserModel.fromJson(user),
+      user: UserModel.fromJson(sessionUser),
       accessToken: accessToken,
       refreshToken: refreshToken,
       nextStep: nextStep,

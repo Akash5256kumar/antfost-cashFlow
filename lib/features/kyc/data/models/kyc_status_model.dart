@@ -17,8 +17,12 @@ class KycStatusModel extends KycStatus {
   /// Converts a [KycVerificationStatus] value to its JSON string representation.
   static String _statusToString(KycVerificationStatus status) {
     switch (status) {
+      case KycVerificationStatus.notRequired:
+        return 'not_required';
       case KycVerificationStatus.notSubmitted:
         return 'not_submitted';
+      case KycVerificationStatus.partiallySubmitted:
+        return 'partially_submitted';
       case KycVerificationStatus.pending:
         return 'pending';
       case KycVerificationStatus.approved:
@@ -32,8 +36,13 @@ class KycStatusModel extends KycStatus {
   /// Defaults to [KycVerificationStatus.notSubmitted] for unknown values.
   static KycVerificationStatus _statusFromString(String? value) {
     switch (value) {
+      case 'not_required':
+        return KycVerificationStatus.notRequired;
       case 'pending':
+      case 'under_review':
         return KycVerificationStatus.pending;
+      case 'partially_submitted':
+        return KycVerificationStatus.partiallySubmitted;
       case 'approved':
         return KycVerificationStatus.approved;
       case 'rejected':

@@ -13,6 +13,7 @@ class UserProfile extends Equatable {
 
   /// Whether the user has completed KYC verification.
   final bool isKycVerified;
+  final String accountType;
 
   const UserProfile({
     required this.id,
@@ -22,16 +23,18 @@ class UserProfile extends Equatable {
     required this.company,
     this.avatarUrl,
     required this.isKycVerified,
+    this.accountType = 'individual',
   });
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        email,
-        phone,
-        company,
-        avatarUrl,
-        isKycVerified,
-      ];
+    id,
+    name,
+    email,
+    phone,
+    company,
+    avatarUrl,
+    isKycVerified,
+    accountType,
+  ];
 }

@@ -9,11 +9,15 @@ abstract class Failure extends Equatable {
 }
 
 class NetworkFailure extends Failure {
-  const NetworkFailure([super.message = 'Unable to connect. Please check your internet.']);
+  const NetworkFailure([
+    super.message = 'Unable to connect. Please check your internet.',
+  ]);
 }
 
 class ServerFailure extends Failure {
-  const ServerFailure([super.message = 'Something went wrong. Please try again later.']);
+  const ServerFailure([
+    super.message = 'Something went wrong. Please try again later.',
+  ]);
 }
 
 class CacheFailure extends Failure {
@@ -21,11 +25,18 @@ class CacheFailure extends Failure {
 }
 
 class AuthFailure extends Failure {
-  const AuthFailure([super.message = 'Authentication failed. Please sign in again.']);
+  const AuthFailure([
+    super.message = 'Authentication failed. Please sign in again.',
+  ]);
 }
 
 class ValidationFailure extends Failure {
-  const ValidationFailure(super.message);
+  const ValidationFailure(super.message, [this.fields = const {}]);
+
+  final Map<String, String> fields;
+
+  @override
+  List<Object> get props => [...super.props, fields];
 }
 
 class TimeoutFailure extends Failure {

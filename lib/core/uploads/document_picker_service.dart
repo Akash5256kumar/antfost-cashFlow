@@ -25,23 +25,24 @@ class DocumentPickerException implements Exception {
 class DocumentPickerService {
   const DocumentPickerService._();
 
-  static const maxFileSizeBytes = 15 * 1024 * 1024;
-  static const _allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+  static const maxFileSizeBytes = 10 * 1024 * 1024;
+  static const _allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
 
   static Future<SelectedDocument?> pickDocument({
     int maxSizeBytes = maxFileSizeBytes,
+    List<String> allowedExtensions = _allowedExtensions,
   }) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: _allowedExtensions,
+      allowedExtensions: allowedExtensions,
     );
     if (result == null) return null;
 
     final file = result.files.single;
     final extension = file.extension?.toLowerCase();
-    if (extension == null || !_allowedExtensions.contains(extension)) {
-      throw const DocumentPickerException(
-        'Choose a PDF, JPG, or PNG document.',
+    if (extension == null || !allowedExtensions.contains(extension)) {
+      throw DocumentPickerException(
+        'Choose a supported ${allowedExtensions.join(', ').toUpperCase()} file.',
       );
     }
     if (file.size <= 0) {
@@ -68,6 +69,8 @@ class DocumentPickerService {
         return 'application/pdf';
       case 'png':
         return 'image/png';
+      case 'webp':
+        return 'image/webp';
       case 'jpg':
       case 'jpeg':
         return 'image/jpeg';

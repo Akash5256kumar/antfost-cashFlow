@@ -46,9 +46,11 @@ class InvoiceDetailBloc extends Bloc<InvoiceDetailEvent, InvoiceDetailState> {
     if (current is! InvoiceDetailSuccess &&
         current is! InvoiceDetailDownloaded) {
       // Cannot download without a successfully loaded detail.
-      emit(const InvoiceDetailError(
-        'Please load the invoice detail before downloading.',
-      ));
+      emit(
+        const InvoiceDetailError(
+          'Please load the invoice detail before downloading.',
+        ),
+      );
       return;
     }
 
@@ -64,7 +66,8 @@ class InvoiceDetailBloc extends Bloc<InvoiceDetailEvent, InvoiceDetailState> {
 
     result.fold(
       (failure) => emit(InvoiceDetailError(failure.message)),
-      (_) => emit(InvoiceDetailDownloaded(currentDetail)),
+      (downloadUrl) =>
+          emit(InvoiceDetailDownloaded(currentDetail, downloadUrl)),
     );
   }
 }

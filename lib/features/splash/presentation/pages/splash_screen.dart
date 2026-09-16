@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../app/config/app_assets.dart';
 import '../../../../app/config/app_breakpoints.dart';
+import '../../../../app/navigation/app_route_args.dart';
 import '../../../../app/navigation/app_routes.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/decorative_rings.dart';
@@ -32,7 +33,14 @@ class SplashPage extends StatelessWidget {
             AppLaunchDestination.home => AppRoutes.home,
             AppLaunchDestination.kycVerification => AppRoutes.kycVerification,
           };
-          Navigator.of(context).pushReplacementNamed(route);
+          Navigator.of(context).pushReplacementNamed(
+            route,
+            arguments: state.destination == AppLaunchDestination.home
+                ? HomeRouteArgs(
+                    verificationUnderReview: state.verificationUnderReview,
+                  )
+                : null,
+          );
         }
         if (state is SplashError) {
           // On error, fall back to sign-in rather than re-showing onboarding.

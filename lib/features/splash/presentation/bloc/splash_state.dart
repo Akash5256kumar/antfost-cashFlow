@@ -37,11 +37,12 @@ final class SplashLoading extends SplashState {
 final class SplashReady extends SplashState {
   /// The screen the app should navigate to after the splash.
   final AppLaunchDestination destination;
+  final bool verificationUnderReview;
 
-  const SplashReady(this.destination);
+  const SplashReady(this.destination, {this.verificationUnderReview = false});
 
   @override
-  List<Object?> get props => [destination];
+  List<Object?> get props => [destination, verificationUnderReview];
 }
 
 // ---------------------------------------------------------------------------

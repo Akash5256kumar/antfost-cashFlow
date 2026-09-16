@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 
 import '../../app/navigation/app_routes.dart';
-import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import '../orders/order_project_summary.dart';
+import '../orders/new_cash_order_draft.dart';
+import '../orders/new_cash_order_mix_code_screen.dart';
 import '../../app/config/app_assets.dart';
 import '../../app/di/injection.dart';
 import '../../core/services/project_location_api_service.dart';
@@ -15,10 +17,12 @@ import '../../core/errors/exceptions.dart';
 
 class _SiteItem {
   final String id;
+  final String projectId;
   final String name;
   final String subtitle;
   final String location;
   final String imagePath;
+  final String? imageUrl;
   final String contactPerson;
   final String contactPhone;
   final int activeOrdersCount;
@@ -28,10 +32,12 @@ class _SiteItem {
 
   const _SiteItem({
     required this.id,
+    this.projectId = '',
     required this.name,
     required this.subtitle,
     required this.location,
     required this.imagePath,
+    this.imageUrl,
     required this.contactPerson,
     required this.contactPhone,
     required this.activeOrdersCount,
@@ -42,6 +48,7 @@ class _SiteItem {
 
   _SiteItem copyWith({
     String? id,
+    String? projectId,
     String? name,
     String? subtitle,
     String? location,
@@ -53,6 +60,7 @@ class _SiteItem {
   }) {
     return _SiteItem(
       id: id ?? this.id,
+      projectId: projectId ?? this.projectId,
       name: name ?? this.name,
       subtitle: subtitle ?? this.subtitle,
       location: location ?? this.location,
@@ -151,10 +159,12 @@ class _SavedSitesScreenState extends State<SavedSitesScreen> {
           .map(
             (location) => _SiteItem(
               id: location.id,
+              projectId: location.projectId,
               name: location.name,
               subtitle: location.projectName,
               location: location.address,
               imagePath: AppAssets.orderThumbPalm,
+              imageUrl: location.imageUrl,
               contactPerson: location.contactName,
               contactPhone: location.contactPhone,
               activeOrdersCount: location.activeOrdersCount,
@@ -297,11 +307,21 @@ class _SavedSitesScreenState extends State<SavedSitesScreen> {
                 ),
               );
             } else {
-              // A saved location alone does not contain the project ID that
-              // the live order APIs require. Send the user to Projects, where
-              // selecting a project starts the current order flow with both
-              // projectId and locationId.
-              AppTabControllerScope.of(context).onSelectTab(AppTab.projects.index);
+              final project = OrderProjectSummary(
+                projectId: selected.projectId,
+                locationId: selected.id,
+                projectName: selected.subtitle,
+                projectSite: selected.subtitle,
+                locationLabel: selected.location,
+                coordinates: LatLng(selected.latitude, selected.longitude),
+              );
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NewCashOrderMixCodeScreen(
+                    draft: NewCashOrderDraft(project: project),
+                  ),
+                ),
+              );
             }
           },
           searchController: _searchController,
@@ -414,14 +434,26 @@ class _ManagementView extends StatelessWidget {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(14),
-                          child: Image.asset(
-                            site.imagePath,
-                            width: 68,
-                            height: 68,
-                            fit: BoxFit.cover,
-                            filterQuality: FilterQuality.high,
-                            isAntiAlias: true,
-                          ),
+                          child:
+                              site.imageUrl != null && site.imageUrl!.isNotEmpty
+                              ? Image.network(
+                                  site.imageUrl!,
+                                  width: 68,
+                                  height: 68,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Image.asset(
+                                    site.imagePath,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Image.asset(
+                                  site.imagePath,
+                                  width: 68,
+                                  height: 68,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.high,
+                                  isAntiAlias: true,
+                                ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -538,9 +570,6 @@ class _PickerView extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const AppBrandHeader(showBack: true),
-      bottomNavigationBar: const AppTabBottomNavBar(
-        currentTab: AppTab.projects,
-      ),
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
@@ -548,7 +577,7 @@ class _PickerView extends StatelessWidget {
             context.scaled(20),
             context.scaledV(4),
             context.scaled(20),
-            context.scaledV(112),
+            context.scaledV(24),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -676,12 +705,25 @@ class _PickerView extends StatelessWidget {
                               borderRadius: BorderRadius.circular(
                                 context.scaled(12),
                               ),
-                              child: Image.asset(
-                                site.imagePath,
-                                width: context.scaled(72),
-                                height: context.scaled(72),
-                                fit: BoxFit.cover,
-                              ),
+                              child:
+                                  site.imageUrl != null &&
+                                      site.imageUrl!.isNotEmpty
+                                  ? Image.network(
+                                      site.imageUrl!,
+                                      width: context.scaled(72),
+                                      height: context.scaled(72),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Image.asset(
+                                        site.imagePath,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      site.imagePath,
+                                      width: context.scaled(72),
+                                      height: context.scaled(72),
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
                             SizedBox(width: context.scaled(14)),
                             Expanded(

@@ -77,8 +77,7 @@ class InvoicesRepositoryImpl implements InvoicesRepository {
       }
     } else {
       try {
-        final cached =
-            await localDataSource.getCachedInvoiceDetail(invoiceId);
+        final cached = await localDataSource.getCachedInvoiceDetail(invoiceId);
         return Right(cached);
       } on CacheException catch (e) {
         return Left(CacheFailure(e.message));
@@ -93,7 +92,7 @@ class InvoicesRepositoryImpl implements InvoicesRepository {
   // -------------------------------------------------------------------------
 
   @override
-  Future<Either<Failure, bool>> downloadInvoice(String invoiceId) async {
+  Future<Either<Failure, String>> downloadInvoice(String invoiceId) async {
     if (await networkInfo.isConnected) {
       try {
         final result = await remoteDataSource.downloadInvoice(invoiceId);

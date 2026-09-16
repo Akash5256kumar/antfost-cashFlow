@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import 'user.dart';
 
-enum AuthNextStep { kyc, home }
+enum AuthNextStep { kyc, home, verifyOtp }
 
 class OtpChallenge extends Equatable {
   const OtpChallenge({

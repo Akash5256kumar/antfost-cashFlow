@@ -75,7 +75,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         showBack: true,
         onBack: _handleBack,
         showChat: true,
-        onChatTap: () => Navigator.of(context).pushNamed(AppRoutes.orderChat),
+        onChatTap: () => Navigator.of(context).pushNamed(
+          AppRoutes.orderChat,
+          arguments: widget.orderId,
+        ),
         onBellTap: () => Navigator.of(context).pushNamed(AppRoutes.notifications),
       ),
       body: AnimatedSwitcher(

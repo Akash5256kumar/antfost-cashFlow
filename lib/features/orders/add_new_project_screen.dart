@@ -55,7 +55,8 @@ class _AddNewProjectScreenState extends State<AddNewProjectScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   String? _selectedType;
-  bool _typeExpanded = true;
+  // Keep the project-type options collapsed until the user opens them.
+  bool _typeExpanded = false;
   final List<ProjectLocationDraft> _locations = [];
 
   @override
@@ -364,8 +365,10 @@ class _AddNewProjectScreenState extends State<AddNewProjectScreen> {
                         children: _projectTypes.map((t) {
                           final on = t.label == _selectedType;
                           return InkWell(
-                            onTap: () =>
-                                setState(() => _selectedType = t.label),
+                            onTap: () => setState(() {
+                              _selectedType = t.label;
+                              _typeExpanded = false;
+                            }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,

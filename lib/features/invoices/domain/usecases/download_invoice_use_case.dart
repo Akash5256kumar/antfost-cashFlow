@@ -6,13 +6,13 @@ import '../../../../core/usecases/usecase.dart';
 import '../repositories/invoices_repository.dart';
 
 /// Triggers a download for a single invoice PDF.
-class DownloadInvoiceUseCase extends UseCase<bool, DownloadInvoiceParams> {
+class DownloadInvoiceUseCase extends UseCase<String, DownloadInvoiceParams> {
   final InvoicesRepository repository;
 
   const DownloadInvoiceUseCase(this.repository);
 
   @override
-  Future<Either<Failure, bool>> call(DownloadInvoiceParams params) {
+  Future<Either<Failure, String>> call(DownloadInvoiceParams params) {
     if (params.invoiceId.trim().isEmpty) {
       return Future.value(
         const Left(ValidationFailure('Invoice ID is required.')),

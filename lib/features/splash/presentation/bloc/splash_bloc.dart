@@ -15,7 +15,7 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
   final GetAppLaunchStateUseCase getAppLaunchStateUseCase;
 
   SplashBloc({required this.getAppLaunchStateUseCase})
-      : super(const SplashInitial()) {
+    : super(const SplashInitial()) {
     on<InitializeSplashEvent>(_onInitialize);
   }
 
@@ -34,7 +34,12 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
 
     result.fold(
       (failure) => emit(SplashError(_mapFailureToMessage(failure))),
-      (launchState) => emit(SplashReady(launchState.destination)),
+      (launchState) => emit(
+        SplashReady(
+          launchState.destination,
+          verificationUnderReview: launchState.verificationUnderReview,
+        ),
+      ),
     );
   }
 

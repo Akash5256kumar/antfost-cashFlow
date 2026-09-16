@@ -17,6 +17,10 @@ class AppTextField extends StatefulWidget {
   final List<TextInputFormatter>? inputFormatters;
   final int? maxLines;
   final String? Function(String?)? validator;
+
+  /// Error returned by the API for this specific field. This takes precedence
+  /// over local validation until the user edits the value again.
+  final String? errorText;
   final AutovalidateMode? autovalidateMode;
   final ValueChanged<String>? onChanged;
   final TextInputAction? textInputAction;
@@ -42,6 +46,7 @@ class AppTextField extends StatefulWidget {
     this.inputFormatters,
     this.maxLines = 1,
     this.validator,
+    this.errorText,
     this.autovalidateMode,
     this.onChanged,
     this.textInputAction,
@@ -155,6 +160,7 @@ class _AppTextFieldState extends State<AppTextField> {
                     ),
                     decoration: InputDecoration(
                       labelText: widget.labelOutside ? null : widget.label,
+                      errorText: widget.errorText,
                       labelStyle: TextStyle(
                         color: _active
                             ? AppColors.primary

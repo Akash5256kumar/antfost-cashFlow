@@ -17,6 +17,7 @@ import '../../core/widgets/svg_embedded_raster_image.dart';
 import 'presentation/bloc/auth_bloc.dart';
 import 'presentation/bloc/auth_event.dart';
 import 'presentation/bloc/auth_state.dart';
+import 'domain/entities/auth_flow.dart';
 
 /// Ported from the new Figma design's `screens/Login.tsx` — a Business /
 /// Individual segmented toggle drives the copy and the credential field's
@@ -34,6 +35,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   final TextEditingController _contactController = TextEditingController();
   final TextEditingController _passcodeController = TextEditingController();
+  Map<String, String> _serverErrors = const {};
 
   @override
   void dispose() {
@@ -67,8 +69,17 @@ class _SignInScreenState extends State<SignInScreen> {
         if (!context.mounted || !isCurrentRoute(context)) return;
 
         if (state is AuthSuccess) {
-          Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+          final destination =
+              state.nextStep == AuthNextStep.kyc ||
+                  state.user.kycStatus == 'not_submitted'
+              ? AppRoutes.kycVerification
+              : AppRoutes.home;
+          Navigator.of(context).pushReplacementNamed(
+            destination,
+            arguments: destination == AppRoutes.kycVerification ? true : null,
+          );
         } else if (state is AuthError) {
+          setState(() => _serverErrors = state.fields);
           showSingleSnackBar(
             context,
             SnackBar(
@@ -168,6 +179,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           onChanged: (i) => setState(() {
                             _modeIndex = i;
                             _contactController.clear();
+                            _serverErrors = const {};
                           }),
                         ),
                         SizedBox(height: context.scaledV(16)),
@@ -176,6 +188,9 @@ class _SignInScreenState extends State<SignInScreen> {
                               ? 'BUSINESS USERNAME'
                               : 'MOBILE NUMBER OR USERNAME',
                           controller: _contactController,
+                          errorText: _serverErrors['usernameOrMobile'],
+                          onChanged: (_) =>
+                              _clearServerError('usernameOrMobile'),
                           leadingIcon: _isBusiness
                               ? Icons.lock_outline
                               : Icons.person_outline,
@@ -194,6 +209,8 @@ class _SignInScreenState extends State<SignInScreen> {
                           label: 'PASSWORD',
                           obscureText: true,
                           controller: _passcodeController,
+                          errorText: _serverErrors['password'],
+                          onChanged: (_) => _clearServerError('password'),
                           leadingIcon: Icons.lock_outline,
                           validator: InputValidators.password,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -269,5 +286,10 @@ class _SignInScreenState extends State<SignInScreen> {
         );
       },
     );
+  }
+
+  void _clearServerError(String field) {
+    if (!_serverErrors.containsKey(field)) return;
+    setState(() => _serverErrors = Map.of(_serverErrors)..remove(field));
   }
 }

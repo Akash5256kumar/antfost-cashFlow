@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../app/config/app_assets.dart';
 import '../../domain/entities/onboarding_page.dart';
 import '../models/onboarding_page_model.dart';
@@ -18,10 +19,12 @@ abstract class OnboardingLocalDataSource {
 // Mock implementation — replace with SharedPreferences when persistence needed.
 // ---------------------------------------------------------------------------
 
-/// Mock local data source backed by an in-memory flag and static page content.
-class MockOnboardingLocalDataSource implements OnboardingLocalDataSource {
-  /// In-memory flag tracking whether onboarding has been completed.
-  bool _isComplete = false;
+/// Real local data source backed by SharedPreferences.
+class SharedPrefsOnboardingLocalDataSource implements OnboardingLocalDataSource {
+  SharedPrefsOnboardingLocalDataSource(this.prefs);
+
+  final SharedPreferences prefs;
+  static const _onboardingCompleteKey = 'ONBOARDING_COMPLETE';
 
   /// Static list of onboarding slides returned to callers.
   static const List<OnboardingPageModel> _staticPages = [
@@ -52,11 +55,11 @@ class MockOnboardingLocalDataSource implements OnboardingLocalDataSource {
 
   @override
   Future<void> setOnboardingComplete() async {
-    _isComplete = true;
+    await prefs.setBool(_onboardingCompleteKey, true);
   }
 
   @override
   Future<bool> isOnboardingComplete() async {
-    return _isComplete;
+    return prefs.getBool(_onboardingCompleteKey) ?? false;
   }
 }

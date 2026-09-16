@@ -75,7 +75,7 @@ class InputValidators {
   static String? password(String? value) {
     final requiredError = required(value, 'Password');
     if (requiredError != null) return requiredError;
-    if (value!.length < 8) return 'Password must be at least 8 characters.';
+    if (value!.length < 6) return 'Password must be at least 6 characters.';
     return null;
   }
 
@@ -83,7 +83,7 @@ class InputValidators {
     if (value == null || value.isEmpty) return 'Confirm your password.';
     // Wait until the user has entered a complete password before showing a
     // mismatch error; this avoids flashing an error on the first character.
-    if (value.length < 8) return null;
+    if (value.length < 6) return null;
     return password == value ? null : 'Passwords do not match.';
   }
 

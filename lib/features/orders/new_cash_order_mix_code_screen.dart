@@ -23,6 +23,7 @@ class MixCodeItem {
     required this.imagePath,
     required this.mpa,
     required this.psi,
+    this.available = true,
   });
 
   final String code;
@@ -33,6 +34,7 @@ class MixCodeItem {
   final String imagePath;
   final String mpa;
   final String psi;
+  final bool available;
 }
 
 // ── Sample data ───────────────────────────────────────────────────────────────
@@ -69,6 +71,16 @@ const kSampleMixCodes = [
     psi: '4,351 PSI',
   ),
 ];
+
+String _catalogueImage(dynamic value) {
+  if (value is String && value.isNotEmpty) return value;
+  if (value is List) {
+    for (final url in value.whereType<String>()) {
+      if (url.isNotEmpty) return url;
+    }
+  }
+  return AppAssets.mixThumb1;
+}
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -112,17 +124,19 @@ class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
       if (!mounted) return;
       setState(() {
         _mixCodes = items
-            .where((item) => item['available'] != false)
             .map(
               (item) => MixCodeItem(
-                code: item['code'] as String? ?? '',
+                // The live API may return numeric codes (e.g. 83), while the
+                // OpenAPI contract declares a string. Normalize both forms.
+                code: item['code']?.toString() ?? '',
                 type: item['type'] as String? ?? '',
                 pricePerM3: (item['pricePerM3'] as num?)?.round() ?? 0,
                 aggregateSize: item['aggregateSize'] as String? ?? '',
                 slump: item['slump'] as String? ?? '',
-                imagePath: AppAssets.mixThumb1,
+                imagePath: _catalogueImage(item['imageUrl']),
                 mpa: item['mpa'] as String? ?? '',
                 psi: item['psi'] as String? ?? '',
+                available: item['available'] != false,
               ),
             )
             .where((item) => item.code.isNotEmpty)
@@ -160,7 +174,7 @@ class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
   }
 
   void _onContinue() {
-    if (_selected == null) return;
+    if (_selected == null || !_selected!.available) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => NewCashOrderQuantityScreen(
@@ -267,7 +281,9 @@ class _NewCashOrderMixCodeScreenState extends State<NewCashOrderMixCodeScreen> {
                             child: _MixCodeCard(
                               item: item,
                               isSelected: isSelected,
-                              onTap: () => setState(() => _selected = item),
+                              onTap: item.available
+                                  ? () => setState(() => _selected = item)
+                                  : null,
                             ),
                           );
                         }),
@@ -299,7 +315,7 @@ class _MixCodeCard extends StatelessWidget {
 
   final MixCodeItem item;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -331,22 +347,17 @@ class _MixCodeCard extends StatelessWidget {
             SizedBox(
               width: context.scaled(72),
               height: context.scaled(72),
-              child: Image.asset(
-                item.imagePath,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(context.scaled(12)),
+              child: item.imagePath.startsWith('http')
+                  ? Image.network(
+                      item.imagePath,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => _imageFallback(context),
+                    )
+                  : Image.asset(
+                      item.imagePath,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => _imageFallback(context),
                     ),
-                    child: const Icon(
-                      Icons.inventory_2_outlined,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                  );
-                },
-              ),
             ),
             SizedBox(width: context.scaled(14)),
 
@@ -418,6 +429,14 @@ class _MixCodeCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _imageFallback(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(context.scaled(12)),
+    ),
+    child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF9CA3AF)),
+  );
 }
 
 class _Badge extends StatelessWidget {

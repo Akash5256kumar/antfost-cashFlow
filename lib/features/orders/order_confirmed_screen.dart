@@ -126,7 +126,7 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                   const Spacer(),
                   IconButton(
                     onPressed: () =>
-                        Navigator.of(context).pushNamed(AppRoutes.orderChat),
+                        Navigator.of(context).pushNamed(AppRoutes.orderChat, arguments: widget.orderId),
                     icon: const Icon(
                       Icons.chat_bubble_outline_rounded,
                       color: AppColors.primary,
@@ -548,7 +548,7 @@ class _OrderConfirmedScreenState extends State<OrderConfirmedScreen> {
                     height: context.scaled(52),
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        Navigator.of(context).pushNamed(AppRoutes.orderChat);
+                        Navigator.of(context).pushNamed(AppRoutes.orderChat, arguments: widget.orderId);
                       },
                       icon: const Icon(
                         Icons.chat_bubble_outline_rounded,

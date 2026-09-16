@@ -16,6 +16,9 @@ class CompanyInfoScreen extends StatefulWidget {
 
 class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
   bool _isEditing = false;
+  bool _isLoading = true;
+  String? _loadError;
+  String? _kycStatus;
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _legalNameController;
@@ -31,27 +34,15 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
   @override
   void initState() {
     super.initState();
-    _legalNameController = TextEditingController(
-      text: 'Arabian Contracting Co. LLC',
-    );
-    _tradeNameController = TextEditingController(
-      text: 'ACC Infrastructure & ReadyMix',
-    );
-    _licenseNoController = TextEditingController(text: 'DED-CN-849201');
-    _trnController = TextEditingController(text: '100293847500003');
-    _industryController = TextEditingController(
-      text: 'Civil Contracting & Infrastructure',
-    );
-    _addressController = TextEditingController(
-      text: 'Plot 402, ADGM Square, Al Maryah Island, Abu Dhabi, UAE',
-    );
-    _emailController = TextEditingController(
-      text: 'procurement@arabiancontracting.ae',
-    );
-    _phoneController = TextEditingController(text: '+971 2 648 2900');
-    _websiteController = TextEditingController(
-      text: 'https://www.arabiancontracting.ae',
-    );
+    _legalNameController = TextEditingController();
+    _tradeNameController = TextEditingController();
+    _licenseNoController = TextEditingController();
+    _trnController = TextEditingController();
+    _industryController = TextEditingController();
+    _addressController = TextEditingController();
+    _emailController = TextEditingController();
+    _phoneController = TextEditingController();
+    _websiteController = TextEditingController();
     _loadCompany();
   }
 
@@ -69,11 +60,40 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         _emailController.text = d['officialEmail'] as String? ?? '';
         _phoneController.text = d['corporatePhone'] as String? ?? '';
         _websiteController.text = d['website'] as String? ?? '';
+        _kycStatus = d['kyc']?.toString().toLowerCase();
+        _isLoading = false;
+        _loadError = null;
       });
-    } catch (_) {
-      // Keep the seeded values visible when the endpoint is unavailable.
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = error.toString().replaceFirst('Exception: ', '');
+      });
     }
   }
+
+  String get _kycLabel => switch (_kycStatus) {
+    'approved' => 'KYC Verified Business Account',
+    'under_review' || 'pending' => 'KYC Under Review',
+    'partially_submitted' => 'KYC Details Required',
+    'rejected' => 'KYC Action Required',
+    _ => 'KYC Not Submitted',
+  };
+
+  IconData get _kycIcon => switch (_kycStatus) {
+    'approved' => Icons.verified_rounded,
+    'under_review' || 'pending' => Icons.hourglass_top_rounded,
+    'rejected' => Icons.error_outline_rounded,
+    _ => Icons.info_outline_rounded,
+  };
+
+  Color get _kycIconColor => switch (_kycStatus) {
+    'approved' => const Color(0xFF6EE7B7),
+    'under_review' || 'pending' => const Color(0xFFFFD166),
+    'rejected' => const Color(0xFFFFA3A3),
+    _ => const Color(0xFFB9C6FF),
+  };
 
   @override
   void dispose() {
@@ -147,13 +167,15 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         centerTitle: true,
         actions: [
           TextButton(
-            onPressed: () {
-              if (_isEditing) {
-                _saveChanges();
-              } else {
-                setState(() => _isEditing = true);
-              }
-            },
+            onPressed: _isLoading || _loadError != null
+                ? null
+                : () {
+                    if (_isEditing) {
+                      _saveChanges();
+                    } else {
+                      setState(() => _isEditing = true);
+                    }
+                  },
             child: Text(
               _isEditing ? 'Done' : 'Edit',
               style: TextStyle(
@@ -166,199 +188,221 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(context.scaled(16)),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Company Badge Banner
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(context.scaled(18)),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.primary, Color(0xFF8B80FF)],
-                    ),
-                    borderRadius: BorderRadius.circular(context.scaled(18)),
-                  ),
-                  child: Row(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _loadError != null
+            ? _CompanyLoadError(
+                message: _loadError!,
+                onRetry: () {
+                  setState(() {
+                    _isLoading = true;
+                    _loadError = null;
+                  });
+                  _loadCompany();
+                },
+              )
+            : SingleChildScrollView(
+                padding: EdgeInsets.all(context.scaled(16)),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Company Badge Banner
                       Container(
-                        width: context.scaled(56),
-                        height: context.scaled(56),
+                        width: double.infinity,
+                        padding: EdgeInsets.all(context.scaled(18)),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [AppColors.primary, Color(0xFF8B80FF)],
+                          ),
                           borderRadius: BorderRadius.circular(
-                            context.scaled(14),
+                            context.scaled(18),
                           ),
                         ),
-                        child: Icon(
-                          Icons.apartment_rounded,
-                          size: context.scaled(32),
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      SizedBox(width: context.scaled(14)),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Text(
-                              _legalNameController.text,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: context.scaled(17),
-                                fontWeight: FontWeight.w700,
+                            Container(
+                              width: context.scaled(56),
+                              height: context.scaled(56),
+                              decoration: BoxDecoration(
                                 color: Colors.white,
+                                borderRadius: BorderRadius.circular(
+                                  context.scaled(14),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.apartment_rounded,
+                                size: context.scaled(32),
+                                color: AppColors.primary,
                               ),
                             ),
-                            SizedBox(height: context.scaledV(4)),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  size: 16,
-                                  color: Color(0xFF6EE7B7),
-                                ),
-                                SizedBox(width: context.scaled(4)),
-                                Expanded(
-                                  child: Text(
-                                    'KYC Verified Business Account',
-                                    maxLines: 1,
+                            SizedBox(width: context.scaled(14)),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _legalNameController.text,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: context.scaled(12),
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.9,
-                                      ),
+                                      fontSize: context.scaled(17),
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
                                     ),
                                   ),
-                                ),
-                              ],
+                                  SizedBox(height: context.scaledV(4)),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        _kycIcon,
+                                        size: 16,
+                                        color: _kycIconColor,
+                                      ),
+                                      SizedBox(width: context.scaled(4)),
+                                      Expanded(
+                                        child: Text(
+                                          _kycLabel,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: context.scaled(12),
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.9,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: context.scaledV(20)),
+                      SizedBox(height: context.scaledV(20)),
 
-                // Legal & Tax Identification
-                _buildSectionHeader('Legal & Tax Registration'),
-                SizedBox(height: context.scaledV(10)),
-                Container(
-                  padding: EdgeInsets.all(context.scaled(16)),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(context.scaled(18)),
-                    border: Border.all(color: const Color(0xFFEAEAEA)),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildInfoField(
-                        label: 'Legal Entity Name',
-                        controller: _legalNameController,
-                        icon: Icons.business_rounded,
-                        isEditing: _isEditing,
-                        validator: (value) => InputValidators.fullName(
-                          value,
-                          fieldName: 'Legal entity name',
+                      // Legal & Tax Identification
+                      _buildSectionHeader('Legal & Tax Registration'),
+                      SizedBox(height: context.scaledV(10)),
+                      Container(
+                        padding: EdgeInsets.all(context.scaled(16)),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(18),
+                          ),
+                          border: Border.all(color: const Color(0xFFEAEAEA)),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildInfoField(
+                              label: 'Legal Entity Name',
+                              controller: _legalNameController,
+                              icon: Icons.business_rounded,
+                              isEditing: _isEditing,
+                              validator: (value) => InputValidators.fullName(
+                                value,
+                                fieldName: 'Legal entity name',
+                              ),
+                            ),
+                            _divider(),
+                            _buildInfoField(
+                              label: 'Commercial Trade Name',
+                              controller: _tradeNameController,
+                              icon: Icons.storefront_rounded,
+                              isEditing: _isEditing,
+                              validator: (value) => InputValidators.fullName(
+                                value,
+                                fieldName: 'Commercial trade name',
+                              ),
+                            ),
+                            _divider(),
+                            _buildInfoField(
+                              label: 'Trade License Number',
+                              controller: _licenseNoController,
+                              icon: Icons.assignment_outlined,
+                              isEditing: _isEditing,
+                              validator: (value) =>
+                                  InputValidators.tradeRegistration(
+                                    value,
+                                    'Trade license number',
+                                  ),
+                            ),
+                            _divider(),
+                            _buildInfoField(
+                              label: 'Tax Registration Number (TRN / VAT)',
+                              controller: _trnController,
+                              icon: Icons.receipt_long_outlined,
+                              isEditing: _isEditing,
+                              validator: InputValidators.trn,
+                            ),
+                          ],
                         ),
                       ),
-                      _divider(),
-                      _buildInfoField(
-                        label: 'Commercial Trade Name',
-                        controller: _tradeNameController,
-                        icon: Icons.storefront_rounded,
-                        isEditing: _isEditing,
-                        validator: (value) => InputValidators.fullName(
-                          value,
-                          fieldName: 'Commercial trade name',
-                        ),
-                      ),
-                      _divider(),
-                      _buildInfoField(
-                        label: 'Trade License Number',
-                        controller: _licenseNoController,
-                        icon: Icons.assignment_outlined,
-                        isEditing: _isEditing,
-                        validator: (value) => InputValidators.tradeRegistration(
-                          value,
-                          'Trade license number',
-                        ),
-                      ),
-                      _divider(),
-                      _buildInfoField(
-                        label: 'Tax Registration Number (TRN / VAT)',
-                        controller: _trnController,
-                        icon: Icons.receipt_long_outlined,
-                        isEditing: _isEditing,
-                        validator: InputValidators.trn,
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: context.scaledV(20)),
+                      SizedBox(height: context.scaledV(20)),
 
-                // Corporate Contact Details
-                _buildSectionHeader('Contact & Headquarters Address'),
-                SizedBox(height: context.scaledV(10)),
-                Container(
-                  padding: EdgeInsets.all(context.scaled(16)),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(context.scaled(18)),
-                    border: Border.all(color: const Color(0xFFEAEAEA)),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildInfoField(
-                        label: 'Office Address',
-                        controller: _addressController,
-                        icon: Icons.location_on_outlined,
-                        isEditing: _isEditing,
-                        validator: (value) =>
-                            InputValidators.required(value, 'Office address'),
+                      // Corporate Contact Details
+                      _buildSectionHeader('Contact & Headquarters Address'),
+                      SizedBox(height: context.scaledV(10)),
+                      Container(
+                        padding: EdgeInsets.all(context.scaled(16)),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(18),
+                          ),
+                          border: Border.all(color: const Color(0xFFEAEAEA)),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildInfoField(
+                              label: 'Office Address',
+                              controller: _addressController,
+                              icon: Icons.location_on_outlined,
+                              isEditing: _isEditing,
+                              validator: (value) => InputValidators.required(
+                                value,
+                                'Office address',
+                              ),
+                            ),
+                            _divider(),
+                            _buildInfoField(
+                              label: 'Official Email',
+                              controller: _emailController,
+                              icon: Icons.mail_outline_rounded,
+                              isEditing: _isEditing,
+                              validator: InputValidators.email,
+                            ),
+                            _divider(),
+                            _buildInfoField(
+                              label: 'Corporate Landline Phone',
+                              controller: _phoneController,
+                              icon: Icons.phone_outlined,
+                              isEditing: _isEditing,
+                              validator: InputValidators.phone,
+                            ),
+                            _divider(),
+                            _buildInfoField(
+                              label: 'Company Website',
+                              controller: _websiteController,
+                              icon: Icons.language_rounded,
+                              isEditing: _isEditing,
+                              validator: InputValidators.website,
+                            ),
+                          ],
+                        ),
                       ),
-                      _divider(),
-                      _buildInfoField(
-                        label: 'Official Email',
-                        controller: _emailController,
-                        icon: Icons.mail_outline_rounded,
-                        isEditing: _isEditing,
-                        validator: InputValidators.email,
-                      ),
-                      _divider(),
-                      _buildInfoField(
-                        label: 'Corporate Landline Phone',
-                        controller: _phoneController,
-                        icon: Icons.phone_outlined,
-                        isEditing: _isEditing,
-                        validator: InputValidators.phone,
-                      ),
-                      _divider(),
-                      _buildInfoField(
-                        label: 'Company Website',
-                        controller: _websiteController,
-                        icon: Icons.language_rounded,
-                        isEditing: _isEditing,
-                        validator: InputValidators.website,
-                      ),
+                      SizedBox(height: context.scaledV(20)),
                     ],
                   ),
                 ),
-                SizedBox(height: context.scaledV(20)),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
       bottomNavigationBar: _isEditing
           ? SafeArea(
@@ -474,6 +518,36 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CompanyLoadError extends StatelessWidget {
+  const _CompanyLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 44,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
       ),
     );
   }

@@ -27,6 +27,7 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
   final _formKey = GlobalKey<FormState>();
   int _tabIndex = 0; // 0 = Email, 1 = Phone
   final _controller = TextEditingController();
+  Map<String, String> _serverErrors = const {};
 
   /// Returns `true` when the Email tab is active.
   bool get _isEmail => _tabIndex == 0;
@@ -65,9 +66,12 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
               isEmail: _isEmail,
               flow: VerifyAccountFlow.passwordRecovery,
               verificationId: state.challenge.verificationId,
+              expiresAt: state.challenge.expiresAt,
+              resendAvailableAt: state.challenge.resendAvailableAt,
             ),
           );
         } else if (state is AuthError) {
+          setState(() => _serverErrors = state.fields);
           showSingleSnackBar(context, SnackBar(content: Text(state.message)));
         }
       },
@@ -121,6 +125,7 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
                       setState(() {
                         _tabIndex = i;
                         _controller.clear();
+                        _serverErrors = const {};
                         _formKey.currentState?.reset();
                       });
                     },
@@ -134,6 +139,8 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
                     label: _tabIndex == 0 ? 'Email' : 'Phone Number',
                     hint: _tabIndex == 0 ? 'Sample.email@.com' : '501 234 567',
                     controller: _controller,
+                    errorText: _serverErrors['contact'],
+                    onChanged: (_) => _clearServerError('contact'),
                     keyboardType: _tabIndex == 0
                         ? TextInputType.emailAddress
                         : TextInputType.phone,
@@ -167,5 +174,10 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
         );
       },
     );
+  }
+
+  void _clearServerError(String field) {
+    if (!_serverErrors.containsKey(field)) return;
+    setState(() => _serverErrors = Map.of(_serverErrors)..remove(field));
   }
 }

@@ -15,6 +15,7 @@ import '../../core/widgets/app_status_badge.dart';
 import '../../core/widgets/svg_embedded_raster_image.dart';
 import 'domain/entities/order.dart' as order_entity;
 import 'order_details_screen.dart';
+import '../payment/price_breakdown_screen.dart';
 import 'presentation/bloc/orders_bloc.dart';
 import 'presentation/bloc/orders_event.dart';
 import 'presentation/bloc/orders_state.dart';
@@ -48,12 +49,28 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   }
 
   void _openOrder(order_entity.Order o) {
+    // Drafts/awaiting-payment orders have not entered fulfilment. ContinueR
+    // their payment journey instead of presenting delivery tracking.
+    if (o.status == order_entity.OrderStatusType.draft ||
+        o.status == order_entity.OrderStatusType.pending) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PriceBreakdownScreen(
+            orderId: o.orderId,
+            projectName: o.location,
+            mixCode: o.grade,
+            quantity:
+                int.tryParse(o.volume.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0,
+            deliveryDate: o.date,
+          ),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => OrderDetailsScreen(
-          orderId: o.orderId,
-          projectName: o.location,
-        ),
+        builder: (_) =>
+            OrderDetailsScreen(orderId: o.orderId, projectName: o.location),
       ),
     );
   }
@@ -375,13 +392,17 @@ class _OrderRow extends StatelessWidget {
               AppStatusTone.completed,
               'Completed',
             ),
-          order_entity.OrderStatusType.draft => (
+            order_entity.OrderStatusType.draft => (
               AppStatusTone.review,
               'Draft',
             ),
             order_entity.OrderStatusType.pending => (
               AppStatusTone.review,
-              'Pending payment',
+              'Pending',
+            ),
+            order_entity.OrderStatusType.confirmed => (
+              AppStatusTone.scheduled,
+              'Confirmed',
             ),
           };
     final thumbnail = AppAssets.orderThumbnailFor(
@@ -404,12 +425,25 @@ class _OrderRow extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(11),
-              child: SvgEmbeddedRasterImage(
-                assetPath: thumbnail,
-                width: 94,
-                height: 94,
-                fit: BoxFit.cover,
-              ),
+              child: order.imageUrl?.startsWith('http') == true
+                  ? Image.network(
+                      order.imageUrl!,
+                      width: 94,
+                      height: 94,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => SvgEmbeddedRasterImage(
+                        assetPath: thumbnail,
+                        width: 94,
+                        height: 94,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : SvgEmbeddedRasterImage(
+                      assetPath: thumbnail,
+                      width: 94,
+                      height: 94,
+                      fit: BoxFit.cover,
+                    ),
             ),
             const SizedBox(width: 14),
             Expanded(

@@ -39,7 +39,9 @@ class DocumentApiService {
     String mimeType,
   ) async {
     try {
-      await Dio().put<void>(
+      // Use the shared client even for the raw upload. The v1.1 upload URL is
+      // an API endpoint and still requires the current bearer token.
+      await _client.dio.put<void>(
         uploadUrl,
         data: await File(path).readAsBytes(),
         options: Options(headers: {'Content-Type': mimeType}),
@@ -62,6 +64,12 @@ class DocumentApiService {
         throw const ServerException('Documents response is invalid.');
       return items.whereType<Map>().map(Map<String, dynamic>.from).toList();
     } on DioException catch (e) {
+      final data = e.response?.data;
+      if (e.response?.statusCode == 404 &&
+          data is Map &&
+          data['code'] == 'NO_DOCUMENTS_FOUND') {
+        return const [];
+      }
       throw _error(e, 'Unable to load documents.');
     }
   }

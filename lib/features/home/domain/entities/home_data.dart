@@ -13,6 +13,7 @@ class ActiveOrder extends Equatable {
   final String volume;
   final String date;
   final double amount;
+  final String? imageUrl;
 
   /// Number of m³ already delivered — null when order is not yet in progress.
   final int? delivered;
@@ -29,6 +30,7 @@ class ActiveOrder extends Equatable {
     required this.volume,
     required this.date,
     required this.amount,
+    this.imageUrl,
     this.delivered,
     this.total,
   });
@@ -43,6 +45,7 @@ class ActiveOrder extends Equatable {
     volume,
     date,
     amount,
+    imageUrl,
     delivered,
     total,
   ];
@@ -54,12 +57,16 @@ class HomeData extends Equatable {
   final String companyName;
   final List<ActiveOrder> activeOrders;
   final int projectCount;
+  final String accountType;
+  final String nextStep;
 
   const HomeData({
     required this.userName,
     required this.companyName,
     required this.activeOrders,
     this.projectCount = 0,
+    this.accountType = 'individual',
+    this.nextStep = 'home',
   });
 
   @override
@@ -68,5 +75,7 @@ class HomeData extends Equatable {
     companyName,
     activeOrders,
     projectCount,
+    accountType,
+    nextStep,
   ];
 }

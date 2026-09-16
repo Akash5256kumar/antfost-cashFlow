@@ -1,132 +1,107 @@
 import 'package:flutter/material.dart';
 
+import '../../app/di/injection.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
-import '../../core/widgets/primary_button.dart';
+import '../../core/errors/exceptions.dart';
+import '../../core/services/document_api_service.dart';
 
 enum _DocCategory { corporate, quality }
 
-enum _DocStatus { verified, expiringSoon, pendingReview }
+enum _DocStatus { uploaded, underReview, verified, rejected }
 
 class _DocItem {
-  final String id;
-  final String title;
-  final String docNumber;
-  final String fileFormat;
-  final String fileSize;
-  final String issueDate;
-  final String expiryDate;
-  final _DocCategory category;
-  final _DocStatus status;
-
   const _DocItem({
     required this.id,
-    required this.title,
-    required this.docNumber,
-    required this.fileFormat,
-    required this.fileSize,
-    required this.issueDate,
-    required this.expiryDate,
-    required this.category,
+    required this.type,
+    required this.fileName,
+    required this.mimeType,
     required this.status,
+    required this.uploadedAt,
+    required this.fileUrl,
   });
+
+  factory _DocItem.fromApi(Map<String, dynamic> json) => _DocItem(
+    id: json['id']?.toString() ?? '',
+    type: json['type']?.toString() ?? 'Document',
+    fileName: json['fileName']?.toString() ?? 'Uploaded document',
+    mimeType: json['mimeType']?.toString() ?? 'application/pdf',
+    status: _statusFrom(json['status']?.toString()),
+    uploadedAt: DateTime.tryParse(json['uploadedAt']?.toString() ?? ''),
+    fileUrl: json['fileUrl']?.toString() ?? '',
+  );
+
+  final String id;
+  final String type;
+  final String fileName;
+  final String mimeType;
+  final _DocStatus status;
+  final DateTime? uploadedAt;
+  final String fileUrl;
+
+  _DocCategory get category {
+    final value = type.toLowerCase();
+    return value.contains('quality') ||
+            value.contains('pour') ||
+            value.contains('permit') ||
+            value.contains('cube') ||
+            value.contains('slump') ||
+            value.contains('test')
+        ? _DocCategory.quality
+        : _DocCategory.corporate;
+  }
+
+  String get title => _displayType(type);
+  String get fileFormat => mimeType == 'application/pdf'
+      ? 'PDF'
+      : mimeType == 'image/png'
+      ? 'PNG'
+      : 'JPG';
+
+  static _DocStatus _statusFrom(String? value) => switch (value
+      ?.toLowerCase()) {
+    'verified' || 'approved' => _DocStatus.verified,
+    'rejected' => _DocStatus.rejected,
+    'under_review' || 'pending_review' || 'pending' => _DocStatus.underReview,
+    _ => _DocStatus.uploaded,
+  };
+}
+
+String _displayType(String type) {
+  const labels = {
+    'tradeLicense': 'Commercial Trade License',
+    'vatCertificate': 'VAT Certificate',
+    'authorizedPersonId': 'Authorized Person ID',
+  };
+  if (labels.containsKey(type)) return labels[type]!;
+  return type
+      .replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]}')
+      .replaceAll('_', ' ')
+      .split(' ')
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
 }
 
 class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key});
-
   @override
   State<DocumentsScreen> createState() => _DocumentsScreenState();
 }
 
 class _DocumentsScreenState extends State<DocumentsScreen>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  final List<_DocItem> _documents = [
-    const _DocItem(
-      id: 'doc_1',
-      title: 'Commercial Trade License',
-      docNumber: 'DED-CN-849201',
-      fileFormat: 'PDF',
-      fileSize: '3.2 MB',
-      issueDate: '12 Jan 2025',
-      expiryDate: '11 Jan 2027',
-      category: _DocCategory.corporate,
-      status: _DocStatus.verified,
-    ),
-    const _DocItem(
-      id: 'doc_2',
-      title: 'Federal Tax Authority (TRN / VAT)',
-      docNumber: 'TRN-100293847500003',
-      fileFormat: 'PDF',
-      fileSize: '1.8 MB',
-      issueDate: '01 Feb 2024',
-      expiryDate: 'Permanent',
-      category: _DocCategory.corporate,
-      status: _DocStatus.verified,
-    ),
-    const _DocItem(
-      id: 'doc_3',
-      title: 'Authorized Signatory Emirates ID',
-      docNumber: '784-1988-2940182-1',
-      fileFormat: 'PDF',
-      fileSize: '2.1 MB',
-      issueDate: '15 Mar 2023',
-      expiryDate: '14 Mar 2026',
-      category: _DocCategory.corporate,
-      status: _DocStatus.expiringSoon,
-    ),
-    const _DocItem(
-      id: 'doc_4',
-      title: 'Chamber of Commerce Certificate',
-      docNumber: 'ADCCI-99482',
-      fileFormat: 'PDF',
-      fileSize: '1.4 MB',
-      issueDate: '10 Jan 2025',
-      expiryDate: '09 Jan 2026',
-      category: _DocCategory.corporate,
-      status: _DocStatus.verified,
-    ),
-    const _DocItem(
-      id: 'doc_5',
-      title: 'Municipality Night Pouring Permit (NOC)',
-      docNumber: 'ADM-NOC-2026-0419',
-      fileFormat: 'PDF',
-      fileSize: '4.5 MB',
-      issueDate: '01 Feb 2026',
-      expiryDate: '28 Feb 2026',
-      category: _DocCategory.quality,
-      status: _DocStatus.verified,
-    ),
-    const _DocItem(
-      id: 'doc_6',
-      title: 'Concrete Mix QA / Slump Test Report',
-      docNumber: 'QA-C35/45-9821',
-      fileFormat: 'PDF',
-      fileSize: '2.9 MB',
-      issueDate: '05 Feb 2026',
-      expiryDate: 'Valid for Al Reef Site',
-      category: _DocCategory.quality,
-      status: _DocStatus.verified,
-    ),
-    const _DocItem(
-      id: 'doc_7',
-      title: 'Cube 28-Day Strength Approval',
-      docNumber: 'LAB-COMPR-2026',
-      fileFormat: 'PDF',
-      fileSize: '1.9 MB',
-      issueDate: '08 Feb 2026',
-      expiryDate: 'Under Review',
-      category: _DocCategory.quality,
-      status: _DocStatus.pendingReview,
-    ),
-  ];
+  late final TabController _tabController;
+  final DocumentApiService _documentsApi = sl<DocumentApiService>();
+  List<_DocItem> _documents = const [];
+  bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadDocuments();
   }
 
   @override
@@ -135,241 +110,84 @@ class _DocumentsScreenState extends State<DocumentsScreen>
     super.dispose();
   }
 
-  void _showPreviewModal(_DocItem doc) {
-    showDialog<void>(
+  Future<void> _loadDocuments() async {
+    if (mounted)
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    try {
+      final documents = await _documentsApi.list();
+      if (!mounted) return;
+      setState(() => _documents = documents.map(_DocItem.fromApi).toList());
+    } on ServerException catch (error) {
+      if (mounted) setState(() => _loadError = error.message);
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => _loadError = 'Unable to load documents. Please try again.',
+        );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        backgroundColor: isError ? AppColors.error : AppColors.primary,
+        content: Text(message),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(_DocItem document) async {
+    final shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(context.scaled(18)),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.picture_as_pdf_rounded,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                doc.title,
-                style: TextStyle(
-                  fontSize: context.scaled(16),
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1A1A1A),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _dialogDetailRow('Document ID', doc.docNumber),
-            _dialogDetailRow(
-              'Format & Size',
-              '${doc.fileFormat} • ${doc.fileSize}',
-            ),
-            _dialogDetailRow('Issued Date', doc.issueDate),
-            _dialogDetailRow('Expiry / Validity', doc.expiryDate),
-            const SizedBox(height: 12),
-            Container(
-              height: 120,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F3F7),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E5E8)),
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.verified_user_rounded,
-                    color: Color(0xFF10B981),
-                    size: 36,
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Digitally Certified Document',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF333333),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      builder: (context) => AlertDialog(
+        title: const Text('Delete document?'),
+        content: Text('${document.title} will be removed from your documents.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Downloading ${doc.title}...'),
-                  backgroundColor: AppColors.primary,
-                ),
-              );
-            },
-            icon: const Icon(
-              Icons.download_rounded,
-              size: 16,
-              color: Colors.white,
-            ),
-            label: const Text(
-              'Download PDF',
-              style: TextStyle(color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
-  }
-
-  Widget _dialogDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: Color(0xFF888888), fontSize: 13),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1A1A),
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showUploadSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(context.scaled(24)),
-        ),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.all(context.scaled(20)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0E0E0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Upload Document',
-              style: TextStyle(
-                fontSize: context.scaled(18),
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A1A1A),
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Upload company license, VAT cert or municipality pouring permit (PDF/JPG)',
-              style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F8FA),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFD4D4D4),
-                  style: BorderStyle.solid,
-                ),
-              ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.cloud_upload_outlined,
-                    size: 44,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Tap to browse files',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'PDF, JPG, PNG up to 15MB',
-                    style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            PrimaryButton(
-              label: 'Choose from Device',
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Document uploaded for verification!'),
-                    backgroundColor: AppColors.primary,
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
+    if (shouldDelete != true) return;
+    try {
+      await _documentsApi.delete(document.id);
+      if (!mounted) return;
+      _showMessage('Document deleted.');
+      await _loadDocuments();
+    } on ServerException catch (error) {
+      if (mounted) _showMessage(error.message, isError: true);
+    } catch (_) {
+      if (mounted)
+        _showMessage(
+          'Unable to delete document. Please try again.',
+          isError: true,
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final corpDocs = _documents
-        .where((d) => d.category == _DocCategory.corporate)
+    final corporate = _documents
+        .where((document) => document.category == _DocCategory.corporate)
         .toList();
-    final qualityDocs = _documents
-        .where((d) => d.category == _DocCategory.quality)
+    final quality = _documents
+        .where((document) => document.category == _DocCategory.quality)
         .toList();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -391,16 +209,6 @@ class _DocumentsScreenState extends State<DocumentsScreen>
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.upload_file_rounded,
-              color: AppColors.primary,
-              size: context.scaled(24),
-            ),
-            onPressed: _showUploadSheet,
-          ),
-        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
@@ -414,262 +222,318 @@ class _DocumentsScreenState extends State<DocumentsScreen>
               indicator: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(context.scaled(10)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                  ),
-                ],
               ),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
               labelColor: AppColors.primary,
               unselectedLabelColor: const Color(0xFF777777),
-              labelStyle: TextStyle(
-                fontSize: context.scaled(13),
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: TextStyle(
-                fontSize: context.scaled(13),
-                fontWeight: FontWeight.w500,
-              ),
               tabs: const [
-                Tab(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text('Corporate & KYC'),
-                  ),
-                ),
-                Tab(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text('QC & Pouring Permits'),
-                  ),
-                ),
+                Tab(text: 'Corporate & KYC'),
+                Tab(text: 'QC & Permits'),
               ],
             ),
           ),
         ),
       ),
       body: SafeArea(
-        child: TabBarView(
-          controller: _tabController,
-          children: [_buildDocList(corpDocs), _buildDocList(qualityDocs)],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          color: Colors.white,
-          padding: EdgeInsets.fromLTRB(
-            context.scaled(16),
-            context.scaledV(12),
-            context.scaled(16),
-            context.scaledV(16),
-          ),
-          child: PrimaryButton(
-            label: 'Upload New Document',
-            onPressed: _showUploadSheet,
-          ),
-        ),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _loadError != null
+            ? _buildError()
+            : TabBarView(
+                controller: _tabController,
+                children: [_buildDocList(corporate), _buildDocList(quality)],
+              ),
       ),
     );
   }
 
-  Widget _buildDocList(List<_DocItem> docs) {
-    return ListView.builder(
-      padding: EdgeInsets.all(context.scaled(16)),
-      itemCount: docs.length,
-      itemBuilder: (context, index) {
-        final doc = docs[index];
-        return _buildDocCard(doc);
-      },
-    );
-  }
-
-  Widget _buildDocCard(_DocItem doc) {
-    return Container(
-      margin: EdgeInsets.only(bottom: context.scaledV(14)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.scaled(18)),
-        border: Border.all(color: const Color(0xFFEAEAEA)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+  Widget _buildError() => Center(
+    child: Padding(
+      padding: EdgeInsets.all(context.scaled(24)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.folder_off_outlined,
+            size: 44,
+            color: Color(0xFF777777),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _loadError!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFF555555)),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: _loadDocuments,
+            child: const Text('Try Again'),
           ),
         ],
       ),
-      padding: EdgeInsets.all(context.scaled(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    ),
+  );
+
+  Widget _buildDocList(List<_DocItem> documents) {
+    if (documents.isEmpty)
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(context.scaled(28)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: context.scaled(44),
-                height: context.scaled(44),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFEEEE),
-                  borderRadius: BorderRadius.circular(context.scaled(12)),
-                ),
-                child: Center(
-                  child: Text(
-                    doc.fileFormat,
-                    style: TextStyle(
-                      fontSize: context.scaled(12),
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFFE53935),
-                    ),
-                  ),
+              const Icon(
+                Icons.folder_open_outlined,
+                size: 52,
+                color: Color(0xFF9A9A9A),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No documents uploaded yet',
+                style: TextStyle(
+                  fontSize: context.scaled(16),
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark,
                 ),
               ),
-              SizedBox(width: context.scaled(12)),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      doc.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.scaled(15),
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(4)),
-                    Text(
-                      '${doc.docNumber} • ${doc.fileSize}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.scaled(12),
-                        color: const Color(0xFF888888),
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 6),
+              const Text(
+                'Upload your verification documents from the KYC flow.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Color(0xFF777777)),
               ),
-              SizedBox(width: context.scaled(8)),
-
-              _buildStatusBadge(doc.status),
             ],
           ),
-          SizedBox(height: context.scaledV(12)),
+        ),
+      );
+    return RefreshIndicator(
+      onRefresh: _loadDocuments,
+      child: ListView.builder(
+        padding: EdgeInsets.all(context.scaled(16)),
+        itemCount: documents.length,
+        itemBuilder: (context, index) => _buildDocCard(documents[index]),
+      ),
+    );
+  }
 
-          const Divider(height: 1, color: Color(0xFFEFEFEF)),
-          SizedBox(height: context.scaledV(10)),
-
-          Row(
-            children: [
-              Expanded(
+  Widget _buildDocCard(_DocItem document) => Container(
+    margin: EdgeInsets.only(bottom: context.scaledV(14)),
+    padding: EdgeInsets.all(context.scaled(16)),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(context.scaled(18)),
+      border: Border.all(color: const Color(0xFFEAEAEA)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: context.scaled(44),
+              height: context.scaled(44),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEEEE),
+                borderRadius: BorderRadius.circular(context.scaled(12)),
+              ),
+              child: Center(
                 child: Text(
-                  'Expiry: ${doc.expiryDate}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  document.fileFormat,
                   style: TextStyle(
                     fontSize: context.scaled(12),
-                    color: const Color(0xFF666666),
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFE53935),
                   ),
                 ),
               ),
-              SizedBox(width: context.scaled(8)),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+            ),
+            SizedBox(width: context.scaled(12)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.all(context.scaled(6)),
-                    icon: const Icon(
-                      Icons.remove_red_eye_outlined,
-                      size: 20,
-                      color: AppColors.primary,
+                  Text(
+                    document.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: context.scaled(15),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark,
                     ),
-                    onPressed: () => _showPreviewModal(doc),
-                    tooltip: 'Preview',
                   ),
-                  IconButton(
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.all(context.scaled(6)),
-                    icon: const Icon(
-                      Icons.download_rounded,
-                      size: 20,
-                      color: Color(0xFF555555),
+                  SizedBox(height: context.scaledV(4)),
+                  Text(
+                    document.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: context.scaled(12),
+                      color: const Color(0xFF777777),
                     ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Downloading ${doc.title}...')),
-                      );
-                    },
-                    tooltip: 'Download',
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            SizedBox(width: context.scaled(8)),
+            _buildStatusBadge(document.status),
+          ],
+        ),
+        SizedBox(height: context.scaledV(12)),
+        const Divider(height: 1, color: Color(0xFFEFEFEF)),
+        SizedBox(height: context.scaledV(8)),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Uploaded: ${_formatDate(document.uploadedAt)}',
+                style: TextStyle(
+                  fontSize: context.scaled(12),
+                  color: const Color(0xFF666666),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            IconButton(
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.all(context.scaled(6)),
+              icon: const Icon(
+                Icons.remove_red_eye_outlined,
+                size: 20,
+                color: AppColors.primary,
+              ),
+              tooltip: 'Details',
+              onPressed: () => _showDetails(document),
+            ),
+            IconButton(
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.all(context.scaled(6)),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                size: 20,
+                color: Color(0xFFB42318),
+              ),
+              tooltip: 'Delete',
+              onPressed: () => _confirmDelete(document),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  void _showDetails(_DocItem document) => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(document.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _detailRow('File', document.fileName),
+          _detailRow('Format', document.fileFormat),
+          _detailRow('Status', _statusLabel(document.status)),
+          _detailRow('Uploaded', _formatDate(document.uploadedAt)),
         ],
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+  Widget _detailRow(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      children: [
+        Text('$label: ', style: const TextStyle(color: Color(0xFF777777))),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildStatusBadge(_DocStatus status) {
-    Color bg;
-    Color fg;
-    String label;
-    IconData icon;
-
-    switch (status) {
-      case _DocStatus.verified:
-        bg = const Color(0xFFE8F8F0);
-        fg = const Color(0xFF10B981);
-        label = 'Verified';
-        icon = Icons.check_circle_rounded;
-        break;
-      case _DocStatus.expiringSoon:
-        bg = const Color(0xFFFFF4E5);
-        fg = const Color(0xFFD97706);
-        label = 'Expires Soon';
-        icon = Icons.access_time_rounded;
-        break;
-      case _DocStatus.pendingReview:
-        bg = const Color(0xFFEEF2FF);
-        fg = AppColors.primary;
-        label = 'Under Review';
-        icon = Icons.hourglass_empty_rounded;
-        break;
-    }
-
+    final (background, foreground, icon) = switch (status) {
+      _DocStatus.verified => (
+        const Color(0xFFE8F8F0),
+        const Color(0xFF10B981),
+        Icons.check_circle_rounded,
+      ),
+      _DocStatus.rejected => (
+        const Color(0xFFFFEDEC),
+        const Color(0xFFB42318),
+        Icons.cancel_rounded,
+      ),
+      _DocStatus.underReview => (
+        const Color(0xFFEEF2FF),
+        AppColors.primary,
+        Icons.hourglass_empty_rounded,
+      ),
+      _DocStatus.uploaded => (
+        const Color(0xFFFFF4E5),
+        const Color(0xFFD97706),
+        Icons.cloud_upload_outlined,
+      ),
+    };
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: context.scaled(8),
         vertical: context.scaledV(4),
       ),
       decoration: BoxDecoration(
-        color: bg,
+        color: background,
         borderRadius: BorderRadius.circular(context.scaled(8)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: context.scaled(12), color: fg),
+          Icon(icon, size: context.scaled(12), color: foreground),
           SizedBox(width: context.scaled(4)),
           Text(
-            label,
+            _statusLabel(status),
             style: TextStyle(
               fontSize: context.scaled(11),
               fontWeight: FontWeight.w600,
-              color: fg,
+              color: foreground,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _statusLabel(_DocStatus status) => switch (status) {
+    _DocStatus.verified => 'Verified',
+    _DocStatus.rejected => 'Rejected',
+    _DocStatus.underReview => 'Under Review',
+    _DocStatus.uploaded => 'Uploaded',
+  };
+  String _formatDate(DateTime? value) {
+    if (value == null) return '—';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${value.day} ${months[value.month - 1]} ${value.year}';
   }
 }

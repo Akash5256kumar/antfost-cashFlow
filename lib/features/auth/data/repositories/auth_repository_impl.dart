@@ -43,12 +43,14 @@ class AuthRepositoryImpl implements AuthRepository {
     required String companyName,
     required String username,
     required String registeredMobile,
+    required String email,
     required String password,
   }) => _online(
     () => remoteDataSource.signUpBusiness(
       companyName: companyName,
       username: username,
       registeredMobile: registeredMobile,
+      email: email,
       password: password,
     ),
   );
@@ -119,15 +121,24 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, void>> signOut() async {
     try {
       final token = await secureStorage.readRefreshToken();
-      if (await networkInfo.isConnected && token != null)
-        await remoteDataSource.signOut(refreshToken: token);
+      if (await networkInfo.isConnected && token != null) {
+        try {
+          await remoteDataSource.signOut(refreshToken: token);
+        } catch (_) {
+          // Local sign-out must never depend on a revoked/expired token or a
+          // temporary server failure. The server call is best-effort only.
+        }
+      }
+    } catch (_) {
+    } finally {
       await localDataSource.clearCachedUser();
       await secureStorage.clearTokens();
       apiClient.clearAccessToken();
-      return const Right(null);
-    } catch (e) {
-      return Left(_failure(e));
     }
+    // The user has been signed out locally in every case. Do not leave them
+    // trapped in an authenticated state merely because server revocation was
+    // unavailable. Remote failure is intentionally not surfaced as an error.
+    return const Right(null);
   }
 
   @override
@@ -161,6 +172,8 @@ class AuthRepositoryImpl implements AuthRepository {
 
   Failure _failure(Object e) => e is AuthException
       ? AuthFailure(e.message)
+      : e is ValidationException
+      ? ValidationFailure(e.message, e.fields)
       : e is NetworkException
       ? NetworkFailure(e.message)
       : e is TimeoutException

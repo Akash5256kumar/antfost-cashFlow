@@ -69,7 +69,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       appBar: AppBrandHeader(
         showBack: true,
         showChat: true,
-        onChatTap: () => Navigator.of(context).pushNamed(AppRoutes.orderChat),
+        onChatTap: () => Navigator.of(context).pushNamed(AppRoutes.orderChat, arguments: widget.orderId),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

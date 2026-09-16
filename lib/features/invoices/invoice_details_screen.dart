@@ -1,823 +1,447 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
+import '../../core/widgets/primary_button.dart';
 import 'domain/entities/invoice.dart';
+import 'domain/entities/invoice_detail.dart';
+import 'presentation/bloc/invoice_detail_bloc.dart';
+import 'presentation/bloc/invoice_detail_event.dart';
+import 'presentation/bloc/invoice_detail_state.dart';
 import 'qc_checkpoint_screen.dart';
 
-// ── Local palette ─────────────────────────────────────────────────────────────
-const Color _textDark = AppColors.textPrimary;
-const Color _textGrey = AppColors.textSecondary;
-const Color _fieldBorder = AppColors.cardBorder;
-const Color _bodyBg = AppColors.background;
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-class InvoiceDetailsScreen extends StatelessWidget {
+class InvoiceDetailsScreen extends StatefulWidget {
   const InvoiceDetailsScreen({super.key, required this.invoice});
-
-  /// Domain entity — replaces former local InvoiceItem reference.
   final Invoice invoice;
+
+  @override
+  State<InvoiceDetailsScreen> createState() => _InvoiceDetailsScreenState();
+}
+
+class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<InvoiceDetailBloc>().add(
+      FetchInvoiceDetailEvent(widget.invoice.id),
+    );
+  }
+
+  Future<void> _openDownload(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted)
+        _showMessage('Unable to open the invoice download.', error: true);
+    }
+  }
+
+  void _showMessage(String message, {bool error = false}) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        backgroundColor: error ? AppColors.error : AppColors.primary,
+        content: Text(message),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bodyBg,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // App bar
-            _DetailsAppBar(invoiceId: invoice.id),
-
-            // Scrollable body
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  context.scaled(16),
-                  context.scaled(16),
-                  context.scaled(16),
-                  0,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Invoice header card
-                    _InvoiceHeaderCard(invoice: invoice),
-                    SizedBox(height: context.scaledV(12)),
-
-                    // Customer Information
-                    _WhiteCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Customer Information',
-                            style: TextStyle(
-                              fontSize: context.scaled(16),
-                              fontWeight: FontWeight.w700,
-                              color: _textDark,
-                              height: 1.3,
-                            ),
-                          ),
-                          SizedBox(height: context.scaledV(12)),
-                          _IconRow(
-                            icon: Icons.location_on_outlined,
-                            text: 'Downtown Construction LLC',
-                          ),
-                          SizedBox(height: context.scaledV(8)),
-                          _IconRow(
-                            icon: Icons.person_outline_rounded,
-                            text: 'Ahmed Al Mansouri',
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(16)),
-
-                    // Line Items
-                    Text(
-                      'Line Items',
-                      style: TextStyle(
-                        fontSize: context.scaled(16),
-                        fontWeight: FontWeight.w700,
-                        color: _textDark,
-                        height: 1.3,
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(10)),
-                    _LineItemsTable(),
-                    SizedBox(height: context.scaledV(16)),
-
-                    // Amount Breakdown
-                    Text(
-                      'Amount Breakdown',
-                      style: TextStyle(
-                        fontSize: context.scaled(16),
-                        fontWeight: FontWeight.w700,
-                        color: _textDark,
-                        height: 1.3,
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(10)),
-                    _AmountBreakdownCard(invoice: invoice),
-                    SizedBox(height: context.scaledV(12)),
-
-                    // Payment Confirmed
-                    _PaymentConfirmedCard(),
-                    SizedBox(height: context.scaledV(12)),
-
-                    // Quality Check
-                    _WhiteCard(
-                      child: Row(
-                        children: [
-                          Text(
-                            'Quality Check (QC)',
-                            style: TextStyle(
-                              fontSize: context.scaled(15),
-                              fontWeight: FontWeight.w600,
-                              color: _textDark,
-                            ),
-                          ),
-                          const Spacer(),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(8)),
-                    _WhiteCard(
-                      child: Row(
-                        children: [
-                          _QcVerifiedBadge(),
-                          const Spacer(),
-                          GestureDetector(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    QcCheckpointScreen(invoiceId: invoice.id),
-                              ),
-                            ),
-                            child: Text(
-                              'View Details →',
-                              style: TextStyle(
-                                fontSize: context.scaled(14),
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(24)),
-
-                    // Download Invoice button
-                    _GradientButton(
-                      icon: Icons.download_rounded,
-                      label: 'Download Invoice',
-                      onPressed: () {},
-                    ),
-                    SizedBox(height: context.scaledV(16)),
-
-                    // Share Invoice
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {},
-                        child: Text(
-                          'Share Invoice',
-                          style: TextStyle(
-                            fontSize: context.scaled(15),
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                            decoration: TextDecoration.underline,
-                            decorationColor: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(32)),
-                  ],
-                ),
+            Text(
+              'Invoice Details',
+              style: TextStyle(
+                fontSize: context.scaled(18),
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Text(
+              widget.invoice.id,
+              style: TextStyle(
+                fontSize: context.scaled(12),
+                color: AppColors.textSecondary,
               ),
             ),
           ],
         ),
       ),
+      body: BlocConsumer<InvoiceDetailBloc, InvoiceDetailState>(
+        listener: (context, state) {
+          if (state is InvoiceDetailDownloaded) {
+            _openDownload(state.downloadUrl);
+          } else if (state is InvoiceDetailError) {
+            _showMessage(state.message, error: true);
+          }
+        },
+        builder: (context, state) {
+          if (state is InvoiceDetailInitial || state is InvoiceDetailLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (state is InvoiceDetailError) return _errorState(state.message);
+          final detail = switch (state) {
+            InvoiceDetailSuccess(:final detail) => detail,
+            InvoiceDetailDownloading(:final detail) => detail,
+            InvoiceDetailDownloaded(:final detail) => detail,
+            _ => null,
+          };
+          if (detail == null) return const SizedBox.shrink();
+          return _content(
+            detail,
+            downloading: state is InvoiceDetailDownloading,
+          );
+        },
+      ),
     );
   }
-}
 
-// ── App bar ───────────────────────────────────────────────────────────────────
-class _DetailsAppBar extends StatelessWidget {
-  const _DetailsAppBar({required this.invoiceId});
-  final String invoiceId;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.fromLTRB(
-        context.scaled(4),
-        context.scaled(8),
-        context.scaled(16),
-        context.scaled(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+  Widget _errorState(String message) => Center(
+    child: Padding(
+      padding: EdgeInsets.all(context.scaled(24)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: context.scaled(44),
-            height: context.scaled(44),
-            child: IconButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: Icon(Icons.arrow_back_rounded, size: context.scaled(24)),
-              color: AppColors.textPrimary,
-              padding: EdgeInsets.zero,
-              splashRadius: 22,
-            ),
+          const Icon(
+            Icons.receipt_long_outlined,
+            size: 48,
+            color: AppColors.textSecondary,
           ),
-          SizedBox(width: context.scaled(4)),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Invoices Details',
-                style: TextStyle(
-                  fontSize: context.scaled(20),
-                  fontWeight: FontWeight.w600,
-                  color: _textDark,
-                  height: 1.2,
-                ),
-              ),
-              SizedBox(height: context.scaledV(2)),
-              Text(
-                invoiceId,
-                style: TextStyle(
-                  fontSize: context.scaled(13),
-                  fontWeight: FontWeight.w400,
-                  color: _textGrey,
-                  height: 1.2,
-                ),
-              ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () => context.read<InvoiceDetailBloc>().add(
+              FetchInvoiceDetailEvent(widget.invoice.id),
+            ),
+            child: const Text('Try Again'),
           ),
         ],
       ),
+    ),
+  );
+
+  Widget _content(InvoiceDetail detail, {required bool downloading}) {
+    final lineTotal = detail.lineItems.fold<double>(
+      0,
+      (sum, item) => sum + item.total,
     );
-  }
-}
-
-// ── Invoice header card ───────────────────────────────────────────────────────
-class _InvoiceHeaderCard extends StatelessWidget {
-  const _InvoiceHeaderCard({required this.invoice});
-
-  /// Domain entity — replaces former local InvoiceItem reference.
-  final Invoice invoice;
-
-  @override
-  Widget build(BuildContext context) {
-    return _WhiteCard(
+    final inferredDifference = detail.totalAmount - lineTotal;
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(context.scaled(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                'Order ID: ${invoice.orderId}',
-                style: TextStyle(
-                  fontSize: context.scaled(13),
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
-                  height: 1.3,
+          _card(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Order ID: ${detail.orderId}',
+                        style: TextStyle(
+                          fontSize: context.scaled(13),
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    _status(detail.status),
+                  ],
                 ),
-              ),
-              const Spacer(),
-              _StatusBadge(status: invoice.status),
-            ],
-          ),
-          SizedBox(height: context.scaledV(4)),
-          Text(
-            invoice.id,
-            style: TextStyle(
-              fontSize: context.scaled(18),
-              fontWeight: FontWeight.w700,
-              color: _textDark,
-              height: 1.3,
+                SizedBox(height: context.scaledV(12)),
+                _labelValue('Issue date', _formatDate(detail.date)),
+                SizedBox(height: context.scaledV(10)),
+                _labelValue(
+                  'Invoice total',
+                  _money(detail.totalAmount),
+                  emphasis: true,
+                ),
+              ],
             ),
           ),
           SizedBox(height: context.scaledV(14)),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Issue Date',
-                      style: TextStyle(
-                        fontSize: context.scaled(12),
-                        color: _textGrey,
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(4)),
-                    Text(
-                      '9 February 2026',
-                      style: TextStyle(
-                        fontSize: context.scaled(15),
-                        fontWeight: FontWeight.w600,
-                        color: _textDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Due Date',
-                      style: TextStyle(
-                        fontSize: context.scaled(12),
-                        color: _textGrey,
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(4)),
-                    Text(
-                      '16 February 2026',
-                      style: TextStyle(
-                        fontSize: context.scaled(15),
-                        fontWeight: FontWeight.w600,
-                        color: _textDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Text('Customer Information', style: _sectionStyle),
+          SizedBox(height: context.scaledV(8)),
+          _card(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _infoRow(Icons.business_outlined, detail.customerName),
+                if (detail.customerAddress.isNotEmpty) ...[
+                  SizedBox(height: context.scaledV(10)),
+                  _infoRow(Icons.location_on_outlined, detail.customerAddress),
+                ],
+                if (detail.vatNumber.isNotEmpty) ...[
+                  SizedBox(height: context.scaledV(10)),
+                  _infoRow(Icons.receipt_outlined, 'VAT: ${detail.vatNumber}'),
+                ],
+              ],
+            ),
           ),
           SizedBox(height: context.scaledV(14)),
-          _QcVerifiedBadge(),
+          Text('Line Items', style: _sectionStyle),
+          SizedBox(height: context.scaledV(8)),
+          _lineItems(detail.lineItems),
+          SizedBox(height: context.scaledV(14)),
+          Text('Amount Breakdown', style: _sectionStyle),
+          SizedBox(height: context.scaledV(8)),
+          _card(
+            Column(
+              children: [
+                _amountRow('Line items total', _money(lineTotal)),
+                if (inferredDifference.abs() > 0.009) ...[
+                  SizedBox(height: context.scaledV(10)),
+                  _amountRow('Adjustment / tax', _money(inferredDifference)),
+                ],
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: context.scaledV(12)),
+                  child: const Divider(height: 1),
+                ),
+                _amountRow(
+                  'Total amount',
+                  _money(detail.totalAmount),
+                  emphasis: true,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: context.scaledV(24)),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => QcCheckpointScreen(orderId: detail.orderId),
+              ),
+            ),
+            icon: const Icon(Icons.verified_outlined),
+            label: const Text('View Quality Check'),
+          ),
+          SizedBox(height: context.scaledV(12)),
+          PrimaryButton(
+            label: downloading ? 'Preparing download…' : 'Download Invoice',
+            onPressed: downloading
+                ? null
+                : () => context.read<InvoiceDetailBloc>().add(
+                    DownloadInvoiceEvent(detail.id),
+                  ),
+            icon: const Icon(Icons.download_rounded, color: Colors.white),
+          ),
+          SizedBox(height: context.scaledV(20)),
         ],
       ),
     );
   }
-}
 
-// ── Line items table ──────────────────────────────────────────────────────────
-class _LineItemsTable extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.scaled(16)),
-        border: Border.all(color: _fieldBorder),
-      ),
-      child: Column(
+  TextStyle get _sectionStyle => TextStyle(
+    fontSize: context.scaled(16),
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
+  Widget _card(Widget child) => Container(
+    width: double.infinity,
+    padding: EdgeInsets.all(context.scaled(16)),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(context.scaled(16)),
+      border: Border.all(color: AppColors.cardBorder),
+    ),
+    child: child,
+  );
+  Widget _labelValue(String label, String value, {bool emphasis = false}) =>
+      Row(
         children: [
-          // Header row
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.scaled(16),
-              vertical: context.scaled(10),
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F8F8),
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(context.scaled(16)),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: context.scaled(13),
+                color: AppColors.textSecondary,
               ),
             ),
-            child: Row(
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: context.scaled(emphasis ? 17 : 14),
+              fontWeight: emphasis ? FontWeight.w700 : FontWeight.w600,
+              color: emphasis ? AppColors.primary : AppColors.textPrimary,
+            ),
+          ),
+        ],
+      );
+  Widget _infoRow(IconData icon, String value) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(icon, size: context.scaled(18), color: AppColors.textSecondary),
+      SizedBox(width: context.scaled(10)),
+      Expanded(
+        child: Text(
+          value.isEmpty ? '—' : value,
+          style: TextStyle(
+            fontSize: context.scaled(14),
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+    ],
+  );
+  Widget _amountRow(String label, String value, {bool emphasis = false}) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: context.scaled(emphasis ? 15 : 14),
+            fontWeight: emphasis ? FontWeight.w700 : FontWeight.w400,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+      Text(
+        value,
+        style: TextStyle(
+          fontSize: context.scaled(emphasis ? 17 : 14),
+          fontWeight: emphasis ? FontWeight.w700 : FontWeight.w600,
+          color: emphasis ? AppColors.primary : AppColors.textPrimary,
+        ),
+      ),
+    ],
+  );
+
+  Widget _lineItems(List<InvoiceLineItem> items) {
+    if (items.isEmpty)
+      return _card(
+        const Text(
+          'No line items were returned for this invoice.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    return _card(
+      Column(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  flex: 4,
+                  flex: 5,
                   child: Text(
-                    'Item',
+                    items[index].description,
                     style: TextStyle(
-                      fontSize: context.scaled(13),
-                      fontWeight: FontWeight.w500,
-                      color: _textGrey,
+                      fontSize: context.scaled(14),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ),
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Qty',
+                    _quantity(items[index].quantity),
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: context.scaled(13),
-                      fontWeight: FontWeight.w500,
-                      color: _textGrey,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
                 Expanded(
                   flex: 3,
                   child: Text(
-                    'Amount',
-                    style: TextStyle(
-                      fontSize: context.scaled(13),
-                      fontWeight: FontWeight.w500,
-                      color: _textGrey,
-                    ),
+                    _money(items[index].total),
                     textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: context.scaled(14),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          Divider(color: _fieldBorder, height: 1),
-          _LineRow(
-            item: 'Ready-Mix Concrete\n(Grade 30)',
-            qty: '45 m³',
-            amount: 'AED 18,900.00',
-          ),
-          Divider(color: _fieldBorder, height: 1),
-          _LineRow(
-            item: 'Pump Service\n(42-52m)',
-            qty: '1 service',
-            amount: 'AED 2,800.00',
-          ),
+            if (index != items.length - 1)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: context.scaledV(12)),
+                child: const Divider(height: 1),
+              ),
+          ],
         ],
       ),
     );
   }
-}
 
-class _LineRow extends StatelessWidget {
-  const _LineRow({required this.item, required this.qty, required this.amount});
-  final String item;
-  final String qty;
-  final String amount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.scaled(16),
-        vertical: context.scaled(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 4,
-            child: Text(
-              item,
-              style: TextStyle(
-                fontSize: context.scaled(14),
-                fontWeight: FontWeight.w400,
-                color: _textDark,
-                height: 1.4,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              qty,
-              style: TextStyle(fontSize: context.scaled(14), color: _textDark),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              amount,
-              style: TextStyle(
-                fontSize: context.scaled(14),
-                fontWeight: FontWeight.w500,
-                color: _textDark,
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Amount breakdown card ─────────────────────────────────────────────────────
-class _AmountBreakdownCard extends StatelessWidget {
-  const _AmountBreakdownCard({required this.invoice});
-
-  /// Domain entity — replaces former local InvoiceItem reference.
-  final Invoice invoice;
-
-  @override
-  Widget build(BuildContext context) {
-    return _WhiteCard(
-      child: Column(
-        children: [
-          _BreakdownRow(label: 'Subtotal', value: 'AED 21,700.00'),
-          SizedBox(height: context.scaledV(10)),
-          _BreakdownRow(label: 'VAT (5%)', value: 'AED 1,085.00'),
-          SizedBox(height: context.scaledV(10)),
-          _DashedDivider(),
-          SizedBox(height: context.scaledV(10)),
-          Row(
-            children: [
-              Text(
-                'Total Amount',
-                style: TextStyle(
-                  fontSize: context.scaled(15),
-                  fontWeight: FontWeight.w700,
-                  color: _textDark,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'AED 22,785.00',
-                style: TextStyle(
-                  fontSize: context.scaled(18),
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BreakdownRow extends StatelessWidget {
-  const _BreakdownRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(fontSize: context.scaled(14), color: _textGrey),
-          ),
-        ),
-        SizedBox(width: context.scaled(8)),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: context.scaled(14),
-            fontWeight: FontWeight.w500,
-            color: _textDark,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Payment confirmed card ────────────────────────────────────────────────────
-class _PaymentConfirmedCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(context.scaled(16)),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(context.scaled(16)),
-        border: Border.all(color: const Color(0xFF86EFAC), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.warning_rounded,
-                size: context.scaled(20),
-                color: const Color(0xFF16A34A),
-              ),
-              SizedBox(width: context.scaled(8)),
-              Text(
-                'Payment Confirmed',
-                style: TextStyle(
-                  fontSize: context.scaled(15),
-                  fontWeight: FontWeight.w700,
-                  color: _textDark,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.scaledV(8)),
-          Row(
-            children: [
-              Icon(
-                Icons.credit_card_rounded,
-                size: context.scaled(16),
-                color: _textGrey,
-              ),
-              SizedBox(width: context.scaled(6)),
-              Text(
-                'Paid via Wallet',
-                style: TextStyle(
-                  fontSize: context.scaled(14),
-                  color: _textDark,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.scaledV(4)),
-          Text(
-            'Paid on 9 February 2026',
-            style: TextStyle(fontSize: context.scaled(14), color: _textDark),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── QC Verified badge ─────────────────────────────────────────────────────────
-class _QcVerifiedBadge extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.scaled(12),
-        vertical: context.scaled(6),
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(context.scaled(20)),
-        border: Border.all(color: const Color(0xFF86EFAC)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.check_circle_outline_rounded,
-            size: context.scaled(16),
-            color: const Color(0xFF16A34A),
-          ),
-          SizedBox(width: context.scaled(6)),
-          Text(
-            'QC Verified',
-            style: TextStyle(
-              fontSize: context.scaled(13),
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF16A34A),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Status badge ──────────────────────────────────────────────────────────────
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-  final InvoiceStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, bg, fg) = switch (status) {
-      InvoiceStatus.paid => (
-        'Paid',
-        const Color(0xFFDCFCE7),
-        const Color(0xFF16A34A),
-      ),
-      InvoiceStatus.sent => (
-        'Sent',
-        const Color(0xFFFEF3C7),
-        const Color(0xFFD97706),
-      ),
-      InvoiceStatus.draft => ('Draft', const Color(0xFFF1F1F1), _textDark),
-      InvoiceStatus.vatInvoiceReady => (
-        'Ready',
-        AppColors.primaryContainer,
-        AppColors.primary,
-      ),
+  Widget _status(InvoiceStatus status) {
+    final label = switch (status) {
+      InvoiceStatus.paid => 'Paid',
+      InvoiceStatus.vatInvoiceReady => 'VAT ready',
+      InvoiceStatus.sent => 'Sent',
+      InvoiceStatus.draft => 'Draft',
     };
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: context.scaled(12),
-        vertical: context.scaled(4),
+        horizontal: context.scaled(9),
+        vertical: context.scaledV(5),
       ),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(context.scaled(20)),
+        color: const Color(0xFFE8F8F0),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: context.scaled(12),
           fontWeight: FontWeight.w600,
-          color: fg,
+          color: AppColors.success,
         ),
       ),
     );
   }
-}
 
-// ── Gradient button ───────────────────────────────────────────────────────────
-class _GradientButton extends StatelessWidget {
-  const _GradientButton({
-    required this.label,
-    required this.onPressed,
-    this.icon,
-  });
-  final String label;
-  final VoidCallback onPressed;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: context.scaled(58),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              AppColors.primaryGradientStart,
-              AppColors.primaryGradientEnd,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(context.scaled(18)),
-        ),
-        child: TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(context.scaled(18)),
-            ),
-            padding: EdgeInsets.zero,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: context.scaled(20), color: Colors.white),
-                SizedBox(width: context.scaled(8)),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: context.scaled(16),
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── White card ────────────────────────────────────────────────────────────────
-class _WhiteCard extends StatelessWidget {
-  const _WhiteCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.scaled(16)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.scaled(16)),
-        border: Border.all(color: _fieldBorder),
-      ),
-      child: child,
-    );
-  }
-}
-
-// ── Icon row ──────────────────────────────────────────────────────────────────
-class _IconRow extends StatelessWidget {
-  const _IconRow({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: context.scaled(18), color: _textGrey),
-        SizedBox(width: context.scaled(8)),
-        Text(
-          text,
-          style: TextStyle(fontSize: context.scaled(14), color: _textDark),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Dashed divider ────────────────────────────────────────────────────────────
-class _DashedDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (_, c) {
-        const dw = 8.0, gap = 5.0;
-        final count = (c.maxWidth / (dw + gap)).floor();
-        return Row(
-          children: List.generate(
-            count,
-            (_) => Padding(
-              padding: const EdgeInsets.only(right: gap),
-              child: const SizedBox(
-                width: dw,
-                height: 1,
-                child: ColoredBox(color: Color(0xFFE0E0E0)),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  String _money(double value) => 'AED ${value.toStringAsFixed(2)}';
+  String _quantity(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toStringAsFixed(2);
+  String _formatDate(String value) {
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) return value.isEmpty ? '—' : value;
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
   }
 }

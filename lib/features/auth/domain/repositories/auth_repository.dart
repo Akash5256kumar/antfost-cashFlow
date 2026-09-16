@@ -13,6 +13,7 @@ abstract class AuthRepository {
     required String companyName,
     required String username,
     required String registeredMobile,
+    required String email,
     required String password,
   });
   Future<Either<Failure, OtpChallenge>> signUpIndividual({

@@ -14,6 +14,7 @@ import '../../core/widgets/app_svg_icons.dart';
 import '../../core/utils/input_validators.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/utils/route_feedback.dart';
 import 'presentation/bloc/auth_bloc.dart';
 import 'presentation/bloc/auth_event.dart';
 import 'presentation/bloc/auth_state.dart';
@@ -28,12 +29,14 @@ class CreateIndividualScreen extends StatefulWidget {
 
 class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _agree = true;
+  bool _agree = false;
   final _fullNameController = TextEditingController();
   final _mobileController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  Map<String, String> _serverErrors = const {};
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -48,11 +51,13 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
   void _createAccount() {
     if (!_formKey.currentState!.validate()) return;
     if (!_agree) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Accept the account terms to continue.')),
-      );
+      showAppSnackBar(context, 'Accept the account terms to continue.');
       return;
     }
+    setState(() {
+      _serverErrors = const {};
+      _isSubmitting = true;
+    });
     context.read<AuthBloc>().add(
       SignUpIndividualEvent(
         fullName: _fullNameController.text.trim(),
@@ -68,7 +73,9 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
+        if (!context.mounted || !isCurrentRoute(context)) return;
         if (state is AuthOtpSent) {
+          setState(() => _isSubmitting = false);
           Navigator.of(context).pushNamed(
             AppRoutes.verifyAccount,
             arguments: VerifyAccountRouteArgs(
@@ -77,12 +84,16 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
               flow: VerifyAccountFlow.signUp,
               isBusiness: false,
               verificationId: state.challenge.verificationId,
+              expiresAt: state.challenge.expiresAt,
+              resendAvailableAt: state.challenge.resendAvailableAt,
             ),
           );
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          setState(() {
+            _isSubmitting = false;
+            _serverErrors = state.fields;
+          });
+          showAppSnackBar(context, state.message);
         }
       },
       child: Scaffold(
@@ -133,6 +144,8 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                   AppTextField(
                     label: 'FULL NAME',
                     controller: _fullNameController,
+                    errorText: _serverErrors['fullName'],
+                    onChanged: (_) => _clearServerError('fullName'),
                     leadingWidget: const AppSvgUserIcon(),
                     validator: InputValidators.fullName,
                     // Confirm-password validation runs on submit so users can
@@ -142,6 +155,8 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                   AppTextField(
                     label: 'MOBILE NUMBER',
                     controller: _mobileController,
+                    errorText: _serverErrors['mobile'],
+                    onChanged: (_) => _clearServerError('mobile'),
                     keyboardType: TextInputType.phone,
                     leadingWidget: const AppSvgPhoneIcon(),
                     validator: InputValidators.mobile,
@@ -151,6 +166,8 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                   AppTextField(
                     label: 'NICKNAME / USERNAME',
                     controller: _usernameController,
+                    errorText: _serverErrors['username'],
+                    onChanged: (_) => _clearServerError('username'),
                     leadingWidget: const AppSvgUserIcon(),
                     validator: InputValidators.username,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -160,6 +177,8 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                     label: 'PASSWORD',
                     obscureText: true,
                     controller: _passwordController,
+                    errorText: _serverErrors['password'],
+                    onChanged: (_) => _clearServerError('password'),
                     leadingWidget: const AppSvgLockIcon(),
                     validator: InputValidators.password,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -223,7 +242,8 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                   ),
                   SizedBox(height: context.scaledV(16)),
                   PrimaryButton(
-                    onPressed: _createAccount,
+                    onPressed: _isSubmitting ? null : _createAccount,
+                    isLoading: _isSubmitting,
                     arrow: true,
                     label: 'Create Account',
                   ),
@@ -235,5 +255,10 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
         ),
       ),
     );
+  }
+
+  void _clearServerError(String field) {
+    if (!_serverErrors.containsKey(field)) return;
+    setState(() => _serverErrors = Map.of(_serverErrors)..remove(field));
   }
 }

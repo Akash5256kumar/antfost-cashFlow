@@ -35,6 +35,7 @@ class MockProfileRemoteDataSource implements ProfileRemoteDataSource {
         company: 'Omar Construction',
         avatarUrl: null,
         isKycVerified: true,
+        accountType: 'business',
       ),
     );
   }
@@ -63,9 +64,12 @@ class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
       '/me',
       data: {
         'name': profile.name,
-        'email': profile.email,
         'phone': profile.phone,
-        'company': profile.company,
+        // Sign-up does not collect an email. It is optional on profile and
+        // must be omitted, not sent as an empty/synthetic value.
+        if (profile.email.isNotEmpty) 'email': profile.email,
+        // v1.1 rejects company on individual accounts.
+        if (profile.accountType == 'business') 'company': profile.company,
         if (profile.avatarUrl != null) 'avatarUrl': profile.avatarUrl,
       },
     );

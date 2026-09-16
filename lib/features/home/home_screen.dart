@@ -6,7 +6,7 @@ import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
-import '../payment/payment_screen.dart';
+import '../payment/price_breakdown_screen.dart';
 import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
@@ -28,6 +28,11 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Clear errors raised by a previous tab/request when Home becomes visible.
+    // A successful Home response must not leave an old generic snackbar over it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+    });
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBrandHeader(
@@ -42,10 +47,11 @@ class HomeScreen extends StatelessWidget {
             context.read<HomeBloc>().add(const FetchHomeDataEvent());
           }
           final activeOrders = state is HomeSuccess
-              ? (verificationUnderReview
-                    ? const <ActiveOrder>[]
-                    : state.data.activeOrders)
+              ? state.data.activeOrders
               : const <ActiveOrder>[];
+          final isBusiness =
+              state is HomeSuccess &&
+              state.data.accountType.toLowerCase() == 'business';
 
           return SingleChildScrollView(
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
@@ -53,25 +59,26 @@ class HomeScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: context.scaledV(4)),
-                Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.of(
-                        context,
-                      ).pushNamed(AppRoutes.kycVerificationStatus);
-                    },
-                    child: AppStatusBadge(
-                      label: verificationUnderReview
-                          ? 'Under Review'
-                          : 'Approved',
-                      tone: verificationUnderReview
-                          ? AppStatusTone.review
-                          : AppStatusTone.active,
-                      showIcon: true,
+                if (isBusiness)
+                  Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.kycVerificationStatus);
+                      },
+                      child: AppStatusBadge(
+                        label: verificationUnderReview
+                            ? 'Under Review'
+                            : 'Approved',
+                        tone: verificationUnderReview
+                            ? AppStatusTone.review
+                            : AppStatusTone.active,
+                        showIcon: true,
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: context.scaledV(14)),
+                if (isBusiness) SizedBox(height: context.scaledV(14)),
                 Text(
                   state is HomeSuccess
                       ? 'Good afternoon, ${state.data.userName}'
@@ -99,9 +106,7 @@ class HomeScreen extends StatelessWidget {
                 else if (state is HomeSuccess)
                   _StatsRow(
                     orders: activeOrders,
-                    projectCount: verificationUnderReview
-                        ? 0
-                        : state.data.projectCount,
+                    projectCount: state.data.projectCount,
                   )
                 else
                   const SizedBox.shrink(),
@@ -206,9 +211,9 @@ class _StatsRow extends StatelessWidget {
             icon: Icons.business_rounded,
             label: 'Projects',
             value: '$projectCount',
-            onTap: () => AppTabControllerScope.of(context).onSelectTab(
-              AppTab.projects.index,
-            ),
+            onTap: () => AppTabControllerScope.of(
+              context,
+            ).onSelectTab(AppTab.projects.index),
           ),
         ),
         SizedBox(width: AppSpacing.md(context)),
@@ -217,9 +222,9 @@ class _StatsRow extends StatelessWidget {
             icon: Icons.assignment_outlined,
             label: 'Active Orders',
             value: '${orders.length}',
-            onTap: () => AppTabControllerScope.of(context).onSelectTab(
-              AppTab.orders.index,
-            ),
+            onTap: () => AppTabControllerScope.of(
+              context,
+            ).onSelectTab(AppTab.orders.index),
           ),
         ),
       ],
@@ -414,11 +419,11 @@ class _RecentOrdersList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
+    return Material(
+      color: AppColors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
+        side: const BorderSide(color: AppColors.cardBorder),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -447,36 +452,50 @@ class _RecentOrderRow extends StatelessWidget {
       'inprogress' => 'On the way',
       'confirmationneeded' => 'Confirmation\nneeded',
       'pending' => 'Pending payment',
+      'draft' => 'Draft',
       _ => 'Scheduled',
     };
     final badgeTone = switch (normalizedStatus) {
       'inprogress' => AppStatusTone.onWay,
       'confirmationneeded' => AppStatusTone.confirm,
       'pending' => AppStatusTone.review,
+      'draft' => AppStatusTone.review,
       _ => AppStatusTone.scheduled,
     };
 
     return InkWell(
       onTap: () {
-        if (normalizedStatus == 'pending') {
+        if (normalizedStatus == 'pending' || normalizedStatus == 'draft') {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => PaymentScreen(
-                totalAmount: order.amount,
+              builder: (_) => PriceBreakdownScreen(
                 orderId: order.orderId,
-                orderRef: order.orderId,
+                projectName: order.location,
+                mixCode: order.grade,
+                quantity:
+                    int.tryParse(
+                      order.volume.replaceAll(RegExp(r'[^0-9]'), ''),
+                    ) ??
+                    0,
+                deliveryDate: order.date,
               ),
             ),
           );
           return;
         }
-        Navigator.of(context).pushNamed(AppRoutes.orderDetails);
+        Navigator.of(context).pushNamed(
+          AppRoutes.orderDetails,
+          arguments: order.orderId,
+        );
       },
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            AppLocationThumb(location: order.location),
+            AppLocationThumb(
+              location: order.location,
+              imageUrl: order.imageUrl,
+            ),
             SizedBox(width: AppSpacing.md(context)),
             Expanded(
               child: Column(

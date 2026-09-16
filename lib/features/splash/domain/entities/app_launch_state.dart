@@ -21,8 +21,14 @@ class AppLaunchState extends Equatable {
   /// Where the app should navigate after the splash screen completes.
   final AppLaunchDestination destination;
 
-  const AppLaunchState({required this.destination});
+  /// Whether Home should present the business-verification-in-review state.
+  final bool verificationUnderReview;
+
+  const AppLaunchState({
+    required this.destination,
+    this.verificationUnderReview = false,
+  });
 
   @override
-  List<Object?> get props => [destination];
+  List<Object?> get props => [destination, verificationUnderReview];
 }

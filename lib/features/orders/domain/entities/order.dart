@@ -1,7 +1,14 @@
 import 'package:equatable/equatable.dart';
 
 /// Represents the current lifecycle state of an order.
-enum OrderStatusType { pending, inProgress, scheduled, completed, draft }
+enum OrderStatusType {
+  draft,
+  pending,
+  confirmed,
+  scheduled,
+  inProgress,
+  completed,
+}
 
 /// Domain entity representing a concrete delivery order.
 /// Pure Dart — no Flutter or external framework imports.
@@ -14,6 +21,8 @@ class Order extends Equatable {
   final String volume;
   final String date;
   final double amount;
+  final String? imageUrl;
+  final String? paymentStatus;
 
   /// Number of m³ already delivered (only relevant for inProgress orders).
   final int? delivered;
@@ -30,21 +39,25 @@ class Order extends Equatable {
     required this.volume,
     required this.date,
     required this.amount,
+    this.imageUrl,
+    this.paymentStatus,
     this.delivered,
     this.total,
   });
 
   @override
   List<Object?> get props => [
-        orderId,
-        status,
-        grade,
-        location,
-        timeSlot,
-        volume,
-        date,
-        amount,
-        delivered,
-        total,
-      ];
+    orderId,
+    status,
+    grade,
+    location,
+    timeSlot,
+    volume,
+    date,
+    amount,
+    imageUrl,
+    paymentStatus,
+    delivered,
+    total,
+  ];
 }

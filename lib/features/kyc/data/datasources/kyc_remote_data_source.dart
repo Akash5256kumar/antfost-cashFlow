@@ -67,9 +67,11 @@ class ApiKycRemoteDataSource implements KycRemoteDataSource {
       if (data == null)
         throw const ServerException('KYC status response is invalid.');
       final status = switch (data['status']) {
+        'not_required' => KycVerificationStatus.notRequired,
         'approved' => KycVerificationStatus.approved,
         'rejected' => KycVerificationStatus.rejected,
-        'pending' => KycVerificationStatus.pending,
+        'pending' || 'under_review' => KycVerificationStatus.pending,
+        'partially_submitted' => KycVerificationStatus.partiallySubmitted,
         _ => KycVerificationStatus.notSubmitted,
       };
       return KycStatus(
@@ -77,6 +79,33 @@ class ApiKycRemoteDataSource implements KycRemoteDataSource {
         submittedAt: data['submittedAt'] as String?,
         reviewedAt: data['reviewedAt'] as String?,
         rejectionReason: data['rejectionReason'] as String?,
+        estimatedReviewTime: data['estimatedReviewTime'] as String?,
+        imageUrl: data['imageUrl'] as String?,
+        companyDetailsComplete: data['companyDetails'] is Map
+            ? data['companyDetails']['isComplete'] as bool?
+            : null,
+        companyMissingFields:
+            data['companyDetails'] is Map &&
+                data['companyDetails']['missing'] is List
+            ? (data['companyDetails']['missing'] as List)
+                  .map((item) => item.toString())
+                  .toList()
+            : const [],
+        documents: data['documents'] is List
+            ? (data['documents'] as List)
+                  .whereType<Map>()
+                  .map(
+                    (item) => KycStatusDocument(
+                      type: item['type']?.toString() ?? '',
+                      label: item['label']?.toString() ?? 'Document',
+                      required: item['required'] == true,
+                      status: item['status']?.toString() ?? 'missing',
+                      rejectionReason: item['rejectionReason'] as String?,
+                      uploadedAt: item['uploadedAt'] as String?,
+                    ),
+                  )
+                  .toList()
+            : const [],
       );
     } on DioException catch (error) {
       final data = error.response?.data;

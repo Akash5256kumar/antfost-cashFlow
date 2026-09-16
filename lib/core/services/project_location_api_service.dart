@@ -45,6 +45,7 @@ class SavedLocation {
     required this.contactPhone,
     required this.activeOrdersCount,
     required this.isDefault,
+    this.imageUrl,
   });
 
   factory SavedLocation.fromJson(Map<String, dynamic> json) => SavedLocation(
@@ -59,6 +60,7 @@ class SavedLocation {
     contactPhone: json['contactPhone'] as String? ?? '',
     activeOrdersCount: (json['activeOrdersCount'] as num?)?.toInt() ?? 0,
     isDefault: json['isDefault'] as bool? ?? false,
+    imageUrl: json['imageUrl'] as String?,
   );
 
   final String id;
@@ -72,6 +74,7 @@ class SavedLocation {
   final String contactPhone;
   final int activeOrdersCount;
   final bool isDefault;
+  final String? imageUrl;
 }
 
 class CreatedProject {
@@ -130,6 +133,7 @@ class ProjectLocationApiService {
       _request(() async {
         final response = await _client.get<Map<String, dynamic>>(
           '/projects/$projectId',
+          queryParameters: const {'recentOrdersLimit': 5},
         );
         if (response.data == null)
           throw const ServerException('Project details response is invalid.');

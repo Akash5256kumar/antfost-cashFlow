@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/config/app_assets.dart';
+import '../../app/navigation/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
@@ -134,9 +135,45 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
       );
       return;
     }
+    if (draft.pumpRequired &&
+        (draft.pumpType == null ||
+            draft.pumpSizeFromM == null ||
+            draft.pumpSizeUpToM == null)) {
+      _showError('Choose an available pump type and size range.');
+      return;
+    }
+    if (draft.siteAccessRequirements.contains('Narrow Access') &&
+        draft.accessPhoto == null) {
+      _showError('Upload an access photo for Narrow Access.');
+      return;
+    }
+    if (draft.siteAccessRequirements.contains('Road Permit Required') &&
+        draft.roadPermit == null) {
+      _showError('Upload the road permit document.');
+      return;
+    }
     setState(() => _submitting = true);
     try {
-      final order = await sl<OrderApiService>().createDraft({
+      final narrowAccessRequired = draft.siteAccessRequirements.contains(
+        'Narrow Access',
+      );
+      final roadPermitRequired = draft.siteAccessRequirements.contains(
+        'Road Permit Required',
+      );
+      final orderApi = sl<OrderApiService>();
+      final narrowAccessFileId = narrowAccessRequired
+          ? await orderApi.uploadSiteAccessFile(
+              document: draft.accessPhoto!,
+              purpose: 'narrow_access_image',
+            )
+          : null;
+      final roadPermitFileId = roadPermitRequired
+          ? await orderApi.uploadSiteAccessFile(
+              document: draft.roadPermit!,
+              purpose: 'road_permit_document',
+            )
+          : null;
+      final order = await orderApi.createDraft({
         'projectId': project.projectId,
         'locationId': project.locationId,
         'mixCode': draft.mixCode!.code,
@@ -151,7 +188,10 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
         'services': {
           'pump': {
             'required': draft.pumpRequired,
-            if (draft.pumpRequired) 'size': 'medium',
+            if (draft.pumpRequired) 'type': draft.pumpType,
+            if (draft.pumpRequired) 'sizeFromM': draft.pumpSizeFromM,
+            if (draft.pumpRequired) 'sizeUpToM': draft.pumpSizeUpToM,
+            if (draft.pumpRequired) 'quantity': draft.pumpQuantity,
           },
           'technician': {
             'required': draft.technicianRequired,
@@ -162,18 +202,22 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
           'otherApprovedService': draft.otherService,
         },
         'siteAccess': {
-          'narrowAccess': draft.siteAccessRequirements.contains(
-            'Narrow Access',
-          ),
-          'roadPermitRequired': draft.siteAccessRequirements.contains(
-            'Road Permit Required',
-          ),
-          'boomPumpRequired': draft.siteAccessRequirements.contains(
-            'Boom Reach Restriction',
-          ),
+          'narrowAccess': {
+            'required': narrowAccessRequired,
+            'fileId': narrowAccessFileId,
+          },
+          'roadPermit': {
+            'required': roadPermitRequired,
+            'fileId': roadPermitFileId,
+          },
           'nightPour': draft.siteAccessRequirements.contains(
             'Night Delivery Access',
           ),
+          'boomReachRestriction': draft.siteAccessRequirements.contains(
+            'Boom Reach Restriction',
+          ),
+          if (draft.siteAccessNotes?.trim().isNotEmpty == true)
+            'notes': draft.siteAccessNotes!.trim(),
           'confirmed': true,
         },
       });
@@ -187,6 +231,8 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
           ),
         ),
       );
+    } on OrderApiException catch (error) {
+      await _handleOrderApiError(error);
     } catch (error) {
       _showError(error.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -195,6 +241,33 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
   }
 
   void _showError(String message) => showAppSnackBar(context, message);
+
+  Future<void> _handleOrderApiError(OrderApiException error) async {
+    if (!mounted) return;
+    switch (error.code) {
+      case 'KYC_NOT_SUBMITTED':
+        _showError(error.message);
+        await Navigator.of(context).pushNamed(AppRoutes.kycVerification);
+        return;
+      case 'PUMP_UNAVAILABLE':
+        _showError(error.message);
+        _editServices();
+        return;
+      case 'DUPLICATE_ORDER_REQUEST':
+        _showError('${error.message} Open it from My Orders.');
+        Navigator.of(context).pushNamed(AppRoutes.myOrders);
+        return;
+      case 'VALIDATION_ERROR':
+        final fieldMessage = error.fields.entries
+            .map((entry) => '${entry.key}: ${entry.value}')
+            .join('\n');
+        _showError(fieldMessage.isEmpty ? error.message : fieldMessage);
+        return;
+      default:
+        _showError(error.message);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = widget.draft;

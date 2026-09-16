@@ -8,6 +8,7 @@ class ProjectModel extends Project {
     required super.name,
     required super.location,
     super.description,
+    super.imageUrl,
   });
 
   // ── JSON de-serialisation ─────────────────────────────────────────────────
@@ -18,6 +19,7 @@ class ProjectModel extends Project {
       name: json['name'] as String? ?? '',
       location: json['location'] as String? ?? '',
       description: json['description'] as String?,
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 
@@ -29,6 +31,7 @@ class ProjectModel extends Project {
       'name': name,
       'location': location,
       if (description != null) 'description': description,
+      if (imageUrl != null) 'imageUrl': imageUrl,
     };
   }
 
@@ -40,6 +43,7 @@ class ProjectModel extends Project {
       name: project.name,
       location: project.location,
       description: project.description,
+      imageUrl: project.imageUrl,
     );
   }
 }

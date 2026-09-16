@@ -29,6 +29,8 @@ class VerifyAccountScreen extends StatefulWidget {
     this.flow = VerifyAccountFlow.signUp,
     this.isBusiness = true,
     this.verificationId = '',
+    this.expiresAt,
+    this.resendAvailableAt,
   });
 
   final String contact;
@@ -36,6 +38,8 @@ class VerifyAccountScreen extends StatefulWidget {
   final VerifyAccountFlow flow;
   final bool isBusiness;
   final String verificationId;
+  final DateTime? expiresAt;
+  final DateTime? resendAvailableAt;
 
   @override
   State<VerifyAccountScreen> createState() => _VerifyAccountScreenState();
@@ -48,6 +52,7 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
   final _otpController = TextEditingController();
   final _otpFocusNode = FocusNode();
   late String _verificationId;
+  DateTime? _expiresAt;
   int _secondsLeft = _resendSeconds;
   Timer? _timer;
 
@@ -57,9 +62,10 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
   void initState() {
     super.initState();
     _verificationId = widget.verificationId;
+    _expiresAt = widget.expiresAt;
     _otpController.addListener(_onOtpChanged);
     _otpFocusNode.addListener(_onOtpChanged);
-    _startTimer();
+    _startTimer(resendAvailableAt: widget.resendAvailableAt);
   }
 
   @override
@@ -75,9 +81,21 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
 
   void _onOtpChanged() => setState(() {});
 
-  void _startTimer() {
+  bool get _isCodeExpired =>
+      _expiresAt != null && !DateTime.now().isBefore(_expiresAt!);
+
+  void _startTimer({DateTime? resendAvailableAt}) {
     _timer?.cancel();
-    _secondsLeft = _resendSeconds;
+    final secondsFromServer = resendAvailableAt
+        ?.difference(DateTime.now())
+        .inSeconds;
+    _secondsLeft = secondsFromServer == null
+        ? _resendSeconds
+        : secondsFromServer.clamp(0, 24 * 60 * 60);
+    if (_secondsLeft == 0) {
+      setState(() {});
+      return;
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsLeft <= 1) {
         timer.cancel();
@@ -89,6 +107,13 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
   }
 
   void _handleContinue() {
+    if (_isCodeExpired) {
+      showAppSnackBar(
+        context,
+        'This verification code has expired. Request a new code.',
+      );
+      return;
+    }
     if (_code.length != _otpLength) {
       _otpFocusNode.requestFocus();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,8 +141,6 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
               isEmail: widget.isEmail,
             ),
     );
-    _startTimer();
-    setState(() {});
   }
 
   String get _timerLabel {
@@ -162,6 +185,8 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
           );
         } else if (state is AuthOtpSent) {
           _verificationId = state.challenge.verificationId;
+          _expiresAt = state.challenge.expiresAt;
+          _startTimer(resendAvailableAt: state.challenge.resendAvailableAt);
           showSingleSnackBar(
             context,
             const SnackBar(content: Text('OTP resent successfully.')),
@@ -231,6 +256,7 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
                   _OtpFields(
                     controller: _otpController,
                     focusNode: _otpFocusNode,
+                    errorText: state is AuthError ? state.fields['otp'] : null,
                   ),
                   SizedBox(height: context.scaledV(26)),
                   Row(
@@ -242,7 +268,15 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
                         color: AppColors.primary,
                       ),
                       SizedBox(width: context.scaled(10)),
-                      _secondsLeft > 0
+                      _isCodeExpired
+                          ? TextButton(
+                              onPressed: isLoading ? null : _handleResend,
+                              child: Text(
+                                'Code expired — resend',
+                                style: AppTextStyles.authLink(context),
+                              ),
+                            )
+                          : _secondsLeft > 0
                           ? Text(
                               'Resend code in $_timerLabel',
                               style: AppTextStyles.authScreenSubtitle(context),
@@ -331,71 +365,92 @@ class _ContactCard extends StatelessWidget {
 }
 
 class _OtpFields extends StatelessWidget {
-  const _OtpFields({required this.controller, required this.focusNode});
+  const _OtpFields({
+    required this.controller,
+    required this.focusNode,
+    this.errorText,
+  });
 
   final TextEditingController controller;
   final FocusNode focusNode;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
     final code = controller.text;
-    return SizedBox(
-      height: context.scaledV(62),
-      child: Stack(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(6, (index) {
-              final isFilled = index < code.length;
-              final isActive = focusNode.hasFocus && index == code.length;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                width: context.scaled(48),
-                height: context.scaledV(58),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(context.scaled(14)),
-                  border: Border.all(
-                    color: isActive ? AppColors.primary : AppColors.cardBorder,
-                    width: isActive ? 1.5 : 1,
-                  ),
-                ),
-                child: Text(
-                  isFilled ? code[index] : '-',
-                  style: TextStyle(
-                    fontSize: context.scaled(21),
-                    fontWeight: FontWeight.w700,
-                    color: isFilled
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              );
-            }),
-          ),
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0,
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                autofocus: false,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.done,
-                autofillHints: const [AutofillHints.oneTimeCode],
-                enableInteractiveSelection: false,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(6),
-                ],
-                onSubmitted: (_) => focusNode.unfocus(),
-                decoration: const InputDecoration(border: InputBorder.none),
+    return Column(
+      children: [
+        SizedBox(
+          height: context.scaledV(62),
+          child: Stack(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(6, (index) {
+                  final isFilled = index < code.length;
+                  final isActive = focusNode.hasFocus && index == code.length;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 140),
+                    width: context.scaled(48),
+                    height: context.scaledV(58),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(context.scaled(14)),
+                      border: Border.all(
+                        color: isActive
+                            ? AppColors.primary
+                            : AppColors.cardBorder,
+                        width: isActive ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      isFilled ? code[index] : '-',
+                      style: TextStyle(
+                        fontSize: context.scaled(21),
+                        fontWeight: FontWeight.w700,
+                        color: isFilled
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  );
+                }),
               ),
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0,
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    autofocus: false,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.oneTimeCode],
+                    enableInteractiveSelection: false,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    onSubmitted: (_) => focusNode.unfocus(),
+                    decoration: const InputDecoration(border: InputBorder.none),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (errorText != null) ...[
+          SizedBox(height: context.scaledV(6)),
+          Text(
+            errorText!,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.error,
+              fontSize: context.scaled(12),
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 }

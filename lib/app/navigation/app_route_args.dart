@@ -7,12 +7,16 @@ class VerifyAccountRouteArgs {
     required this.flow,
     this.isBusiness = true,
     this.verificationId = '',
+    this.expiresAt,
+    this.resendAvailableAt,
   });
 
   final String contact;
   final bool isEmail;
   final VerifyAccountFlow flow;
   final String verificationId;
+  final DateTime? expiresAt;
+  final DateTime? resendAvailableAt;
 
   /// Which account type is being registered. Business KYC lands on Home with
   /// the verification state shown there.

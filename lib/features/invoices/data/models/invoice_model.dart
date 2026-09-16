@@ -73,7 +73,10 @@ class InvoiceLineItemModel extends InvoiceLineItem {
     return InvoiceLineItemModel(
       description: json['description'] as String? ?? '',
       quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
-      unitPrice: (json['unit_price'] as num?)?.toDouble() ?? 0.0,
+      unitPrice:
+          (json['unitPrice'] as num? ?? json['unit_price'] as num?)
+              ?.toDouble() ??
+          0.0,
       total: (json['total'] as num?)?.toDouble() ?? 0.0,
     );
   }
@@ -118,8 +121,9 @@ class InvoiceModel extends Invoice {
   factory InvoiceModel.fromJson(Map<String, dynamic> json) {
     final rawTypes = json['types'] as List<dynamic>? ?? [];
     return InvoiceModel(
-      id: json['id'] as String? ?? '',
-      orderId: json['orderId'] as String? ?? json['order_id'] as String? ?? '',
+      id: json['id']?.toString() ?? '',
+      orderId:
+          json['orderId']?.toString() ?? json['order_id']?.toString() ?? '',
       totalAmount:
           (json['totalAmount'] as num? ?? json['total_amount'] as num?)
               ?.toDouble() ??
@@ -182,8 +186,9 @@ class InvoiceDetailModel extends InvoiceDetail {
         json['line_items'] as List<dynamic>? ??
         [];
     return InvoiceDetailModel(
-      id: json['id'] as String? ?? '',
-      orderId: json['orderId'] as String? ?? json['order_id'] as String? ?? '',
+      id: json['id']?.toString() ?? '',
+      orderId:
+          json['orderId']?.toString() ?? json['order_id']?.toString() ?? '',
       totalAmount:
           (json['totalAmount'] as num? ?? json['total_amount'] as num?)
               ?.toDouble() ??

@@ -11,6 +11,7 @@ class ActiveOrderModel extends ActiveOrder {
     required super.volume,
     required super.date,
     required super.amount,
+    super.imageUrl,
     super.delivered,
     super.total,
   });
@@ -18,14 +19,16 @@ class ActiveOrderModel extends ActiveOrder {
   /// Creates an [ActiveOrderModel] from a JSON map.
   factory ActiveOrderModel.fromJson(Map<String, dynamic> json) {
     return ActiveOrderModel(
-      orderId: json['orderId'] as String,
+      orderId: json['orderId']?.toString() ?? '',
       status: json['status'] as String,
       grade: json['grade'] as String,
       location: json['location'] as String,
       timeSlot: json['timeSlot'] as String,
-      volume: json['volume'] as String,
+      volume:
+          json['volumeLabel']?.toString() ?? json['volume']?.toString() ?? '',
       date: json['date'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      imageUrl: json['imageUrl'] as String?,
       delivered: json['delivered'] as int?,
       total: json['total'] as int?,
     );
@@ -42,6 +45,7 @@ class ActiveOrderModel extends ActiveOrder {
       'volume': volume,
       'date': date,
       'amount': amount,
+      if (imageUrl != null) 'imageUrl': imageUrl,
       'delivered': delivered,
       'total': total,
     };
@@ -58,6 +62,7 @@ class ActiveOrderModel extends ActiveOrder {
       volume: entity.volume,
       date: entity.date,
       amount: entity.amount,
+      imageUrl: entity.imageUrl,
       delivered: entity.delivered,
       total: entity.total,
     );
@@ -71,20 +76,33 @@ class HomeDataModel extends HomeData {
     required super.companyName,
     required super.activeOrders,
     super.projectCount,
+    super.accountType,
+    super.nextStep,
   });
 
   /// Creates a [HomeDataModel] from a JSON map.
   factory HomeDataModel.fromJson(Map<String, dynamic> json) {
-    final ordersJson = json['activeOrders'] as List<dynamic>? ?? [];
+    final ordersJson = <dynamic>[
+      ...(json['activeOrders'] as List<dynamic>? ?? const []),
+      ...(json['draftOrders'] as List<dynamic>? ?? const []),
+    ];
     final orders = ordersJson
         .map((e) => ActiveOrderModel.fromJson(e as Map<String, dynamic>))
         .toList();
 
     return HomeDataModel(
-      userName: json['userName'] as String,
-      companyName: json['companyName'] as String,
+      // Empty accounts can legitimately return null/blank profile labels;
+      // that must not turn a valid `{activeOrders: []}` response into an
+      // UnexpectedFailure on the Home screen.
+      userName: json['userName'] as String? ?? '',
+      companyName: json['companyName'] as String? ?? '',
       activeOrders: orders,
       projectCount: (json['projectCount'] as num?)?.toInt() ?? 0,
+      accountType: json['accountType'] as String? ?? 'individual',
+      nextStep:
+          (json['access'] as Map?)?['nextStep']?.toString() ??
+          json['nextStep']?.toString() ??
+          'home',
     );
   }
 
@@ -96,6 +114,8 @@ class HomeDataModel extends HomeData {
       'activeOrders': activeOrders
           .map((o) => ActiveOrderModel.fromEntity(o).toJson())
           .toList(),
+      'accountType': accountType,
+      'nextStep': nextStep,
     };
   }
 
@@ -108,6 +128,8 @@ class HomeDataModel extends HomeData {
           .map(ActiveOrderModel.fromEntity)
           .toList(),
       projectCount: entity.projectCount,
+      accountType: entity.accountType,
+      nextStep: entity.nextStep,
     );
   }
 }

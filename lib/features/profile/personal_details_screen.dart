@@ -65,6 +65,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
       company: _companyController.text.trim(),
       avatarUrl: currentProfile.avatarUrl,
       isKycVerified: currentProfile.isKycVerified,
+      accountType: currentProfile.accountType,
     );
 
     context.read<ProfileBloc>().add(UpdateProfileEvent(updatedProfile));
@@ -107,22 +108,31 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
         }
       },
       builder: (context, state) {
-        late final UserProfile profile;
-        if (state is ProfileSuccess) {
-          profile = state.profile;
-          _populateData(profile);
-        } else {
-          // Fallback demo profile if state not yet ready
-          profile = const UserProfile(
-            id: 'usr_001',
-            name: 'Ahmed Al Mansoori',
-            email: 'ahmed.m@arabiancontracting.ae',
-            phone: '+971 50 123 4567',
-            company: 'Arabian Contracting Co. LLC',
-            isKycVerified: true,
+        // Never render demo data while the real profile is loading.  Apart
+        // from being misleading, it can briefly show the wrong account type
+        // and KYC state before /me completes.
+        if (state is! ProfileSuccess) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: AppBar(
+              backgroundColor: AppColors.white,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.textDark,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: const Text('Personal Details'),
+              centerTitle: true,
+            ),
+            body: const Center(child: CircularProgressIndicator()),
           );
-          _populateData(profile);
         }
+        final profile = state.profile;
+        _populateData(profile);
+        final isBusiness = profile.accountType.toLowerCase() == 'business';
 
         final isSaving = state is ProfileLoading;
 
@@ -229,50 +239,53 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                     ),
                     SizedBox(height: context.scaledV(16)),
 
-                    // KYC status pill
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.scaled(14),
-                        vertical: context.scaledV(6),
-                      ),
-                      decoration: BoxDecoration(
-                        color: profile.isKycVerified
-                            ? AppColors.successContainer
-                            : AppColors.warningContainer,
-                        borderRadius: BorderRadius.circular(context.scaled(20)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            profile.isKycVerified
-                                ? Icons.verified_rounded
-                                : Icons.info_outline_rounded,
-                            size: context.scaled(16),
-                            color: profile.isKycVerified
-                                ? AppColors.success
-                                : AppColors.warning,
+                    // KYC is a business-only concept in the current flow.
+                    if (isBusiness)
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.scaled(14),
+                          vertical: context.scaledV(6),
+                        ),
+                        decoration: BoxDecoration(
+                          color: profile.isKycVerified
+                              ? AppColors.successContainer
+                              : AppColors.warningContainer,
+                          borderRadius: BorderRadius.circular(
+                            context.scaled(20),
                           ),
-                          SizedBox(width: context.scaled(6)),
-                          Flexible(
-                            child: Text(
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
                               profile.isKycVerified
-                                  ? 'KYC Verified Account'
-                                  : 'KYC Verification Pending',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: context.scaled(12),
-                                fontWeight: FontWeight.w600,
-                                color: profile.isKycVerified
-                                    ? AppColors.success
-                                    : AppColors.warning,
+                                  ? Icons.verified_rounded
+                                  : Icons.info_outline_rounded,
+                              size: context.scaled(16),
+                              color: profile.isKycVerified
+                                  ? AppColors.success
+                                  : AppColors.warning,
+                            ),
+                            SizedBox(width: context.scaled(6)),
+                            Flexible(
+                              child: Text(
+                                profile.isKycVerified
+                                    ? 'KYC Verified Account'
+                                    : 'KYC Verification Pending',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: context.scaled(12),
+                                  fontWeight: FontWeight.w600,
+                                  color: profile.isKycVerified
+                                      ? AppColors.success
+                                      : AppColors.warning,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                     SizedBox(height: context.scaledV(24)),
 
                     // Fields Group
@@ -294,11 +307,14 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                           ),
                           SizedBox(height: context.scaledV(16)),
                           _buildTextField(
-                            label: 'Corporate Email',
+                            label: isBusiness ? 'Email' : 'Email (optional)',
                             controller: _emailController,
                             icon: Icons.mail_outline_rounded,
                             keyboardType: TextInputType.emailAddress,
-                            validator: InputValidators.email,
+                            validator: (value) =>
+                                value == null || value.trim().isEmpty
+                                ? null
+                                : InputValidators.email(value),
                           ),
                           SizedBox(height: context.scaledV(16)),
                           _buildTextField(
@@ -308,16 +324,18 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                             keyboardType: TextInputType.phone,
                             validator: InputValidators.phone,
                           ),
-                          SizedBox(height: context.scaledV(16)),
-                          _buildTextField(
-                            label: 'Company Name',
-                            controller: _companyController,
-                            icon: Icons.business_rounded,
-                            validator: (value) => InputValidators.fullName(
-                              value,
-                              fieldName: 'Company name',
+                          if (profile.accountType == 'business') ...[
+                            SizedBox(height: context.scaledV(16)),
+                            _buildTextField(
+                              label: 'Company Name',
+                              controller: _companyController,
+                              icon: Icons.business_rounded,
+                              validator: (value) => InputValidators.fullName(
+                                value,
+                                fieldName: 'Company name',
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),

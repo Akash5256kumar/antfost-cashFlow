@@ -14,6 +14,7 @@ import '../../core/utils/input_validators.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/svg_embedded_raster_image.dart';
+import '../../core/utils/route_feedback.dart';
 import 'presentation/bloc/auth_bloc.dart';
 import 'presentation/bloc/auth_event.dart';
 import 'presentation/bloc/auth_state.dart';
@@ -31,14 +32,18 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
   final _companyNameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _mobileController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  Map<String, String> _serverErrors = const {};
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
     _companyNameController.dispose();
     _usernameController.dispose();
     _mobileController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -46,11 +51,16 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
 
   void _createAccount() {
     if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _serverErrors = const {};
+      _isSubmitting = true;
+    });
     context.read<AuthBloc>().add(
       SignUpBusinessEvent(
         companyName: _companyNameController.text.trim(),
         username: _usernameController.text.trim(),
         registeredMobile: _mobileController.text.trim(),
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       ),
     );
@@ -60,7 +70,9 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
+        if (!context.mounted || !isCurrentRoute(context)) return;
         if (state is AuthOtpSent) {
+          setState(() => _isSubmitting = false);
           Navigator.of(context).pushNamed(
             AppRoutes.verifyAccount,
             arguments: VerifyAccountRouteArgs(
@@ -69,12 +81,16 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
               flow: VerifyAccountFlow.signUp,
               isBusiness: true,
               verificationId: state.challenge.verificationId,
+              expiresAt: state.challenge.expiresAt,
+              resendAvailableAt: state.challenge.resendAvailableAt,
             ),
           );
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          setState(() {
+            _isSubmitting = false;
+            _serverErrors = state.fields;
+          });
+          showAppSnackBar(context, state.message);
         }
       },
       child: Scaffold(
@@ -127,6 +143,8 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
                   AppTextField(
                     label: 'COMPANY NAME',
                     controller: _companyNameController,
+                    errorText: _serverErrors['companyName'],
+                    onChanged: (_) => _clearServerError('companyName'),
                     leadingWidget: const AppSvgBusinessIcon(),
                     validator: (value) => InputValidators.fullName(
                       value,
@@ -137,8 +155,21 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
                   ),
                   SizedBox(height: context.scaledV(12)),
                   AppTextField(
+                    label: 'EMAIL ADDRESS',
+                    controller: _emailController,
+                    errorText: _serverErrors['email_id'],
+                    onChanged: (_) => _clearServerError('email_id'),
+                    keyboardType: TextInputType.emailAddress,
+                    leadingWidget: const Icon(Icons.email_outlined),
+                    validator: (value) => InputValidators.email(value),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                  ),
+                  SizedBox(height: context.scaledV(12)),
+                  AppTextField(
                     label: 'BUSINESS USERNAME',
                     controller: _usernameController,
+                    errorText: _serverErrors['username'],
+                    onChanged: (_) => _clearServerError('username'),
                     leadingWidget: const AppSvgUserIcon(),
                     validator: (value) => InputValidators.username(
                       value,
@@ -150,6 +181,8 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
                   AppTextField(
                     label: 'REGISTERED MOBILE',
                     controller: _mobileController,
+                    errorText: _serverErrors['registeredMobile'],
+                    onChanged: (_) => _clearServerError('registeredMobile'),
                     keyboardType: TextInputType.phone,
                     leadingWidget: const AppSvgPhoneIcon(),
                     validator: InputValidators.mobile,
@@ -160,6 +193,8 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
                     label: 'PASSWORD',
                     obscureText: true,
                     controller: _passwordController,
+                    errorText: _serverErrors['password'],
+                    onChanged: (_) => _clearServerError('password'),
                     leadingWidget: const AppSvgLockIcon(),
                     validator: InputValidators.password,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -185,7 +220,8 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
                   ),
                   SizedBox(height: context.scaledV(16)),
                   PrimaryButton(
-                    onPressed: _createAccount,
+                    onPressed: _isSubmitting ? null : _createAccount,
+                    isLoading: _isSubmitting,
                     arrow: true,
                     label: 'Create Account',
                   ),
@@ -197,5 +233,10 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
         ),
       ),
     );
+  }
+
+  void _clearServerError(String field) {
+    if (!_serverErrors.containsKey(field)) return;
+    setState(() => _serverErrors = Map.of(_serverErrors)..remove(field));
   }
 }

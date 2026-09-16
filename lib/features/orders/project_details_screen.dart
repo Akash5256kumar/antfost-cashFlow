@@ -86,8 +86,15 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final details = _details;
-    final name = details?['name'] as String? ?? 'Palm Jumeirah Villa';
-    final id = details?['id']?.toString() ?? widget.projectId ?? 'PRJ-0318';
+    if (details == null) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBrandHeader(showBack: true),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final name = details['name'] as String? ?? '';
+    final id = details['id']?.toString() ?? widget.projectId ?? '';
     final locations = details?['locations'];
     final locationCount = locations is List ? locations.length : 0;
     final orders = (details?['activeOrdersCount'] as num?)?.toInt() ?? 0;
@@ -97,6 +104,10 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     final projectLocations = locations is List
         ? locations.whereType<Map>().map(Map<String, dynamic>.from).toList()
         : const <Map<String, dynamic>>[];
+    final recentOrders = (details?['recentOrders'] as List? ?? const [])
+        .whereType<Map>()
+        .map(Map<String, dynamic>.from)
+        .toList();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const AppBrandHeader(showBack: true),
@@ -120,12 +131,25 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             SizedBox(height: context.scaledV(12)),
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: SvgEmbeddedRasterImage(
-                assetPath: AppAssets.artVillaHero,
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+              child: (details?['imageUrl'] as String?)?.isNotEmpty == true
+                  ? Image.network(
+                      details!['imageUrl'] as String,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => SvgEmbeddedRasterImage(
+                        assetPath: AppAssets.artVillaHero,
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : SvgEmbeddedRasterImage(
+                      assetPath: AppAssets.artVillaHero,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
             ),
             SizedBox(height: context.scaledV(12)),
             Row(
@@ -241,7 +265,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             SizedBox(height: context.scaledV(16)),
             Text('Recent Orders', style: AppTextStyles.cardTitle(context)),
             SizedBox(height: context.scaledV(8)),
-            if (orders > 0)
+            if (recentOrders.isNotEmpty)
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.white,
@@ -249,25 +273,29 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 child: Column(
-                  children: const [
-                    _OrderRow(
-                      id: 'AF-2048',
-                      loc: 'Main Villa Entrance',
-                      spec: '28 m³ · PUMP · 30 MPa',
-                      label: 'On the way',
-                      tone: AppStatusTone.onWay,
-                      assetPath: AppAssets.figmaTruck,
-                    ),
-                    Divider(height: 1, color: AppColors.cardBorder),
-                    _OrderRow(
-                      id: 'AF-1987',
-                      loc: 'Service Gate',
-                      spec: '18 m³ · PUMP · 30 MPa',
-                      label: 'Completed',
-                      tone: AppStatusTone.completed,
-                      assetPath: AppAssets.figmaTruck,
-                    ),
-                  ],
+                  children: recentOrders.asMap().entries.map((entry) {
+                    final order = entry.value;
+                    return Column(
+                      children: [
+                        _OrderRow(
+                          id:
+                              order['orderReference']?.toString() ??
+                              order['orderId']?.toString() ??
+                              '',
+                          loc: order['location']?.toString() ?? '',
+                          spec:
+                              '${order['volumeLabel'] ?? order['volume'] ?? ''} · ${order['grade'] ?? ''}',
+                          label: order['status']?.toString() ?? 'Draft',
+                          tone: _toneForOrderStatus(
+                            order['status']?.toString(),
+                          ),
+                          imageUrl: order['imageUrl'] as String?,
+                        ),
+                        if (entry.key < recentOrders.length - 1)
+                          const Divider(height: 1, color: AppColors.cardBorder),
+                      ],
+                    );
+                  }).toList(),
                 ),
               ),
             SizedBox(height: context.scaledV(32)),
@@ -298,6 +326,20 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
         ),
       ),
     );
+  }
+}
+
+AppStatusTone _toneForOrderStatus(String? status) {
+  switch (status?.toLowerCase()) {
+    case 'completed':
+      return AppStatusTone.completed;
+    case 'in progress':
+    case 'scheduled':
+    case 'confirmed':
+    case 'pending':
+      return AppStatusTone.onWay;
+    default:
+      return AppStatusTone.review;
   }
 }
 
@@ -439,14 +481,14 @@ class _OrderRow extends StatelessWidget {
     required this.spec,
     required this.label,
     required this.tone,
-    required this.assetPath,
+    this.imageUrl,
   });
   final String id;
   final String loc;
   final String spec;
   final String label;
   final AppStatusTone tone;
-  final String assetPath;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -456,12 +498,25 @@ class _OrderRow extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: SvgEmbeddedRasterImage(
-              assetPath: assetPath,
-              width: 44,
-              height: 44,
-              fit: BoxFit.cover,
-            ),
+            child: imageUrl?.isNotEmpty == true
+                ? Image.network(
+                    imageUrl!,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => SvgEmbeddedRasterImage(
+                      assetPath: AppAssets.figmaTruck,
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : SvgEmbeddedRasterImage(
+                    assetPath: AppAssets.figmaTruck,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(

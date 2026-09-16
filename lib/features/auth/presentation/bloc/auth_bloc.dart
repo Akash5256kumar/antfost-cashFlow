@@ -25,7 +25,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     e(const AuthLoading());
     final r = await f();
-    r.fold((x) => e(AuthError(_message(x))), (x) => e(ok(x)));
+    r.fold((x) => e(_error(x)), (x) => e(ok(x)));
   }
 
   Future<void> _signIn(SignInEvent x, Emitter<AuthState> e) => _run(
@@ -34,7 +34,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       usernameOrMobile: x.usernameOrMobile,
       password: x.password,
     ),
-    (v) => AuthSuccess(v.user),
+    (v) => AuthSuccess(v.user, nextStep: v.nextStep),
   );
   Future<void> _business(SignUpBusinessEvent x, Emitter<AuthState> e) => _run(
     e,
@@ -42,6 +42,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       companyName: x.companyName,
       username: x.username,
       registeredMobile: x.registeredMobile,
+      email: x.email,
       password: x.password,
     ),
     (v) => AuthOtpSent(v),
@@ -98,10 +99,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _cached(CheckCachedUserEvent x, Emitter<AuthState> e) async {
     final r = await _repo.getCachedUser();
     r.fold(
-      (f) => e(AuthError(_message(f))),
+      (f) => e(_error(f)),
       (u) => e(u == null ? const AuthInitial() : AuthSuccess(u)),
     );
   }
 
-  String _message(Failure f) => f.message;
+  AuthState _error(Failure f) =>
+      AuthError(f.message, f is ValidationFailure ? f.fields : const {});
 }

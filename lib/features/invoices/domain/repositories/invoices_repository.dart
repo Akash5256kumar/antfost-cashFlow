@@ -13,7 +13,6 @@ abstract class InvoicesRepository {
   /// Returns the detailed view of the invoice identified by [invoiceId].
   Future<Either<Failure, InvoiceDetail>> getInvoiceDetail(String invoiceId);
 
-  /// Triggers a download for the invoice identified by [invoiceId].
-  /// Returns `true` on success.
-  Future<Either<Failure, bool>> downloadInvoice(String invoiceId);
+  /// Returns a temporary PDF download URL for [invoiceId].
+  Future<Either<Failure, String>> downloadInvoice(String invoiceId);
 }

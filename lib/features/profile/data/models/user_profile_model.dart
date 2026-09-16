@@ -10,18 +10,20 @@ class UserProfileModel extends UserProfile {
     required super.company,
     super.avatarUrl,
     required super.isKycVerified,
+    super.accountType,
   });
 
   /// Creates a [UserProfileModel] from a JSON map.
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
     return UserProfileModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      email: json['email'] as String,
-      phone: json['phone'] as String,
-      company: json['company'] as String,
+      id: json['id']?.toString() ?? '',
+      name: json['name'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      company: json['company'] as String? ?? '',
       avatarUrl: json['avatarUrl'] as String?,
-      isKycVerified: json['isKycVerified'] as bool,
+      isKycVerified: json['isKycVerified'] as bool? ?? false,
+      accountType: json['accountType'] as String? ?? 'individual',
     );
   }
 
@@ -35,6 +37,7 @@ class UserProfileModel extends UserProfile {
       'company': company,
       'avatarUrl': avatarUrl,
       'isKycVerified': isKycVerified,
+      'accountType': accountType,
     };
   }
 
@@ -48,6 +51,7 @@ class UserProfileModel extends UserProfile {
       company: entity.company,
       avatarUrl: entity.avatarUrl,
       isKycVerified: entity.isKycVerified,
+      accountType: entity.accountType,
     );
   }
 }

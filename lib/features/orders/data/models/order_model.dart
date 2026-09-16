@@ -12,6 +12,8 @@ class OrderModel extends Order {
     required super.volume,
     required super.date,
     required super.amount,
+    super.imageUrl,
+    super.paymentStatus,
     super.delivered,
     super.total,
   });
@@ -20,14 +22,20 @@ class OrderModel extends Order {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
-      orderId: json['orderId'] as String,
-      status: _statusFromString(json['status'] as String),
-      grade: json['grade'] as String,
-      location: json['location'] as String,
-      timeSlot: json['timeSlot'] as String,
-      volume: json['volume'] as String,
-      date: json['date'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      // Mobile API returns IDs and volume as numbers on some list endpoints.
+      // Convert each display field defensively so a valid list never becomes
+      // an `UnexpectedFailure` in the OrdersBloc.
+      orderId: json['orderId']?.toString() ?? '',
+      status: _statusFromString(json['status']?.toString() ?? ''),
+      grade: json['grade']?.toString() ?? '',
+      location: json['location']?.toString() ?? '',
+      timeSlot: json['timeSlot']?.toString() ?? '',
+      volume:
+          json['volumeLabel']?.toString() ?? json['volume']?.toString() ?? '',
+      date: json['date']?.toString() ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      imageUrl: json['imageUrl'] as String?,
+      paymentStatus: json['paymentStatus'] as String?,
       delivered: json['delivered'] as int?,
       total: json['total'] as int?,
     );
@@ -45,6 +53,8 @@ class OrderModel extends Order {
       'volume': volume,
       'date': date,
       'amount': amount,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (paymentStatus != null) 'paymentStatus': paymentStatus,
       if (delivered != null) 'delivered': delivered,
       if (total != null) 'total': total,
     };
@@ -62,6 +72,8 @@ class OrderModel extends Order {
       volume: order.volume,
       date: order.date,
       amount: order.amount,
+      imageUrl: order.imageUrl,
+      paymentStatus: order.paymentStatus,
       delivered: order.delivered,
       total: order.total,
     );
@@ -70,9 +82,11 @@ class OrderModel extends Order {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   static OrderStatusType _statusFromString(String value) {
-    switch (value.trim().toLowerCase()) {
+    switch (value.trim().toLowerCase().replaceAll(RegExp(r'[ _-]'), '')) {
       case 'pending':
         return OrderStatusType.pending;
+      case 'confirmed':
+        return OrderStatusType.confirmed;
       case 'inprogress':
         return OrderStatusType.inProgress;
       case 'scheduled':
@@ -90,6 +104,8 @@ class OrderModel extends Order {
     switch (status) {
       case OrderStatusType.pending:
         return 'pending';
+      case OrderStatusType.confirmed:
+        return 'confirmed';
       case OrderStatusType.inProgress:
         return 'inProgress';
       case OrderStatusType.scheduled:

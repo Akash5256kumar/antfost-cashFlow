@@ -38,7 +38,7 @@ class OrderStatusScreen extends StatelessWidget {
         actions: [
           IconButton(
             onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.orderChat),
+                Navigator.of(context).pushNamed(AppRoutes.orderChat, arguments: orderId),
             icon: const Icon(
               Icons.chat_bubble_outline_rounded,
               color: AppColors.textPrimary,

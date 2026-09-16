@@ -14,9 +14,8 @@ abstract class InvoicesRemoteDataSource {
   /// Throws [ServerException] on failure.
   Future<InvoiceDetailModel> getInvoiceDetail(String invoiceId);
 
-  /// Triggers a download for [invoiceId].
-  /// Returns `true` on success. Throws [ServerException] on failure.
-  Future<bool> downloadInvoice(String invoiceId);
+  /// Returns a short-lived download URL for [invoiceId].
+  Future<String> downloadInvoice(String invoiceId);
 }
 
 // ---------------------------------------------------------------------------
@@ -116,9 +115,9 @@ class MockInvoicesRemoteDataSource implements InvoicesRemoteDataSource {
   }
 
   @override
-  Future<bool> downloadInvoice(String invoiceId) async {
+  Future<String> downloadInvoice(String invoiceId) async {
     await _fakeDownloadDelay();
-    return true;
+    return 'https://example.com/invoices/$invoiceId.pdf';
   }
 }
 
@@ -161,9 +160,15 @@ class ApiInvoicesRemoteDataSource implements InvoicesRemoteDataSource {
         return InvoiceDetailModel.fromJson(response.data!);
       });
   @override
-  Future<bool> downloadInvoice(String invoiceId) => _request(() async {
-    await _client.get<Object>('/invoices/$invoiceId/download');
-    return true;
+  Future<String> downloadInvoice(String invoiceId) => _request(() async {
+    final response = await _client.get<Map<String, dynamic>>(
+      '/invoices/$invoiceId/download',
+    );
+    final url = response.data?['downloadUrl'];
+    if (url is! String || url.isEmpty) {
+      throw const ServerException('Invoice download URL is invalid.');
+    }
+    return url;
   });
   Future<T> _request<T>(Future<T> Function() callback) async {
     try {

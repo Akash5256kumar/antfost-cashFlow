@@ -17,10 +17,11 @@ final class AuthLoading extends AuthState {
 }
 
 final class AuthSuccess extends AuthState {
-  const AuthSuccess(this.user);
+  const AuthSuccess(this.user, {this.nextStep});
   final User user;
+  final AuthNextStep? nextStep;
   @override
-  List<Object?> get props => [user];
+  List<Object?> get props => [user, nextStep];
 }
 
 final class AuthOtpSent extends AuthState {
@@ -53,8 +54,9 @@ final class AuthSignedOut extends AuthState {
 }
 
 final class AuthError extends AuthState {
-  const AuthError(this.message);
+  const AuthError(this.message, [this.fields = const {}]);
   final String message;
+  final Map<String, String> fields;
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, fields];
 }

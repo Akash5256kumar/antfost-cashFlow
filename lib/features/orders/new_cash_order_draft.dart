@@ -20,6 +20,10 @@ class NewCashOrderDraft {
     this.temperatureControl = false,
     this.pumpRequired = false,
     this.pumpName,
+    this.pumpType,
+    this.pumpSizeFromM,
+    this.pumpSizeUpToM,
+    this.pumpQuantity = 1,
     this.cubeMould = false,
     this.numMoulds = 0,
     this.labTesting = false,
@@ -45,6 +49,10 @@ class NewCashOrderDraft {
   final bool temperatureControl;
   final bool pumpRequired;
   final String? pumpName;
+  final String? pumpType;
+  final double? pumpSizeFromM;
+  final double? pumpSizeUpToM;
+  final int pumpQuantity;
   final bool cubeMould;
   final int numMoulds;
   final bool labTesting;
@@ -70,6 +78,10 @@ class NewCashOrderDraft {
     bool? temperatureControl,
     bool? pumpRequired,
     String? pumpName,
+    String? pumpType,
+    double? pumpSizeFromM,
+    double? pumpSizeUpToM,
+    int? pumpQuantity,
     bool? cubeMould,
     int? numMoulds,
     bool? labTesting,
@@ -95,6 +107,10 @@ class NewCashOrderDraft {
       temperatureControl: temperatureControl ?? this.temperatureControl,
       pumpRequired: pumpRequired ?? this.pumpRequired,
       pumpName: pumpName ?? this.pumpName,
+      pumpType: pumpType ?? this.pumpType,
+      pumpSizeFromM: pumpSizeFromM ?? this.pumpSizeFromM,
+      pumpSizeUpToM: pumpSizeUpToM ?? this.pumpSizeUpToM,
+      pumpQuantity: pumpQuantity ?? this.pumpQuantity,
       cubeMould: cubeMould ?? this.cubeMould,
       numMoulds: numMoulds ?? this.numMoulds,
       labTesting: labTesting ?? this.labTesting,

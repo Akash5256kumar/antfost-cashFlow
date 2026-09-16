@@ -107,19 +107,27 @@ class AppRouter {
           builder: (_) => const ForgotPasscodeScreen(),
         );
       case AppRoutes.resetPasscode:
-        final args = settings.arguments as ResetPasscodeRouteArgs;
+        final args = settings.arguments;
+        if (args is! ResetPasscodeRouteArgs || args.resetToken.trim().isEmpty) {
+          return _materialRoute(
+            settings: settings,
+            builder: (_) => const SignInScreen(),
+          );
+        }
         return _materialRoute(
           settings: settings,
           builder: (_) => ResetPasscodeScreen(resetToken: args.resetToken),
         );
       case AppRoutes.verifyAccount:
-        final args = settings.arguments is VerifyAccountRouteArgs
-            ? settings.arguments as VerifyAccountRouteArgs
-            : const VerifyAccountRouteArgs(
-                contact: 'Sample.email@.com',
-                isEmail: true,
-                flow: VerifyAccountFlow.signUp,
-              );
+        final args = settings.arguments;
+        if (args is! VerifyAccountRouteArgs ||
+            args.verificationId.trim().isEmpty ||
+            args.contact.trim().isEmpty) {
+          return _materialRoute(
+            settings: settings,
+            builder: (_) => const SignInScreen(),
+          );
+        }
         return _materialRoute(
           settings: settings,
           builder: (_) => VerifyAccountScreen(
@@ -128,6 +136,8 @@ class AppRouter {
             flow: args.flow,
             isBusiness: args.isBusiness,
             verificationId: args.verificationId,
+            expiresAt: args.expiresAt,
+            resendAvailableAt: args.resendAvailableAt,
           ),
         );
       case AppRoutes.kycVerification:
@@ -299,14 +309,16 @@ class AppRouter {
               const Scaffold(body: SafeArea(child: OperationsAgreementSheet())),
         );
       case AppRoutes.orderDetails:
+        final orderId = settings.arguments as String?;
         return _materialRoute(
           settings: settings,
-          builder: (_) => const OrderDetailsScreen(),
+          builder: (_) => OrderDetailsScreen(orderId: orderId ?? 'AF-2057'),
         );
       case AppRoutes.orderChat:
+        final orderId = settings.arguments as String?;
         return _materialRoute(
           settings: settings,
-          builder: (_) => const OrderChatScreen(),
+          builder: (_) => OrderChatScreen(orderId: orderId ?? 'AF-2057'),
         );
       case AppRoutes.wallet:
         return _materialRoute(
@@ -387,12 +399,12 @@ class AppRouter {
           builder: (_) => InvoiceDetailsScreen(invoice: invoice),
         );
       case AppRoutes.qcCheckpoint:
-        final invoiceId = settings.arguments is String
+        final orderId = settings.arguments is String
             ? settings.arguments as String
-            : 'INV-2026-02-00001';
+            : 'ord-001';
         return _materialRoute(
           settings: settings,
-          builder: (_) => QcCheckpointScreen(invoiceId: invoiceId),
+          builder: (_) => QcCheckpointScreen(orderId: orderId),
         );
       default:
         return _materialRoute(

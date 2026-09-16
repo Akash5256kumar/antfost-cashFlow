@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:flutter/material.dart';
 
 import '../../core/network/network_info.dart';
 import '../../core/services/api_client.dart';
@@ -12,6 +13,8 @@ import '../../core/services/order_feedback_api_service.dart';
 import '../../core/services/order_chat_api_service.dart';
 import '../../core/services/document_api_service.dart';
 import '../../core/services/secure_storage_service.dart';
+import '../navigation/app_router.dart';
+import '../navigation/app_routes.dart';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 import '../../features/auth/data/datasources/auth_local_data_source.dart';
@@ -115,13 +118,33 @@ import '../../features/splash/domain/repositories/splash_repository.dart';
 import '../../features/splash/domain/usecases/get_app_launch_state_use_case.dart';
 import '../../features/splash/presentation/bloc/splash_bloc.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
+  final sharedPreferences = await SharedPreferences.getInstance();
+  sl.registerLazySingleton<SharedPreferences>(() => sharedPreferences);
+
   // ── Core ───────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl());
   sl.registerLazySingleton<SecureStorageService>(SecureStorageService.new);
-  sl.registerLazySingleton<ApiClient>(() => ApiClient(secureStorage: sl()));
+  sl.registerLazySingleton<ApiClient>(
+    () => ApiClient(
+      secureStorage: sl(),
+      onSessionExpired: () {
+        final navigator = AppRouter.navigatorKey.currentState;
+        if (navigator == null) return;
+        navigator.pushNamedAndRemoveUntil(AppRoutes.signIn, (_) => false);
+        AppRouter.scaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Your session expired. Please sign in again.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      },
+    ),
+  );
   sl.registerLazySingleton<ProjectLocationApiService>(
     () => ProjectLocationApiService(sl()),
   );
@@ -337,7 +360,7 @@ Future<void> initDependencies() async {
 
   // ── Onboarding ─────────────────────────────────────────────────────────────
   sl.registerLazySingleton<OnboardingLocalDataSource>(
-    () => MockOnboardingLocalDataSource(),
+    () => SharedPrefsOnboardingLocalDataSource(sl()),
   );
   sl.registerLazySingleton<OnboardingRepository>(
     () => OnboardingRepositoryImpl(localDataSource: sl()),
@@ -353,7 +376,7 @@ Future<void> initDependencies() async {
 
   // ── Splash ─────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<SplashLocalDataSource>(
-    () => SecureSplashLocalDataSource(sl()),
+    () => SecureSplashLocalDataSource(sl(), sl(), sl()),
   );
   sl.registerLazySingleton<SplashRepository>(
     () => SplashRepositoryImpl(localDataSource: sl()),

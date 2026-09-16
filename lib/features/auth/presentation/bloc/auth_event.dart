@@ -19,14 +19,16 @@ final class SignUpBusinessEvent extends AuthEvent {
     required this.companyName,
     required this.username,
     required this.registeredMobile,
+    required this.email,
     required this.password,
   });
-  final String companyName, username, registeredMobile, password;
+  final String companyName, username, registeredMobile, email, password;
   @override
   List<Object?> get props => [
     companyName,
     username,
     registeredMobile,
+    email,
     password,
   ];
 }

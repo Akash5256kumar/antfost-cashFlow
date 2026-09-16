@@ -3,9 +3,37 @@ import 'package:dio/dio.dart';
 import '../errors/exceptions.dart';
 import 'api_client.dart';
 
+/// A wallet attempt was refused before any payment record was created. The
+/// draft order remains payable and the UI should offer the documented top-up
+/// next action rather than treating it as a pending payment.
+class InsufficientWalletBalanceException implements Exception {
+  const InsufficientWalletBalanceException(this.message, this.data);
+
+  final String message;
+  final Map<String, dynamic> data;
+
+  @override
+  String toString() => message;
+}
+
 class PaymentApiService {
   PaymentApiService(this._client);
   final ApiClient _client;
+
+  /// Checkout must be driven by the server: availability, wallet balance and
+  /// the total can differ by method because of method-specific charges.
+  Future<Map<String, dynamic>> methods({required String orderId}) =>
+      _request(() async {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/payments/methods',
+          queryParameters: {'orderId': orderId},
+        );
+        final data = response.data;
+        if (data == null || data['items'] is! List) {
+          throw const ServerException('Payment methods response is invalid.');
+        }
+        return data;
+      });
 
   Future<Map<String, dynamic>> initiate({
     required String orderId,
@@ -70,6 +98,12 @@ class PaymentApiService {
         throw TimeoutException(message);
       if (error.type == DioExceptionType.connectionError)
         throw NetworkException(message);
+      if (error.response?.statusCode == 402 && data is Map) {
+        throw InsufficientWalletBalanceException(
+          message,
+          Map<String, dynamic>.from(data),
+        );
+      }
       throw ServerException(message);
     }
   }

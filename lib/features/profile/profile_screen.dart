@@ -6,6 +6,7 @@ import '../../app/navigation/app_routes.dart';
 import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
+import '../../core/widgets/app_headers.dart';
 import '../auth/presentation/bloc/auth_bloc.dart';
 import '../auth/presentation/bloc/auth_event.dart';
 import '../auth/presentation/bloc/auth_state.dart';
@@ -70,6 +71,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         label: 'Company Info',
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.companyInfo),
       ),
+    ];
+
+    final businessItems = [
       _MenuItem(
         icon: Icons.verified_user_outlined,
         label: 'Verification Status',
@@ -151,20 +155,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
       child: Scaffold(
         backgroundColor: _bodyBg,
+        appBar: AppBrandHeader(
+          onBellTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.notifications),
+        ),
         bottomNavigationBar: const AppTabBottomNavBar(
           currentTab: AppTab.profile,
         ),
         body: SafeArea(
+          top: false,
           bottom: false,
           child: Column(
             children: [
-              // App bar
-              _ProfileAppBar(),
-
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          context.scaled(16),
+                          0,
+                          context.scaled(16),
+                          context.scaled(16),
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'My Profile',
+                                style: TextStyle(
+                                  fontSize: context.scaled(24),
+                                  fontWeight: FontWeight.w700,
+                                  color: _textDark,
+                                ),
+                              ),
+                              SizedBox(height: context.scaledV(4)),
+                              Text(
+                                'Manage your account and company settings',
+                                style: TextStyle(
+                                  fontSize: context.scaled(13),
+                                  color: _textGrey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       // Purple hero (data-driven via BLoC)
                       BlocBuilder<ProfileBloc, ProfileState>(
                         builder: (context, state) {
@@ -204,8 +242,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             }
 
                             // Both ProfileSuccess and ProfileUpdateSuccess show menus.
+                            final isBusiness =
+                                state is ProfileSuccess &&
+                                state.profile.accountType.toLowerCase() ==
+                                    'business';
                             return _ProfileMenuContent(
-                              accountItems: accountItems,
+                              accountItems: isBusiness
+                                  ? accountItems
+                                  : accountItems
+                                        .where(
+                                          (item) =>
+                                              item.label != 'Company Info' &&
+                                              item.label != 'Documents',
+                                        )
+                                        .toList(),
+                              businessItems: isBusiness
+                                  ? businessItems
+                                  : businessItems
+                                        .where(
+                                          (item) =>
+                                              item.label !=
+                                              'Verification Status',
+                                        )
+                                        .toList(),
                               preferenceItems: preferenceItems,
                               supportItems: supportItems,
                             );
@@ -224,31 +283,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ── App bar ───────────────────────────────────────────────────────────────────
-class _ProfileAppBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.symmetric(
-        horizontal: context.scaled(16),
-        vertical: context.scaled(14),
-      ),
-      child: Center(
-        child: Text(
-          'My Profile',
-          style: TextStyle(
-            fontSize: context.scaled(20),
-            fontWeight: FontWeight.w600,
-            color: _textDark,
-            height: 1.2,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ── Profile hero (with real data) ─────────────────────────────────────────────
 class _ProfileHero extends StatelessWidget {
   const _ProfileHero({required this.profile});
@@ -258,90 +292,90 @@ class _ProfileHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        context.scaled(20),
-        context.scaled(24),
-        context.scaled(20),
-        context.scaled(24),
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primaryGradientStart,
-            AppColors.primaryGradientEnd,
+    final isBusiness = profile.accountType.toLowerCase() == 'business';
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.scaled(16)),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(context.scaled(16)),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.primaryGradientStart,
+              AppColors.primaryGradientEnd,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(context.scaled(20)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: context.scaled(60),
+              height: context.scaled(60),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+                color: Colors.white,
+              ),
+              child: ClipOval(
+                child: profile.avatarUrl != null
+                    ? Image.network(
+                        profile.avatarUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _defaultAvatarIcon(),
+                      )
+                    : _defaultAvatarIcon(),
+              ),
+            ),
+            SizedBox(width: context.scaled(14)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: context.scaled(18),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: context.scaledV(4)),
+                  Row(
+                    children: [
+                      Icon(
+                        isBusiness
+                            ? Icons.business_rounded
+                            : Icons.person_outline_rounded,
+                        size: context.scaled(14),
+                        color: Colors.white70,
+                      ),
+                      SizedBox(width: context.scaled(5)),
+                      Flexible(
+                        child: Text(
+                          isBusiness
+                              ? (profile.company.isEmpty
+                                    ? 'Business account'
+                                    : profile.company)
+                              : 'Individual account',
+                          style: TextStyle(
+                            fontSize: context.scaled(13),
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          Container(
-            width: context.scaled(72),
-            height: context.scaled(72),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              color: Colors.white,
-            ),
-            child: ClipOval(
-              child: profile.avatarUrl != null
-                  ? Image.network(
-                      profile.avatarUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _defaultAvatarIcon(),
-                    )
-                  : _defaultAvatarIcon(),
-            ),
-          ),
-          SizedBox(width: context.scaled(16)),
-
-          // Name + company
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: context.scaled(20),
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    height: 1.3,
-                  ),
-                ),
-                SizedBox(height: context.scaledV(4)),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.business_rounded,
-                      size: context.scaled(14),
-                      color: Colors.white70,
-                    ),
-                    SizedBox(width: context.scaled(5)),
-                    Flexible(
-                      child: Text(
-                        profile.company,
-                        style: TextStyle(
-                          fontSize: context.scaled(14),
-                          fontWeight: FontWeight.w400,
-                          color: Colors.white,
-                          height: 1.3,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -363,9 +397,12 @@ class _ProfileHeroShimmer extends StatelessWidget {
       baseColor: const Color(0xFF8878FF),
       highlightColor: const Color(0xFFB0A6FF),
       child: Container(
-        width: double.infinity,
-        height: context.scaled(110),
-        color: const Color(0xFF8878FF),
+        margin: EdgeInsets.symmetric(horizontal: context.scaled(16)),
+        height: context.scaled(92),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8878FF),
+          borderRadius: BorderRadius.circular(context.scaled(20)),
+        ),
       ),
     );
   }
@@ -494,11 +531,13 @@ class _ProfileErrorBody extends StatelessWidget {
 class _ProfileMenuContent extends StatelessWidget {
   const _ProfileMenuContent({
     required this.accountItems,
+    required this.businessItems,
     required this.preferenceItems,
     required this.supportItems,
   });
 
   final List<_MenuItem> accountItems;
+  final List<_MenuItem> businessItems;
   final List<_MenuItem> preferenceItems;
   final List<_MenuItem> supportItems;
 
@@ -511,6 +550,11 @@ class _ProfileMenuContent extends StatelessWidget {
         const _SectionLabel(label: 'Account'),
         SizedBox(height: context.scaledV(10)),
         _MenuGroup(items: accountItems),
+        SizedBox(height: context.scaledV(20)),
+
+        const _SectionLabel(label: 'Business'),
+        SizedBox(height: context.scaledV(10)),
+        _MenuGroup(items: businessItems),
         SizedBox(height: context.scaledV(20)),
 
         // Preferences section

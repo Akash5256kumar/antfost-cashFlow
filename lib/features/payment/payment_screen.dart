@@ -16,39 +16,21 @@ import '../../core/services/payment_api_service.dart';
 enum _PayMethodId { wallet, card, bank, cash }
 
 class _PayMethodSpec {
-  const _PayMethodSpec(this.id, this.label, this.desc, this.imageAsset);
+  const _PayMethodSpec({
+    required this.id,
+    required this.label,
+    this.desc,
+    this.imageUrl,
+    this.available = true,
+    this.total,
+  });
   final _PayMethodId id;
   final String label;
   final String? desc;
-  final String imageAsset;
+  final String? imageUrl;
+  final bool available;
+  final double? total;
 }
-
-const _methods = [
-  _PayMethodSpec(
-    _PayMethodId.wallet,
-    'Wallet',
-    'AED 24,850 available',
-    AppAssets.artWalletMini,
-  ),
-  _PayMethodSpec(
-    _PayMethodId.card,
-    'Card / Payment Link',
-    null,
-    AppAssets.artCardMini,
-  ),
-  _PayMethodSpec(
-    _PayMethodId.bank,
-    'Bank Transfer',
-    null,
-    AppAssets.artBankMini,
-  ),
-  _PayMethodSpec(
-    _PayMethodId.cash,
-    'Cash in Advance',
-    null,
-    AppAssets.artCashMini,
-  ),
-];
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({
@@ -71,8 +53,107 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   _PayMethodId _selected = _PayMethodId.card;
   bool _submitting = false;
+  bool _loadingMethods = true;
+  String? _paymentBlockedMessage;
+  List<_PayMethodSpec> _methods = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMethods();
+  }
+
+  Future<void> _loadMethods() async {
+    if (widget.orderId == null || widget.orderId!.isEmpty) {
+      setState(() => _loadingMethods = false);
+      return;
+    }
+    try {
+      final data = await sl<PaymentApiService>().methods(
+        orderId: widget.orderId!,
+      );
+      final items = (data['items'] as List)
+          .whereType<Map>()
+          .map(Map<String, dynamic>.from)
+          .map(_methodFromApi)
+          .whereType<_PayMethodSpec>()
+          .toList();
+      final blocked = data['blocked'];
+      if (!mounted) return;
+      setState(() {
+        _methods = items;
+        _paymentBlockedMessage = data['canPay'] == false && blocked is Map
+            ? blocked['message'] as String? ??
+                  'Complete verification before payment.'
+            : null;
+        final firstAvailable = items
+            .where((item) => item.available)
+            .firstOrNull;
+        if (firstAvailable != null &&
+            !items.any((item) => item.id == _selected && item.available)) {
+          _selected = firstAvailable.id;
+        }
+        _loadingMethods = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadingMethods = false);
+      _showError(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  _PayMethodSpec? _methodFromApi(Map<String, dynamic> item) {
+    final id = switch (item['id']) {
+      'wallet' => _PayMethodId.wallet,
+      'card' => _PayMethodId.card,
+      'bankTransfer' => _PayMethodId.bank,
+      'cash' => _PayMethodId.cash,
+      _ => null,
+    };
+    if (id == null) return null;
+    final balance = item['balance'];
+    final balanceText = balance is Map && balance['availableBalance'] is num
+        ? 'AED ${(balance['availableBalance'] as num).toStringAsFixed(2)} available'
+        : null;
+    final total = (item['total'] as num?)?.toDouble();
+    final currency = item['currency'] as String? ?? 'AED';
+    final totalText = total == null
+        ? null
+        : '$currency ${total.toStringAsFixed(2)} total';
+    return _PayMethodSpec(
+      id: id,
+      label: item['title'] as String? ?? _labelFor(id),
+      desc: item['available'] == false
+          ? item['unavailableReason'] as String?
+          : [balanceText, totalText].whereType<String>().join(' • '),
+      imageUrl: item['imageUrl'] as String?,
+      available: item['available'] != false,
+      total: total,
+    );
+  }
+
+  String _labelFor(_PayMethodId id) => switch (id) {
+    _PayMethodId.wallet => 'Wallet',
+    _PayMethodId.card => 'Card / Payment Link',
+    _PayMethodId.bank => 'Bank Transfer',
+    _PayMethodId.cash => 'Cash in Advance',
+  };
+
+  String _fallbackImageFor(_PayMethodId id) => switch (id) {
+    _PayMethodId.wallet => AppAssets.artWalletMini,
+    _PayMethodId.card => AppAssets.artCardMini,
+    _PayMethodId.bank => AppAssets.artBankMini,
+    _PayMethodId.cash => AppAssets.artCashMini,
+  };
+
+  _PayMethodSpec? get _selectedMethod =>
+      _methods.where((method) => method.id == _selected).firstOrNull;
 
   Future<void> _continue() async {
+    if (_paymentBlockedMessage != null) {
+      _showBlockedDialog(_paymentBlockedMessage!);
+      return;
+    }
     if (widget.orderId == null || widget.orderId!.isEmpty) {
       _showError('Payment requires a server order ID.');
       return;
@@ -85,12 +166,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _PayMethodId.bank => 'bankTransfer',
         _PayMethodId.cash => 'cash',
       };
+      final selectedTotal = _selectedMethod?.total ?? widget.totalAmount;
       final result = await sl<PaymentApiService>().initiate(
         orderId: widget.orderId!,
         method: method,
-        walletAmount: _selected == _PayMethodId.wallet
-            ? widget.totalAmount
-            : null,
+        walletAmount: _selected == _PayMethodId.wallet ? selectedTotal : null,
         termsAccepted: true,
       );
       final payment = Map<String, dynamic>.from(result['payment'] as Map);
@@ -116,6 +196,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const CashPaymentPendingScreen()),
       );
+    } on InsufficientWalletBalanceException catch (error) {
+      if (!mounted) return;
+      final wallet = error.data['wallet'];
+      final balance = wallet is Map
+          ? (wallet['availableBalance'] as num?)?.toDouble() ?? 0
+          : 0.0;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SplitWalletPaymentScreen(
+            totalAmount: widget.totalAmount,
+            walletBalance: balance,
+          ),
+        ),
+      );
     } catch (error) {
       _showError(error.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -125,45 +219,96 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   void _showError(String message) => showAppSnackBar(context, message);
 
-  void _continueLegacy() {
-    switch (_selected) {
-      case _PayMethodId.card:
-        Navigator.of(context).pushNamed(
-          AppRoutes.termsConditions,
-          arguments: AppRoutes.completePayment,
-        );
-        break;
-      case _PayMethodId.bank:
-        Navigator.of(context).pushNamed(
-          AppRoutes.termsConditions,
-          arguments: AppRoutes.uploadPaymentProof,
-        );
-        break;
-      case _PayMethodId.cash:
-        // Cash in Advance: payment happens outside the app, admin confirms manually
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const CashPaymentPendingScreen()),
-        );
-        break;
-      case _PayMethodId.wallet:
-        const walletBalance = 24850.0;
-        if (widget.totalAmount > walletBalance) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => SplitWalletPaymentScreen(
-                totalAmount: widget.totalAmount,
-                walletBalance: walletBalance,
+  void _showBlockedDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.scaled(20)),
+        ),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: EdgeInsets.all(context.scaled(24)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(context.scaled(12)),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.info_outline_rounded,
+                  size: context.scaled(32),
+                  color: const Color(0xFFEF4444),
+                ),
               ),
-            ),
-          );
-        } else {
-          Navigator.of(context).pushNamed(
-            AppRoutes.termsConditions,
-            arguments: AppRoutes.paymentSuccess,
-          );
-        }
-        break;
-    }
+              SizedBox(height: context.scaledV(16)),
+              Text(
+                'Verification Required',
+                style: TextStyle(
+                  fontSize: context.scaled(18),
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              SizedBox(height: context.scaledV(12)),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: context.scaled(14),
+                  color: const Color(0xFF64748B),
+                  height: 1.4,
+                ),
+              ),
+              SizedBox(height: context.scaledV(12)),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.scaled(12),
+                  vertical: context.scaledV(8),
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F3FF),
+                  borderRadius: BorderRadius.circular(context.scaled(8)),
+                ),
+                child: Text(
+                  'Don\'t worry, your current order has been safely saved to your Drafts.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: context.scaled(13),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF4F46E5),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.scaledV(24)),
+              PrimaryButton(
+                label: 'Go to Home',
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context, rootNavigator: true)
+                      .pushNamedAndRemoveUntil(
+                    AppRoutes.home,
+                    (route) => false,
+                  );
+                },
+              ),
+              SizedBox(height: context.scaledV(12)),
+              AppOutlineButton(
+                label: 'Go Back',
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -227,86 +372,110 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                     SizedBox(height: context.scaledV(32)),
 
-                    ..._methods.map((m) {
-                      final isSelected = m.id == _selected;
-                      return Padding(
-                        padding: EdgeInsets.only(bottom: context.scaledV(16)),
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selected = m.id),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: context.scaled(16),
-                              vertical: context.scaledV(12),
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFFF5F7FF)
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(
-                                context.scaled(16),
+                    if (_loadingMethods)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else
+                      ..._methods.map((m) {
+                        final isSelected = m.id == _selected;
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: context.scaledV(16)),
+                          child: GestureDetector(
+                            onTap: m.available
+                                ? () => setState(() => _selected = m.id)
+                                : null,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.scaled(16),
+                                vertical: context.scaledV(12),
                               ),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : const Color(0xFFE2E8F0),
-                                width: isSelected ? 1.5 : 1.0,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Image.asset(
-                                  m.imageAsset,
-                                  width: context.scaled(64),
-                                  height: context.scaled(64),
-                                  fit: BoxFit.contain,
+                              decoration: BoxDecoration(
+                                color: isSelected && m.available
+                                    ? const Color(0xFFF5F7FF)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(
+                                  context.scaled(16),
                                 ),
-                                SizedBox(width: context.scaled(16)),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        m.label,
-                                        style: TextStyle(
-                                          fontSize: context.scaled(15),
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF1F2533),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : const Color(0xFFE2E8F0),
+                                  width: isSelected ? 1.5 : 1.0,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  m.imageUrl != null &&
+                                          m.imageUrl!.startsWith('http')
+                                      ? Image.network(
+                                          m.imageUrl!,
+                                          width: context.scaled(64),
+                                          height: context.scaled(64),
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (_, __, ___) =>
+                                              Image.asset(
+                                                _fallbackImageFor(m.id),
+                                                width: context.scaled(64),
+                                                height: context.scaled(64),
+                                              ),
+                                        )
+                                      : Image.asset(
+                                          _fallbackImageFor(m.id),
+                                          width: context.scaled(64),
+                                          height: context.scaled(64),
+                                          fit: BoxFit.contain,
                                         ),
-                                      ),
-                                      if (m.desc != null) ...[
-                                        SizedBox(height: context.scaledV(4)),
+                                  SizedBox(width: context.scaled(16)),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                         Text(
-                                          m.desc!,
+                                          m.label,
                                           style: TextStyle(
-                                            fontSize: context.scaled(11),
-                                            color: const Color(0xFF64748B),
+                                            fontSize: context.scaled(15),
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF1F2533),
                                           ),
                                         ),
+                                        if (m.desc != null) ...[
+                                          SizedBox(height: context.scaledV(4)),
+                                          Text(
+                                            m.desc!,
+                                            style: TextStyle(
+                                              fontSize: context.scaled(11),
+                                              color: const Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
                                       ],
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  width: context.scaled(20),
-                                  height: context.scaled(20),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? AppColors.primary
-                                          : const Color(0xFFCBD5E1),
-                                      width: isSelected ? 5.0 : 1.0,
                                     ),
-                                    color: Colors.white,
                                   ),
-                                ),
-                              ],
+                                  Container(
+                                    width: context.scaled(20),
+                                    height: context.scaled(20),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSelected && m.available
+                                            ? AppColors.primary
+                                            : const Color(0xFFCBD5E1),
+                                        width: isSelected ? 5.0 : 1.0,
+                                      ),
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      }).toList(),
 
                     SizedBox(height: context.scaledV(16)),
                     Row(
@@ -355,7 +524,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           PrimaryButton(
                             label: 'Continue',
                             arrow: true,
-                            onPressed: _continue,
+                            onPressed:
+                                _loadingMethods ||
+                                    _methods.isEmpty ||
+                                    _submitting
+                                ? null
+                                : _continue,
                           ),
                           SizedBox(height: context.scaledV(12)),
                           AppOutlineButton(

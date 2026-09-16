@@ -87,8 +87,9 @@ class ApiHomeRemoteDataSource implements HomeRemoteDataSource {
         final body = error.response?.data;
         if (error.response?.statusCode != 404 ||
             body is! Map ||
-            body['code'] != 'NO_PROJECTS_FOUND')
+            body['code'] != 'NO_PROJECTS_FOUND') {
           rethrow;
+        }
       }
       return HomeDataModel.fromJson({...data, 'projectCount': projectCount});
     } on DioException catch (error) {

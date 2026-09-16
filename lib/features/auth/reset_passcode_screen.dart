@@ -20,6 +20,7 @@ class _ResetPasscodeScreenState extends State<ResetPasscodeScreen> {
   final _key = GlobalKey<FormState>();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
+  Map<String, String> _serverErrors = const {};
   @override
   void dispose() {
     _password.dispose();
@@ -45,7 +46,9 @@ class _ResetPasscodeScreenState extends State<ResetPasscodeScreen> {
     showAppSnackBar(context, 'Password reset successfully. Please sign in.');
     await Future<void>.delayed(const Duration(seconds: 2));
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.signIn, (_) => false);
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(AppRoutes.signIn, (_) => false);
   }
 
   @override
@@ -55,9 +58,8 @@ class _ResetPasscodeScreenState extends State<ResetPasscodeScreen> {
         _showResetSuccess();
       }
       if (state is AuthError) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(state.message)));
+        setState(() => _serverErrors = state.fields);
+        showAppSnackBar(context, state.message);
       }
     },
     builder: (context, state) => Scaffold(
@@ -74,6 +76,8 @@ class _ResetPasscodeScreenState extends State<ResetPasscodeScreen> {
               AppTextField(
                 label: 'NEW PASSWORD',
                 controller: _password,
+                errorText: _serverErrors['newPasscode'],
+                onChanged: (_) => _clearServerError('newPasscode'),
                 obscureText: true,
                 validator: InputValidators.password,
               ),
@@ -98,4 +102,9 @@ class _ResetPasscodeScreenState extends State<ResetPasscodeScreen> {
       ),
     ),
   );
+
+  void _clearServerError(String field) {
+    if (!_serverErrors.containsKey(field)) return;
+    setState(() => _serverErrors = Map.of(_serverErrors)..remove(field));
+  }
 }

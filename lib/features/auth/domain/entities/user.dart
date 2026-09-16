@@ -9,6 +9,13 @@ class User extends Equatable {
   final String phone;
   final String company;
   final bool isKycVerified;
+  final String kycStatus;
+  final String accountState;
+  final bool canUseApp;
+  final bool canCreateDraftOrders;
+  final bool canSubmitOrders;
+  final bool canMakePayments;
+  final String? blockedMessage;
 
   const User({
     required this.id,
@@ -17,8 +24,29 @@ class User extends Equatable {
     required this.phone,
     required this.company,
     required this.isKycVerified,
+    this.kycStatus = 'not_required',
+    this.accountState = 'active',
+    this.canUseApp = true,
+    this.canCreateDraftOrders = true,
+    this.canSubmitOrders = true,
+    this.canMakePayments = true,
+    this.blockedMessage,
   });
 
   @override
-  List<Object?> get props => [id, name, email, phone, company, isKycVerified];
+  List<Object?> get props => [
+    id,
+    name,
+    email,
+    phone,
+    company,
+    isKycVerified,
+    kycStatus,
+    accountState,
+    canUseApp,
+    canCreateDraftOrders,
+    canSubmitOrders,
+    canMakePayments,
+    blockedMessage,
+  ];
 }

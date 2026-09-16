@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import '../../app/config/app_assets.dart';
 import '../../app/theme/app_colors.dart';
@@ -37,9 +38,9 @@ const _conditions = [
   ),
   _Condition(
     'boom',
-    Icons.local_shipping_outlined,
+    Icons.height_rounded,
     'Boom Reach Restriction',
-    'Limited pump boom reach on site.',
+    'Confirm whether the pump boom reach is restricted on site.',
   ),
   _Condition(
     'night',
@@ -118,7 +119,11 @@ class _NewCashOrderSiteAccessScreenState
 
   Future<void> _pickDocument(String condition) async {
     try {
-      final document = await DocumentPickerService.pickDocument();
+      final document = await DocumentPickerService.pickDocument(
+        allowedExtensions: condition == 'narrow'
+            ? const ['jpg', 'jpeg', 'png', 'webp']
+            : const ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+      );
       if (!mounted || document == null) return;
       setState(() {
         if (condition == 'narrow') {

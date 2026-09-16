@@ -39,10 +39,18 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       (either) =>
           either.fold((failure) => throw failure, (projects) => projects),
     );
-    _locationCountFuture = sl<ProjectLocationApiService>().getLocations().then(
-      (items) => items.length,
-    );
+    _locationCountFuture = _loadLocationCount();
     context.read<OrdersBloc>().add(const FetchOrdersEvent());
+  }
+
+  Future<int> _loadLocationCount() async {
+    try {
+      return (await sl<ProjectLocationApiService>().getLocations()).length;
+    } catch (_) {
+      // Location count is supplementary to the Projects screen. A temporary
+      // failure must not surface as an unhandled exception or break the page.
+      return 0;
+    }
   }
 
   @override
@@ -216,8 +224,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                       }),
                     SizedBox(height: context.scaledV(8)),
                     _AddProjectButton(
-                      onPressed: () =>
-                          Navigator.of(context).pushNamed(AppRoutes.addNewProject),
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pushNamed(AppRoutes.addNewProject),
                     ),
                     SizedBox(height: context.scaledV(20)),
                   ],
@@ -376,6 +385,7 @@ class _ProjectCardState extends State<_ProjectCard> {
           children: [
             AppLocationThumb(
               location: '${project.name} ${project.location}',
+              imageUrl: project.imageUrl,
               width: 105,
               height: 105,
               borderRadius: 12,
