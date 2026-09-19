@@ -292,9 +292,13 @@ Route<dynamic> _buildRouteForTab(
         builder: (_) => AddNewProjectScreen(returnResult: returnResult),
       );
     case AppRoutes.addLocation:
+      final args = settings.arguments as AddLocationRouteArgs?;
       return _materialRoute(
         settings: settings,
-        builder: (_) => const AddLocationScreen(),
+        builder: (_) => AddLocationScreen(
+          projectId: args?.projectId,
+          initialLocation: args?.initialLocation,
+        ),
       );
     case AppRoutes.orderSaved:
       return _materialRoute(

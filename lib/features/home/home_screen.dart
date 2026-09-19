@@ -6,12 +6,14 @@ import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_routes.dart';
 import '../../app/navigation/app_tab_navigation.dart';
 import '../../app/theme/app_colors.dart';
-import '../payment/price_breakdown_screen.dart';
 import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
+import '../payment/payment_screen.dart';
+import '../../core/services/app_demo_service.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/app_location_thumb.dart';
+import '../../core/widgets/app_remote_image.dart';
 import '../../core/widgets/app_status_badge.dart';
 import '../../core/widgets/primary_button.dart';
 import 'domain/entities/home_data.dart';
@@ -21,18 +23,32 @@ import 'presentation/bloc/home_state.dart';
 
 /// Ported from the new Figma design's `screens/Home.tsx`: a branded header,
 /// account status, two stat cards, a hero CTA, and Recent Orders.
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.verificationUnderReview = false});
 
   final bool verificationUnderReview;
 
   @override
-  Widget build(BuildContext context) {
-    // Clear errors raised by a previous tab/request when Home becomes visible.
-    // A successful Home response must not leave an old generic snackbar over it.
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Trigger fetch after the first frame so the auth token is guaranteed
+    // to be persisted before the API call fires. This fixes the race condition
+    // where navigating from SignIn immediately triggers a 401 Unauthenticated.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<HomeBloc>().add(const FetchHomeDataEvent());
+      // Clear any lingering snackbars from previous screens.
       ScaffoldMessenger.of(context).clearSnackBars();
     });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBrandHeader(
@@ -40,12 +56,8 @@ class HomeScreen extends StatelessWidget {
             Navigator.of(context).pushNamed(AppRoutes.notifications),
       ),
       bottomNavigationBar: const AppTabBottomNavBar(currentTab: AppTab.home),
-      body: BlocConsumer<HomeBloc, HomeState>(
-        listener: (context, state) {},
+      body: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
-          if (state is HomeInitial) {
-            context.read<HomeBloc>().add(const FetchHomeDataEvent());
-          }
           final activeOrders = state is HomeSuccess
               ? state.data.activeOrders
               : const <ActiveOrder>[];
@@ -53,13 +65,61 @@ class HomeScreen extends StatelessWidget {
               state is HomeSuccess &&
               state.data.accountType.toLowerCase() == 'business';
 
-          return SingleChildScrollView(
+          return RefreshIndicator(
+            onRefresh: () async {
+              context.read<HomeBloc>().add(const FetchHomeDataEvent());
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg(context)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: context.scaledV(4)),
-                if (isBusiness)
+                if (AppDemoService.isDemoMode) ...[
+                  Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        AppDemoService.setDemoMode(false);
+                        Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.signIn,
+                          (route) => false,
+                        );
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.scaled(14),
+                          vertical: context.scaledV(6),
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(context.scaled(20)),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.play_circle_fill_rounded,
+                              size: context.scaled(16),
+                              color: const Color(0xFF2563EB),
+                            ),
+                            SizedBox(width: context.scaled(6)),
+                            Text(
+                              'Demo Mode • Tap to Sign In',
+                              style: TextStyle(
+                                fontSize: context.scaled(12),
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF2563EB),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: context.scaledV(10)),
+                ] else if (isBusiness) ...[
                   Center(
                     child: GestureDetector(
                       onTap: () {
@@ -68,17 +128,18 @@ class HomeScreen extends StatelessWidget {
                         ).pushNamed(AppRoutes.kycVerificationStatus);
                       },
                       child: AppStatusBadge(
-                        label: verificationUnderReview
+                        label: widget.verificationUnderReview
                             ? 'Under Review'
                             : 'Approved',
-                        tone: verificationUnderReview
+                        tone: widget.verificationUnderReview
                             ? AppStatusTone.review
                             : AppStatusTone.active,
                         showIcon: true,
                       ),
                     ),
                   ),
-                if (isBusiness) SizedBox(height: context.scaledV(14)),
+                  SizedBox(height: context.scaledV(14)),
+                ],
                 Text(
                   state is HomeSuccess
                       ? 'Good afternoon, ${state.data.userName}'
@@ -89,7 +150,7 @@ class HomeScreen extends StatelessWidget {
                     letterSpacing: 0,
                   ),
                 ),
-                if (verificationUnderReview) ...[
+                if (widget.verificationUnderReview) ...[
                   SizedBox(height: context.scaledV(6)),
                   Text(
                     'Business verification in review - Payments activate after approval',
@@ -133,8 +194,9 @@ class HomeScreen extends StatelessWidget {
                 SizedBox(height: context.scaledV(28)),
               ],
             ),
-          );
-        },
+          ),
+        );
+      },
       ),
     );
   }
@@ -356,10 +418,10 @@ class _HeroBanner extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(
-                  AppAssets.artHomeHero,
+                AppRemoteImage.screen(
+                  screenKey: 'homeHeader',
+                  fallback: AppAssets.artHomeHero,
                   fit: BoxFit.cover,
-                  alignment: Alignment.center,
                 ),
                 Positioned(
                   left: 0,
@@ -468,16 +530,20 @@ class _RecentOrderRow extends StatelessWidget {
         if (normalizedStatus == 'pending' || normalizedStatus == 'draft') {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => PriceBreakdownScreen(
+              builder: (_) => PaymentScreen(
                 orderId: order.orderId,
-                projectName: order.location,
-                mixCode: order.grade,
-                quantity:
-                    int.tryParse(
+                orderRef: order.orderReference?.isNotEmpty == true
+                    ? order.orderReference!
+                    : 'AF-${order.orderId}',
+                totalAmount: order.amount,
+                quantity: int.tryParse(
                       order.volume.replaceAll(RegExp(r'[^0-9]'), ''),
                     ) ??
-                    0,
-                deliveryDate: order.date,
+                    1,
+                mixCode: order.grade,
+                projectName: order.location.isNotEmpty
+                    ? order.location
+                    : (order.projectName ?? ''),
               ),
             ),
           );
@@ -493,7 +559,9 @@ class _RecentOrderRow extends StatelessWidget {
         child: Row(
           children: [
             AppLocationThumb(
-              location: order.location,
+              location: order.location.isNotEmpty
+                  ? order.location
+                  : (order.projectName ?? 'Location'),
               imageUrl: order.imageUrl,
             ),
             SizedBox(width: AppSpacing.md(context)),
@@ -502,7 +570,9 @@ class _RecentOrderRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    order.location,
+                    order.location.isNotEmpty
+                        ? order.location
+                        : (order.projectName ?? 'Concrete Order'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.cardTitle(
@@ -510,7 +580,9 @@ class _RecentOrderRow extends StatelessWidget {
                     ).copyWith(fontSize: context.scaled(13)),
                   ),
                   Text(
-                    'Order ${order.orderId}',
+                    order.orderReference?.isNotEmpty == true
+                        ? order.orderReference!
+                        : 'Order ${order.orderId}',
                     style: AppTextStyles.cardSubtitle(context),
                   ),
                 ],

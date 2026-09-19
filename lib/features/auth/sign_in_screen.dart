@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/widgets/app_country_code_picker.dart';
+import '../../core/services/app_demo_service.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_route_args.dart';
@@ -18,6 +20,8 @@ import 'presentation/bloc/auth_bloc.dart';
 import 'presentation/bloc/auth_event.dart';
 import 'presentation/bloc/auth_state.dart';
 import 'domain/entities/auth_flow.dart';
+import '../home/presentation/bloc/home_bloc.dart';
+import '../home/presentation/bloc/home_event.dart';
 
 /// Ported from the new Figma design's `screens/Login.tsx` — a Business /
 /// Individual segmented toggle drives the copy and the credential field's
@@ -34,19 +38,20 @@ class _SignInScreenState extends State<SignInScreen> {
   int _modeIndex = 0; // 0 = Business, 1 = Individual
 
   final TextEditingController _contactController = TextEditingController();
-  final TextEditingController _passcodeController = TextEditingController();
   Map<String, String> _serverErrors = const {};
+  String _countryCode = '+971';
 
   @override
   void dispose() {
     _contactController.dispose();
-    _passcodeController.dispose();
     super.dispose();
   }
 
   bool get _isBusiness => _modeIndex == 0;
 
   void _goHome() {
+    AppDemoService.setDemoMode(true);
+    context.read<HomeBloc>().add(const FetchHomeDataEvent());
     Navigator.of(
       context,
     ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
@@ -57,7 +62,7 @@ class _SignInScreenState extends State<SignInScreen> {
     context.read<AuthBloc>().add(
       SignInEvent(
         usernameOrMobile: _contactController.text.trim(),
-        password: _passcodeController.text.trim(),
+        countryCode: _countryCode,
       ),
     );
   }
@@ -74,6 +79,9 @@ class _SignInScreenState extends State<SignInScreen> {
                   state.user.kycStatus == 'not_submitted'
               ? AppRoutes.kycVerification
               : AppRoutes.home;
+          if (destination == AppRoutes.home) {
+            context.read<HomeBloc>().add(const FetchHomeDataEvent());
+          }
           Navigator.of(context).pushReplacementNamed(
             destination,
             arguments: destination == AppRoutes.kycVerification ? true : null,
@@ -91,9 +99,15 @@ class _SignInScreenState extends State<SignInScreen> {
           Navigator.of(context).pushNamed(
             AppRoutes.verifyAccount,
             arguments: VerifyAccountRouteArgs(
-              contact: _contactController.text.trim(),
+              contact: state.challenge.contact.isNotEmpty
+                  ? state.challenge.contact
+                  : _contactController.text.trim(),
               isEmail: false,
-              flow: VerifyAccountFlow.signUp,
+              flow: VerifyAccountFlow.signIn,
+              verificationId: state.challenge.verificationId,
+              expiresAt: state.challenge.expiresAt,
+              resendAvailableAt: state.challenge.resendAvailableAt,
+              countryCode: _countryCode,
             ),
           );
         }
@@ -104,183 +118,186 @@ class _SignInScreenState extends State<SignInScreen> {
         return Scaffold(
           backgroundColor: AppColors.background,
           body: SafeArea(
-            child: SingleChildScrollView(
-              // Figma: `px-6 pb-6 pt-2` (24px sides, 24px bottom) + the
-              // logo's own `mt-1` (4px) folded into the top inset.
-              padding: EdgeInsets.fromLTRB(
-                context.scaled(24),
-                context.scaledV(12),
-                context.scaled(24),
-                context.scaledV(24),
-              ),
-              child: Form(
-                key: _formKey,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final hPad = context.scaled(24);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Center(
-                          child: SvgPicture.asset(
-                            AppAssets.antfostLogo,
-                            height: context.scaled(76),
-                          ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.scaled(24),
+                          vertical: context.scaledV(8),
                         ),
-                        // Full-bleed, natural aspect ratio, faded at the
-                        // bottom — matches Figma's `-mx-7` + mask-image.
-                        SizedBox(
-                          height: context.scaledV(190),
-                          child: OverflowBox(
-                            maxWidth: constraints.maxWidth + hPad * 2.6,
-                            minWidth: constraints.maxWidth + hPad * 2.6,
-                            child: SvgEmbeddedRasterImage(
-                              assetPath: AppAssets.figmaPlant,
-                              fit: BoxFit.fitWidth,
-                              alignment: Alignment.center,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: context.scaledV(8)),
-                        Text(
-                          'Login',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: context.scaled(20),
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.01 * 20,
-                          ),
-                        ),
-                        SizedBox(height: context.scaledV(0)),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: context.scaled(270),
-                          ),
-                          child: Center(
-                            child: Text(
-                              _isBusiness
-                                  ? 'Plan concrete orders, manage project sites and track live deliveries.'
-                                  : 'Log in to manage your projects, orders and deliveries.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: context.scaled(12),
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.textSecondary,
-                                height: 1.625,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: context.scaledV(12)),
-                        AppTabToggle(
-                          tabs: const ['Business', 'Individual'],
-                          selectedIndex: _modeIndex,
-                          onChanged: (i) => setState(() {
-                            _modeIndex = i;
-                            _contactController.clear();
-                            _serverErrors = const {};
-                          }),
-                        ),
-                        SizedBox(height: context.scaledV(16)),
-                        AppTextField(
-                          label: _isBusiness
-                              ? 'BUSINESS USERNAME'
-                              : 'MOBILE NUMBER OR USERNAME',
-                          controller: _contactController,
-                          errorText: _serverErrors['usernameOrMobile'],
-                          onChanged: (_) =>
-                              _clearServerError('usernameOrMobile'),
-                          leadingIcon: _isBusiness
-                              ? Icons.lock_outline
-                              : Icons.person_outline,
-                          trailingIcon: const Icon(
-                            Icons.chevron_right_rounded,
-                            color: AppColors.iconMuted,
-                          ),
-                          validator: (value) => InputValidators.loginIdentifier(
-                            value,
-                            isBusiness: _isBusiness,
-                          ),
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                        ),
-                        SizedBox(height: context.scaledV(12)),
-                        AppTextField(
-                          label: 'PASSWORD',
-                          obscureText: true,
-                          controller: _passcodeController,
-                          errorText: _serverErrors['password'],
-                          onChanged: (_) => _clearServerError('password'),
-                          leadingIcon: Icons.lock_outline,
-                          validator: InputValidators.password,
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                        ),
-                        SizedBox(height: context.scaledV(8)),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: GestureDetector(
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.forgotPasscode),
-                            child: Text(
-                              'Forgot Password?',
-                              style: TextStyle(
-                                fontSize: context.scaled(12),
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: context.scaledV(16)),
-                        PrimaryButton(
-                          onPressed: isLoading ? null : _onSignIn,
-                          isLoading: isLoading,
-                          arrow: true,
-                          label: 'Log In',
-                        ),
-                        SizedBox(height: context.scaledV(12)),
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Divider(color: AppColors.divider),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md(context),
-                              ),
-                              child: Text(
-                                'or',
-                                style: TextStyle(
-                                  fontSize: context.scaled(12),
-                                  color: AppColors.textSecondary,
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Center(
+                                child: SvgPicture.asset(
+                                  AppAssets.antfostLogo,
+                                  width: context.scaled(140),
                                 ),
                               ),
-                            ),
-                            const Expanded(
-                              child: Divider(color: AppColors.divider),
-                            ),
-                          ],
+                              SizedBox(height: context.scaledV(12)),
+                              SizedBox(
+                                height: context.scaledV(170),
+                                child: SvgEmbeddedRasterImage(
+                                  assetPath: AppAssets.figmaPlant,
+                                  width: double.infinity,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              SizedBox(height: context.scaledV(8)),
+                              Text(
+                                'Login',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: context.scaled(22),
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                  letterSpacing: -0.01 * 22,
+                                ),
+                              ),
+                              SizedBox(height: context.scaledV(4)),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: context.scaled(290),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _isBusiness
+                                        ? 'Plan concrete orders, manage project sites and track live deliveries.'
+                                        : 'Log in to manage your projects, orders and deliveries.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: context.scaled(12),
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.textSecondary,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: context.scaledV(12)),
+                              AppTabToggle(
+                                tabs: const ['Business', 'Individual'],
+                                selectedIndex: _modeIndex,
+                                onChanged: (i) => setState(() {
+                                  _modeIndex = i;
+                                  _contactController.clear();
+                                  _serverErrors = const {};
+                                }),
+                              ),
+                              SizedBox(height: context.scaledV(12)),
+                              AppTextField(
+                                label: 'MOBILE NUMBER',
+                                controller: _contactController,
+                                errorText: _serverErrors['identifier'] ??
+                                    _serverErrors['usernameOrMobile'] ??
+                                    _serverErrors['mobile'],
+                                onChanged: (_) {
+                                  _clearServerError('identifier');
+                                  _clearServerError('usernameOrMobile');
+                                  _clearServerError('mobile');
+                                },
+                                keyboardType: TextInputType.phone,
+                                prefixIconWidget: AppCountryCodePicker(
+                                  onChanged: (countryCode) {
+                                    setState(() {
+                                      _countryCode = countryCode.dialCode ?? '+971';
+                                    });
+                                  },
+                                ),
+                                trailingIcon: const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: AppColors.iconMuted,
+                                ),
+                                validator: InputValidators.mobile,
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                              ),
+                              SizedBox(height: context.scaledV(16)),
+                              PrimaryButton(
+                                onPressed: isLoading ? null : _onSignIn,
+                                isLoading: isLoading,
+                                arrow: true,
+                                label: 'Log In',
+                              ),
+                              SizedBox(height: context.scaledV(10)),
+                              Row(
+                                children: [
+                                  const Expanded(
+                                    child: Divider(color: AppColors.divider),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.md(context),
+                                    ),
+                                    child: Text(
+                                      'or',
+                                      style: TextStyle(
+                                        fontSize: context.scaled(12),
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    child: Divider(color: AppColors.divider),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: context.scaledV(10)),
+                              PrimaryButton(
+                                variant: PrimaryButtonVariant.outline,
+                                onPressed: () => Navigator.of(
+                                  context,
+                                ).pushNamed(AppRoutes.accountType),
+                                label: 'Create Account',
+                              ),
+                              SizedBox(height: context.scaledV(10)),
+                              Center(
+                                child: GestureDetector(
+                                  onTap: _goHome,
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: context.scaledV(4),
+                                    ),
+                                    child: RichText(
+                                      text: TextSpan(
+                                        text: 'Want to explore first? ',
+                                        style: TextStyle(
+                                          fontSize: context.scaled(13),
+                                          color: AppColors.textSecondary,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: 'Try Our Demo',
+                                            style: TextStyle(
+                                              fontSize: context.scaled(13),
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        SizedBox(height: context.scaledV(12)),
-                        PrimaryButton(
-                          variant: PrimaryButtonVariant.outline,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.accountType),
-                          label: 'Create Account',
-                        ),
-                        SizedBox(height: context.scaledV(12)),
-                        PrimaryButton(
-                          variant: PrimaryButtonVariant.outline,
-                          onPressed: _goHome,
-                          label: 'Try Our Demo',
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         );

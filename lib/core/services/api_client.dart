@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+import 'app_demo_service.dart';
 import 'secure_storage_service.dart';
 
 /// Shared HTTP client for the Mobile API.
@@ -49,6 +50,9 @@ class ApiClient {
         onUnauthorized: () async {
           _accessToken = null;
           await _secureStorage?.clearTokens();
+          if (AppDemoService.isDemoMode) {
+            return;
+          }
           if (!_hasHandledUnauthorized) {
             _hasHandledUnauthorized = true;
             await _onSessionExpired?.call();
@@ -112,8 +116,21 @@ class ApiClient {
   Future<Response<T>> patch<T>(String path, {Object? data, Options? options}) =>
       _dio.patch<T>(path, data: data, options: options);
 
-  Future<Response<T>> delete<T>(String path, {Options? options}) =>
-      _dio.delete<T>(path, options: options);
+  Future<Response<T>> put<T>(String path, {Object? data, Options? options}) =>
+      _dio.put<T>(path, data: data, options: options);
+
+  Future<Response<T>> delete<T>(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) =>
+      _dio.delete<T>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
 }
 
 /// API host configuration. The Mobile API path is appended when callers pass

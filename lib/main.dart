@@ -12,6 +12,7 @@ import 'core/services/api_client.dart';
 import 'core/services/secure_storage_service.dart';
 import 'core/widgets/connectivity_guard.dart';
 import 'core/widgets/debug_upgrade_prompt.dart';
+import 'core/services/app_assets_api_service.dart';
 import 'app/config/app_breakpoints.dart';
 import 'app/config/app_strings.dart';
 import 'app/theme/app_colors.dart';
@@ -43,12 +44,13 @@ Future<void> main() async {
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await FirebaseNotificationService.instance.initialize();
   await initDependencies();
+  sl<AppAssetsApiService>().fetchAssets();
   await sl<ApiClient>().restoreAccessToken();
   if (kDebugMode) {
     final token = await sl<SecureStorageService>().readAccessToken();
     debugPrint('[AUTH] Splash access token: ${token ?? '(none)'}');
   }
-  runApp(AntfostApp());
+  runApp(const AntfostApp());
 }
 
 class AntfostApp extends StatelessWidget {

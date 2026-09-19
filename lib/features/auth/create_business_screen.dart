@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/widgets/app_country_code_picker.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_route_args.dart';
@@ -30,22 +31,17 @@ class CreateBusinessScreen extends StatefulWidget {
 class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
   final _formKey = GlobalKey<FormState>();
   final _companyNameController = TextEditingController();
-  final _usernameController = TextEditingController();
   final _mobileController = TextEditingController();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   Map<String, String> _serverErrors = const {};
   bool _isSubmitting = false;
+  String _countryCode = '+971';
 
   @override
   void dispose() {
     _companyNameController.dispose();
-    _usernameController.dispose();
     _mobileController.dispose();
     _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -58,10 +54,9 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
     context.read<AuthBloc>().add(
       SignUpBusinessEvent(
         companyName: _companyNameController.text.trim(),
-        username: _usernameController.text.trim(),
         registeredMobile: _mobileController.text.trim(),
+        countryCode: _countryCode,
         email: _emailController.text.trim(),
-        password: _passwordController.text,
       ),
     );
   }
@@ -83,6 +78,7 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
               verificationId: state.challenge.verificationId,
               expiresAt: state.challenge.expiresAt,
               resendAvailableAt: state.challenge.resendAvailableAt,
+              countryCode: _countryCode,
             ),
           );
         } else if (state is AuthError) {
@@ -166,49 +162,19 @@ class _CreateBusinessScreenState extends State<CreateBusinessScreen> {
                   ),
                   SizedBox(height: context.scaledV(12)),
                   AppTextField(
-                    label: 'BUSINESS USERNAME',
-                    controller: _usernameController,
-                    errorText: _serverErrors['username'],
-                    onChanged: (_) => _clearServerError('username'),
-                    leadingWidget: const AppSvgUserIcon(),
-                    validator: (value) => InputValidators.username(
-                      value,
-                      fieldName: 'Business username',
-                    ),
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                  ),
-                  SizedBox(height: context.scaledV(12)),
-                  AppTextField(
                     label: 'REGISTERED MOBILE',
                     controller: _mobileController,
                     errorText: _serverErrors['registeredMobile'],
                     onChanged: (_) => _clearServerError('registeredMobile'),
                     keyboardType: TextInputType.phone,
-                    leadingWidget: const AppSvgPhoneIcon(),
-                    validator: InputValidators.mobile,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                  ),
-                  SizedBox(height: context.scaledV(12)),
-                  AppTextField(
-                    label: 'PASSWORD',
-                    obscureText: true,
-                    controller: _passwordController,
-                    errorText: _serverErrors['password'],
-                    onChanged: (_) => _clearServerError('password'),
-                    leadingWidget: const AppSvgLockIcon(),
-                    validator: InputValidators.password,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                  ),
-                  SizedBox(height: context.scaledV(12)),
-                  AppTextField(
-                    label: 'CONFIRM PASSWORD',
-                    obscureText: true,
-                    controller: _confirmPasswordController,
-                    leadingWidget: const AppSvgLockIcon(),
-                    validator: (value) => InputValidators.confirmPassword(
-                      value,
-                      _passwordController.text,
+                    prefixIconWidget: AppCountryCodePicker(
+                      onChanged: (countryCode) {
+                        setState(() {
+                          _countryCode = countryCode.dialCode ?? '+971';
+                        });
+                      },
                     ),
+                    validator: InputValidators.mobile,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
                   SizedBox(height: context.scaledV(16)),

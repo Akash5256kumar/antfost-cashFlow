@@ -10,9 +10,11 @@ class CashPaymentPendingScreen extends StatelessWidget {
   const CashPaymentPendingScreen({
     super.key,
     this.orderRef = 'AF-2057',
+    this.message,
   });
 
   final String orderRef;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -20,175 +22,188 @@ class CashPaymentPendingScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: const AppBrandHeader(showBack: false),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
 
-              // Icon
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFFDE68A), width: 2),
-                ),
-                child: const Icon(
-                  Icons.hourglass_top_rounded,
-                  size: 44,
-                  color: Color(0xFFD97706),
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Title
-              Text(
-                'Payment Verification\nPending',
-                textAlign: TextAlign.center,
-                style: AppTextStyles.authScreenTitle(context).copyWith(
-                  fontSize: 24,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // Subtitle
-              const Text(
-                'Your order has been received. Since you selected Cash in Advance, our team will verify your payment and confirm the delivery schedule shortly.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.6,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Order Reference Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFBEB),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.receipt_long_rounded,
-                        size: 22,
-                        color: Color(0xFFD97706),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Order Reference',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF94A3B8),
-                          ),
+                      // Icon
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFFDE68A), width: 2),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          orderRef,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFBEB),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFFDE68A)),
-                      ),
-                      child: const Text(
-                        'PENDING',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                        child: const Icon(
+                          Icons.hourglass_top_rounded,
+                          size: 40,
                           color: Color(0xFFD97706),
-                          letterSpacing: 0.5,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-              // Info Banner
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F9FF),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFBAE6FD)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      size: 18,
-                      color: Color(0xFF0284C7),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'You will receive a notification once our team confirms the cash payment. Typical confirmation time is within 30 minutes.',
-                        style: TextStyle(
-                          fontSize: 13,
+                      // Title
+                      Text(
+                        'Payment Verification\nPending',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.authScreenTitle(context).copyWith(
+                          fontSize: 22,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Subtitle
+                      Text(
+                        message ??
+                            'Your order has been received. Since you selected Cash in Advance, our team will verify your payment and confirm the delivery schedule shortly.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14,
                           height: 1.5,
-                          color: Color(0xFF0369A1),
+                          color: Color(0xFF64748B),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                      const SizedBox(height: 20),
 
-              const Spacer(flex: 3),
+                      // Order Reference Card
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.receipt_long_rounded,
+                                size: 22,
+                                color: Color(0xFFD97706),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Order Reference',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  orderRef,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
+                              ),
+                              child: const Text(
+                                'PENDING',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFD97706),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
 
-              // Buttons
-              PrimaryButton(
-                arrow: true,
-                label: 'View My Orders',
-                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
-                  AppRoutes.myOrders,
-                  (route) => false,
+                      // Info Banner
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFBAE6FD)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              size: 18,
+                              color: Color(0xFF0284C7),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'You will receive a notification once our team confirms the cash payment. Typical confirmation time is within 30 minutes.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.5,
+                                  color: Color(0xFF0369A1),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+                      const Spacer(),
+
+                      // Buttons
+                      PrimaryButton(
+                        arrow: true,
+                        label: 'View My Orders',
+                        onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.myOrders,
+                          (route) => false,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      PrimaryButton(
+                        variant: PrimaryButtonVariant.outline,
+                        label: 'Back to Home',
+                        onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.home,
+                          (route) => false,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
-              PrimaryButton(
-                variant: PrimaryButtonVariant.outline,
-                label: 'Back to Home',
-                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
-                  AppRoutes.home,
-                  (route) => false,
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

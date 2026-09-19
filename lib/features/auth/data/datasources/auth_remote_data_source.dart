@@ -6,37 +6,44 @@ import '../../domain/entities/auth_flow.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
-  Future<AuthSession> signIn({
+  Future<OtpChallenge> signIn({
     required String usernameOrMobile,
-    required String password,
+    String? countryCode,
+  });
+  Future<AuthSession> verifySignInOtp({
+    required String verificationId,
+    required String otp,
   });
   Future<OtpChallenge> signUpBusiness({
     required String companyName,
-    required String username,
+    String? username,
     required String registeredMobile,
+    required String countryCode,
     required String email,
-    required String password,
   });
   Future<OtpChallenge> signUpIndividual({
     required String fullName,
     required String mobile,
-    required String username,
-    required String password,
+    required String countryCode,
+    String? username,
     required bool termsAccepted,
   });
   Future<AuthSession> verifySignUpOtp({
     required String verificationId,
     required String otp,
+    required String countryCode,
   });
   Future<OtpChallenge> resendSignUpOtp({required String verificationId});
   Future<OtpChallenge> forgotPasscode({
     required String contact,
     required bool isEmail,
+    String? countryCode,
   });
   Future<PasswordResetVerification> verifyPasscodeOtp({
     required String verificationId,
     required String contact,
     required String otp,
+    String? countryCode,
   });
   Future<void> resetPasscode({
     required String resetToken,
@@ -51,34 +58,56 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
   final ApiClient _client;
 
   @override
-  Future<AuthSession> signIn({
+  Future<OtpChallenge> signIn({
     required String usernameOrMobile,
-    required String password,
+    String? countryCode,
   }) => _request(() async {
-    final response = await _client.post<Map<String, dynamic>>(
-      '/auth/sign-in',
-      data: {'usernameOrMobile': usernameOrMobile, 'password': password},
-    );
-    return _session(_data(response));
-  });
+        final response = await _client.post<Map<String, dynamic>>(
+          '/auth/sign-in',
+          data: {
+            'identifier': usernameOrMobile,
+            if (countryCode != null) 'countryCode': countryCode,
+          },
+        );
+        return _challenge(
+          _data(response),
+          fallbackContact: usernameOrMobile,
+          contactRequired: false,
+        );
+      });
+
+  @override
+  Future<AuthSession> verifySignInOtp({
+    required String verificationId,
+    required String otp,
+  }) => _request(() async {
+        final response = await _client.post<Map<String, dynamic>>(
+          '/auth/sign-in/verify-otp',
+          data: {
+            'verificationId': verificationId,
+            'otp': otp,
+          },
+        );
+        return _session(_data(response));
+      });
 
   @override
   Future<OtpChallenge> signUpBusiness({
     required String companyName,
-    required String username,
+    String? username,
     required String registeredMobile,
+    required String countryCode,
     required String email,
-    required String password,
   }) => _request(() async {
     final response = await _client.post<Map<String, dynamic>>(
       '/auth/sign-up/business',
       data: {
         'companyName': companyName,
-        'username': username,
+        if (username != null && username.isNotEmpty) 'username': username,
         'registeredMobile': registeredMobile,
+        'countryCode': countryCode,
         'channel': 'sms',
         'email_id': email,
-        'password': password,
       },
     );
     return _challenge(_data(response), contactRequired: true);
@@ -88,8 +117,8 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
   Future<OtpChallenge> signUpIndividual({
     required String fullName,
     required String mobile,
-    required String username,
-    required String password,
+    required String countryCode,
+    String? username,
     required bool termsAccepted,
   }) => _request(() async {
     final response = await _client.post<Map<String, dynamic>>(
@@ -97,8 +126,9 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
       data: {
         'fullName': fullName,
         'mobile': mobile,
-        'username': username,
-        'password': password,
+        'countryCode': countryCode,
+        if (username != null && username.isNotEmpty) 'username': username,
+        'channel': 'sms',
         'termsAccepted': termsAccepted,
       },
     );
@@ -109,11 +139,16 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
   Future<AuthSession> verifySignUpOtp({
     required String verificationId,
     required String otp,
+    required String countryCode,
   }) => _request(() async {
-    final response = await _client.post<Map<String, dynamic>>(
-      '/auth/sign-up/verify-otp',
-      data: {'verificationId': verificationId, 'otp': otp},
-    );
+        final response = await _client.post<Map<String, dynamic>>(
+          '/auth/sign-up/verify-otp',
+          data: {
+            'verificationId': verificationId, 
+            'otp': otp,
+            'countryCode': countryCode,
+          },
+        );
     return _session(_data(response), includeNextStep: true);
   });
 
@@ -131,10 +166,15 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
   Future<OtpChallenge> forgotPasscode({
     required String contact,
     required bool isEmail,
+    String? countryCode,
   }) => _request(() async {
     final response = await _client.post<Map<String, dynamic>>(
       '/auth/passcode/forgot',
-      data: {'contact': contact, 'isEmail': isEmail},
+      data: {
+        'contact': contact, 
+        'isEmail': isEmail,
+        if (countryCode != null) 'countryCode': countryCode,
+      },
     );
     return _challenge(_data(response), fallbackContact: contact);
   });
@@ -144,10 +184,16 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
     required String verificationId,
     required String contact,
     required String otp,
+    String? countryCode,
   }) => _request(() async {
     final response = await _client.post<Map<String, dynamic>>(
       '/auth/passcode/verify-otp',
-      data: {'verificationId': verificationId, 'contact': contact, 'otp': otp},
+      data: {
+        'verificationId': verificationId,
+        'contact': contact,
+        'otp': otp,
+        if (countryCode != null) 'countryCode': countryCode,
+      },
     );
     final data = _data(response);
     if (data['verified'] != true || data['resetToken'] is! String)

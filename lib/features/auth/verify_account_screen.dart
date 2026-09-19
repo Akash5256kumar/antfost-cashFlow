@@ -12,13 +12,15 @@ import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/utils/route_feedback.dart';
-import '../../core/widgets/app_illustration_image.dart';
+import '../../core/widgets/app_remote_image.dart';
 import '../../core/widgets/app_svg_icons.dart';
 import '../../core/widgets/primary_button.dart';
 import 'presentation/bloc/auth_bloc.dart';
 import 'presentation/bloc/auth_event.dart';
 import 'presentation/bloc/auth_state.dart';
 import 'domain/entities/auth_flow.dart';
+import '../home/presentation/bloc/home_bloc.dart';
+import '../home/presentation/bloc/home_event.dart';
 
 /// Six-digit OTP verification with the device's native numeric keyboard.
 class VerifyAccountScreen extends StatefulWidget {
@@ -31,6 +33,7 @@ class VerifyAccountScreen extends StatefulWidget {
     this.verificationId = '',
     this.expiresAt,
     this.resendAvailableAt,
+    this.countryCode,
   });
 
   final String contact;
@@ -40,6 +43,7 @@ class VerifyAccountScreen extends StatefulWidget {
   final String verificationId;
   final DateTime? expiresAt;
   final DateTime? resendAvailableAt;
+  final String? countryCode;
 
   @override
   State<VerifyAccountScreen> createState() => _VerifyAccountScreenState();
@@ -121,26 +125,54 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
       );
       return;
     }
-    context.read<AuthBloc>().add(
-      widget.flow == VerifyAccountFlow.signUp
-          ? VerifySignUpOtpEvent(verificationId: _verificationId, otp: _code)
-          : VerifyPasscodeOtpEvent(
-              verificationId: _verificationId,
-              contact: widget.contact,
-              otp: _code,
-            ),
-    );
+    if (widget.flow == VerifyAccountFlow.signIn) {
+      context.read<AuthBloc>().add(
+        VerifySignInOtpEvent(
+          verificationId: _verificationId,
+          otp: _code,
+        ),
+      );
+    } else if (widget.flow == VerifyAccountFlow.signUp) {
+      context.read<AuthBloc>().add(
+        VerifySignUpOtpEvent(
+          verificationId: _verificationId,
+          otp: _code,
+          countryCode: widget.countryCode ?? '+971',
+        ),
+      );
+    } else {
+      context.read<AuthBloc>().add(
+        VerifyPasscodeOtpEvent(
+          verificationId: _verificationId,
+          contact: widget.contact,
+          otp: _code,
+          countryCode: widget.countryCode,
+        ),
+      );
+    }
   }
 
   void _handleResend() {
-    context.read<AuthBloc>().add(
-      widget.flow == VerifyAccountFlow.signUp
-          ? ResendSignUpOtpEvent(_verificationId)
-          : ForgotPasscodeEvent(
-              contact: widget.contact,
-              isEmail: widget.isEmail,
-            ),
-    );
+    if (widget.flow == VerifyAccountFlow.signIn) {
+      context.read<AuthBloc>().add(
+        SignInEvent(
+          usernameOrMobile: widget.contact,
+          countryCode: widget.countryCode ?? '+971',
+        ),
+      );
+    } else if (widget.flow == VerifyAccountFlow.signUp) {
+      context.read<AuthBloc>().add(
+        ResendSignUpOtpEvent(_verificationId),
+      );
+    } else {
+      context.read<AuthBloc>().add(
+        ForgotPasscodeEvent(
+          contact: widget.contact,
+          isEmail: widget.isEmail,
+          countryCode: widget.countryCode,
+        ),
+      );
+    }
   }
 
   String get _timerLabel {
@@ -155,8 +187,28 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
       listener: (context, state) {
         if (!context.mounted || !isCurrentRoute(context)) return;
 
-        if (state is AuthOtpVerified) {
+        if (state is AuthSuccess) {
+          final destination =
+              state.nextStep == AuthNextStep.kyc ||
+                  state.user.kycStatus == 'not_submitted'
+              ? AppRoutes.kycVerification
+              : AppRoutes.home;
+          if (destination == AppRoutes.home) {
+            context.read<HomeBloc>().add(const FetchHomeDataEvent());
+          }
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            destination,
+            (route) => false,
+            arguments: destination == AppRoutes.kycVerification ? true : null,
+          );
+        } else if (state is AuthOtpVerified) {
           switch (widget.flow) {
+            case VerifyAccountFlow.signIn:
+              context.read<HomeBloc>().add(const FetchHomeDataEvent());
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRoutes.home,
+                (route) => false,
+              );
             case VerifyAccountFlow.signUp:
               if (state.session.nextStep == AuthNextStep.kyc) {
                 Navigator.of(context).pushReplacementNamed(
@@ -164,7 +216,7 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
                   arguments: true,
                 );
               } else {
-                // KYC screen commented out for Individual flow as requested — goes directly to Home
+                context.read<HomeBloc>().add(const FetchHomeDataEvent());
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   AppRoutes.home,
                   (route) => false,
@@ -291,10 +343,11 @@ class _VerifyAccountScreenState extends State<VerifyAccountScreen> {
                     ],
                   ),
                   SizedBox(height: context.scaledV(48)),
-                  AppIllustrationImage(
-                    asset: AppAssets.artOtpEnvelope,
+                  AppRemoteImage.screen(
+                    screenKey: 'otp',
+                    fallback: AppAssets.artOtpEnvelope,
+                    width: double.infinity,
                     height: context.scaledV(170),
-                    borderRadius: 0,
                     fit: BoxFit.contain,
                   ),
                   SizedBox(height: context.scaledV(38)),

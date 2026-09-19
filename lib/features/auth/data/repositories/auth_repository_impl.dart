@@ -27,46 +27,57 @@ class AuthRepositoryImpl implements AuthRepository {
   final ApiClient apiClient;
 
   @override
-  Future<Either<Failure, AuthSession>> signIn({
+  Future<Either<Failure, OtpChallenge>> signIn({
     required String usernameOrMobile,
-    required String password,
+    String? countryCode,
+  }) => _online(() => remoteDataSource.signIn(
+        usernameOrMobile: usernameOrMobile,
+        countryCode: countryCode,
+      ));
+
+  @override
+  Future<Either<Failure, AuthSession>> verifySignInOtp({
+    required String verificationId,
+    required String otp,
   }) => _online(() async {
-    final session = await remoteDataSource.signIn(
-      usernameOrMobile: usernameOrMobile,
-      password: password,
+    final session = await remoteDataSource.verifySignInOtp(
+      verificationId: verificationId,
+      otp: otp,
     );
     await _saveSession(session);
     return session;
   });
+
   @override
   Future<Either<Failure, OtpChallenge>> signUpBusiness({
     required String companyName,
-    required String username,
+    String? username,
     required String registeredMobile,
+    required String countryCode,
     required String email,
-    required String password,
   }) => _online(
     () => remoteDataSource.signUpBusiness(
       companyName: companyName,
       username: username,
       registeredMobile: registeredMobile,
+      countryCode: countryCode,
       email: email,
-      password: password,
     ),
   );
+
   @override
   Future<Either<Failure, OtpChallenge>> signUpIndividual({
     required String fullName,
     required String mobile,
-    required String username,
-    required String password,
+    required String countryCode,
+    String? username,
     required bool termsAccepted,
   }) => _online(
     () => remoteDataSource.signUpIndividual(
       fullName: fullName,
       mobile: mobile,
+      countryCode: countryCode,
       username: username,
-      password: password,
       termsAccepted: termsAccepted,
     ),
   );
@@ -74,10 +85,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, AuthSession>> verifySignUpOtp({
     required String verificationId,
     required String otp,
+    required String countryCode,
   }) => _online(() async {
     final session = await remoteDataSource.verifySignUpOtp(
       verificationId: verificationId,
       otp: otp,
+      countryCode: countryCode,
     );
     await _saveSession(session);
     return session;
@@ -92,19 +105,26 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, OtpChallenge>> forgotPasscode({
     required String contact,
     required bool isEmail,
+    String? countryCode,
   }) => _online(
-    () => remoteDataSource.forgotPasscode(contact: contact, isEmail: isEmail),
+    () => remoteDataSource.forgotPasscode(
+      contact: contact,
+      isEmail: isEmail,
+      countryCode: countryCode,
+    ),
   );
   @override
   Future<Either<Failure, PasswordResetVerification>> verifyPasscodeOtp({
     required String verificationId,
     required String contact,
     required String otp,
+    String? countryCode,
   }) => _online(
     () => remoteDataSource.verifyPasscodeOtp(
       verificationId: verificationId,
       contact: contact,
       otp: otp,
+      countryCode: countryCode,
     ),
   );
   @override

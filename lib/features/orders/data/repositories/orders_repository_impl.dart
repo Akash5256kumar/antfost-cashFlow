@@ -95,13 +95,41 @@ class OrdersRepositoryImpl implements OrdersRepository {
   }
 
   @override
-  Future<Either<Failure, List<MixCode>>> getMixCodes() async {
+  Future<Either<Failure, List<MixCode>>> getMixCodes(String projectId, String locationId) async {
     final isConnected = await _networkInfo.isConnected;
 
     if (isConnected) {
       try {
-        final mixCodes = await _remoteDataSource.getMixCodes();
+        final mixCodes = await _remoteDataSource.getMixCodes(projectId, locationId);
         return Right(mixCodes);
+      } catch (e) {
+        return Left(_mapExceptionToFailure(e));
+      }
+    } else {
+      return const Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getTimeWindows({
+    required String projectId,
+    required String locationId,
+    required String mixCode,
+    required double quantityM3,
+    required String date,
+  }) async {
+    final isConnected = await _networkInfo.isConnected;
+
+    if (isConnected) {
+      try {
+        final windows = await _remoteDataSource.getTimeWindows(
+          projectId: projectId,
+          locationId: locationId,
+          mixCode: mixCode,
+          quantityM3: quantityM3,
+          date: date,
+        );
+        return Right(windows);
       } catch (e) {
         return Left(_mapExceptionToFailure(e));
       }

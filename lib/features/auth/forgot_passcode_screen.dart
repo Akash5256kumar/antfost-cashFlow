@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/widgets/app_country_code_picker.dart';
 
 import '../../app/navigation/app_route_args.dart';
 import '../../app/navigation/app_routes.dart';
@@ -28,6 +29,7 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
   int _tabIndex = 0; // 0 = Email, 1 = Phone
   final _controller = TextEditingController();
   Map<String, String> _serverErrors = const {};
+  String _countryCode = '+971';
 
   /// Returns `true` when the Email tab is active.
   bool get _isEmail => _tabIndex == 0;
@@ -41,8 +43,13 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
   /// Dispatches [ForgotPasscodeEvent] with the current contact value.
   void _onSendOtp() {
     if (!_formKey.currentState!.validate()) return;
+    final contact = _controller.text.trim();
     context.read<AuthBloc>().add(
-      ForgotPasscodeEvent(contact: _controller.text.trim(), isEmail: _isEmail),
+      ForgotPasscodeEvent(
+        contact: contact, 
+        isEmail: _isEmail,
+        countryCode: _isEmail ? null : _countryCode,
+      ),
     );
   }
 
@@ -60,14 +67,13 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
           Navigator.of(context).pushNamed(
             AppRoutes.verifyAccount,
             arguments: VerifyAccountRouteArgs(
-              contact: _controller.text.trim().isEmpty
-                  ? 'Sample.email@.com'
-                  : _controller.text.trim(),
+              contact: state.challenge.contact,
               isEmail: _isEmail,
               flow: VerifyAccountFlow.passwordRecovery,
               verificationId: state.challenge.verificationId,
               expiresAt: state.challenge.expiresAt,
               resendAvailableAt: state.challenge.resendAvailableAt,
+              countryCode: _isEmail ? null : _countryCode,
             ),
           );
         } else if (state is AuthError) {
@@ -144,6 +150,15 @@ class _ForgotPasscodeScreenState extends State<ForgotPasscodeScreen> {
                     keyboardType: _tabIndex == 0
                         ? TextInputType.emailAddress
                         : TextInputType.phone,
+                    prefixIconWidget: _tabIndex == 1
+                        ? AppCountryCodePicker(
+                            onChanged: (countryCode) {
+                              setState(() {
+                                _countryCode = countryCode.dialCode ?? '+971';
+                              });
+                            },
+                          )
+                        : null,
                     validator: _isEmail
                         ? InputValidators.email
                         : InputValidators.mobile,

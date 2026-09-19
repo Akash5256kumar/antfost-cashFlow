@@ -12,7 +12,9 @@ import '../../core/services/account_api_service.dart';
 import '../../core/services/order_feedback_api_service.dart';
 import '../../core/services/order_chat_api_service.dart';
 import '../../core/services/document_api_service.dart';
+import '../../core/services/device_api_service.dart';
 import '../../core/services/secure_storage_service.dart';
+import '../../core/services/app_assets_api_service.dart';
 import '../navigation/app_router.dart';
 import '../navigation/app_routes.dart';
 
@@ -42,7 +44,11 @@ import '../../features/orders/domain/usecases/get_mix_codes_use_case.dart';
 import '../../features/orders/domain/usecases/get_order_details_use_case.dart';
 import '../../features/orders/domain/usecases/get_orders_use_case.dart';
 import '../../features/orders/domain/usecases/get_projects_use_case.dart';
+import '../../features/orders/domain/usecases/get_project_types_use_case.dart';
+import '../../features/orders/domain/usecases/create_project_with_locations_use_case.dart';
+import '../../features/orders/domain/usecases/get_time_windows_use_case.dart';
 import '../../features/orders/presentation/bloc/new_cash_order_bloc.dart';
+import '../../features/orders/presentation/bloc/add_new_project_bloc.dart';
 import '../../features/orders/presentation/bloc/orders_bloc.dart';
 
 // ── Invoices ──────────────────────────────────────────────────────────────────
@@ -160,6 +166,12 @@ Future<void> initDependencies() async {
     () => OrderChatApiService(sl()),
   );
   sl.registerLazySingleton<DocumentApiService>(() => DocumentApiService(sl()));
+  sl.registerLazySingleton<DeviceApiService>(() => DeviceApiService(sl()));
+  
+  sl.registerLazySingleton<AppAssetsRegistry>(() => AppAssetsRegistry());
+  sl.registerLazySingleton<AppAssetsApiService>(
+    () => AppAssetsApiService(sl(), sl(), sl()),
+  );
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<AuthRemoteDataSource>(
@@ -214,7 +226,10 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetOrderDetailsUseCase(sl()));
   sl.registerLazySingleton(() => GetMixCodesUseCase(sl()));
   sl.registerLazySingleton(() => GetProjectsUseCase(sl()));
+  sl.registerLazySingleton(() => GetProjectTypesUseCase(sl()));
+  sl.registerLazySingleton(() => CreateProjectWithLocationsUseCase(sl()));
   sl.registerLazySingleton(() => AddProjectUseCase(sl()));
+  sl.registerLazySingleton(() => GetTimeWindowsUseCase(sl()));
   sl.registerLazySingleton(() => CreateCashOrderUseCase(sl()));
   sl.registerFactory(() => OrdersBloc(getOrdersUseCase: sl()));
   sl.registerFactory(
@@ -222,6 +237,13 @@ Future<void> initDependencies() async {
       getMixCodesUseCase: sl(),
       getProjectsUseCase: sl(),
       createCashOrderUseCase: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => AddNewProjectBloc(
+      getProjectTypesUseCase: sl(),
+      createProjectWithLocationsUseCase: sl(),
+      apiService: sl(),
     ),
   );
 

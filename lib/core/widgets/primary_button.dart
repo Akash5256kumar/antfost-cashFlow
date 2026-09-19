@@ -59,8 +59,10 @@ class PrimaryButton extends StatelessWidget {
       case PrimaryButtonVariant.solid:
         background = enabled
             ? AppColors.primary
-            : AppColors.primary.withValues(alpha: 0.4);
-        foreground = AppColors.white;
+            : AppColors.circleInactive;
+        foreground = enabled 
+            ? AppColors.white
+            : AppColors.iconMuted;
         border = null;
         shadow = enabled
             ? [
@@ -73,9 +75,13 @@ class PrimaryButton extends StatelessWidget {
             : null;
       case PrimaryButtonVariant.outline:
         background = AppColors.white;
-        foreground = AppColors.primary;
+        foreground = enabled 
+            ? AppColors.primary 
+            : AppColors.iconMuted;
         border = Border.all(
-          color: AppColors.primary.withValues(alpha: 0.4),
+          color: enabled 
+              ? AppColors.primary.withValues(alpha: 0.4)
+              : AppColors.circleInactive,
           width: 1,
         );
         shadow = null;

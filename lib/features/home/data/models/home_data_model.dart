@@ -4,9 +4,11 @@ import '../../domain/entities/home_data.dart';
 class ActiveOrderModel extends ActiveOrder {
   const ActiveOrderModel({
     required super.orderId,
+    super.orderReference,
     required super.status,
     required super.grade,
     required super.location,
+    super.projectName,
     required super.timeSlot,
     required super.volume,
     required super.date,
@@ -18,19 +20,28 @@ class ActiveOrderModel extends ActiveOrder {
 
   /// Creates an [ActiveOrderModel] from a JSON map.
   factory ActiveOrderModel.fromJson(Map<String, dynamic> json) {
+    final volumeLabel = json['volumeLabel']?.toString();
+    final rawVolume = json['volume']?.toString() ?? '';
+    final formattedVolume = volumeLabel != null && volumeLabel.isNotEmpty
+        ? volumeLabel
+        : (rawVolume.isNotEmpty ? '$rawVolume m³' : '');
+
     return ActiveOrderModel(
       orderId: json['orderId']?.toString() ?? '',
-      status: json['status'] as String,
-      grade: json['grade'] as String,
-      location: json['location'] as String,
-      timeSlot: json['timeSlot'] as String,
-      volume:
-          json['volumeLabel']?.toString() ?? json['volume']?.toString() ?? '',
-      date: json['date'] as String,
+      orderReference: json['orderReference']?.toString(),
+      status: json['status']?.toString() ?? '',
+      grade: json['grade']?.toString() ?? '',
+      location: (json['location']?.toString() ?? '').isNotEmpty
+          ? json['location'].toString()
+          : (json['projectName']?.toString() ?? ''),
+      projectName: json['projectName']?.toString(),
+      timeSlot: json['timeSlot']?.toString() ?? '',
+      volume: formattedVolume,
+      date: json['date']?.toString() ?? '',
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       imageUrl: json['imageUrl'] as String?,
-      delivered: json['delivered'] as int?,
-      total: json['total'] as int?,
+      delivered: (json['delivered'] as num?)?.toInt(),
+      total: (json['total'] as num?)?.toInt(),
     );
   }
 
@@ -38,9 +49,11 @@ class ActiveOrderModel extends ActiveOrder {
   Map<String, dynamic> toJson() {
     return {
       'orderId': orderId,
+      if (orderReference != null) 'orderReference': orderReference,
       'status': status,
       'grade': grade,
       'location': location,
+      if (projectName != null) 'projectName': projectName,
       'timeSlot': timeSlot,
       'volume': volume,
       'date': date,
@@ -55,9 +68,11 @@ class ActiveOrderModel extends ActiveOrder {
   factory ActiveOrderModel.fromEntity(ActiveOrder entity) {
     return ActiveOrderModel(
       orderId: entity.orderId,
+      orderReference: entity.orderReference,
       status: entity.status,
       grade: entity.grade,
       location: entity.location,
+      projectName: entity.projectName,
       timeSlot: entity.timeSlot,
       volume: entity.volume,
       date: entity.date,

@@ -138,6 +138,7 @@ class AppRouter {
             verificationId: args.verificationId,
             expiresAt: args.expiresAt,
             resendAvailableAt: args.resendAvailableAt,
+            countryCode: args.countryCode,
           ),
         );
       case AppRoutes.kycVerification:
@@ -213,9 +214,13 @@ class AppRouter {
           builder: (_) => AddNewProjectScreen(returnResult: returnResult),
         );
       case AppRoutes.addLocation:
+        final args = settings.arguments as AddLocationRouteArgs?;
         return _materialRoute(
           settings: settings,
-          builder: (_) => const AddLocationScreen(),
+          builder: (_) => AddLocationScreen(
+            projectId: args?.projectId,
+            initialLocation: args?.initialLocation,
+          ),
         );
       case AppRoutes.myOrders:
         return _materialRoute(

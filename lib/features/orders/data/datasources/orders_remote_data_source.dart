@@ -1,5 +1,8 @@
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/services/api_client.dart';
+import '../../../../core/services/app_demo_service.dart';
+import '../../../../core/services/order_api_service.dart';
+import '../../../../app/di/injection.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/mock_api/local_api_fixtures.dart';
 import '../models/mix_code_model.dart';
@@ -19,7 +22,17 @@ abstract class OrdersRemoteDataSource {
 
   /// Fetches the concrete mix code catalogue from the remote API.
   /// Throws [ServerException] on failure.
-  Future<List<MixCodeModel>> getMixCodes();
+  Future<List<MixCodeModel>> getMixCodes(String projectId, String locationId);
+
+  /// Fetches the available delivery time slots.
+  /// Throws [ServerException] on failure.
+  Future<List<Map<String, dynamic>>> getTimeWindows({
+    required String projectId,
+    required String locationId,
+    required String mixCode,
+    required double quantityM3,
+    required String date,
+  });
 
   /// Fetches the user's saved projects from the remote API.
   /// Throws [ServerException] on failure.
@@ -126,13 +139,41 @@ class MockOrdersRemoteDataSource implements OrdersRemoteDataSource {
   }
 
   @override
-  Future<List<MixCodeModel>> getMixCodes() async {
-    await _delay();
-    final items = LocalApiFixtures.mixCodesResponse['items'] as List<dynamic>;
-    return items
-        .cast<Map<String, dynamic>>()
-        .map(MixCodeModel.fromJson)
-        .toList();
+  Future<List<MixCodeModel>> getMixCodes(String projectId, String locationId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return const [
+      MixCodeModel(
+        code: 'C40/50',
+        type: 'Standard Mix',
+        pricePerM3: 420.0,
+      ),
+      MixCodeModel(
+        code: 'C30/37',
+        type: 'Standard Mix',
+        pricePerM3: 350.0,
+      ),
+      MixCodeModel(
+        code: 'C25/30',
+        type: 'Economy Mix',
+        pricePerM3: 290.0,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getTimeWindows({
+    required String projectId,
+    required String locationId,
+    required String mixCode,
+    required double quantityM3,
+    required String date,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return [
+      {'id': '1', 'startTime': '08:00 AM', 'endTime': '10:30 AM', 'available': true},
+      {'id': '2', 'startTime': '11:00 AM', 'endTime': '01:30 PM', 'available': true},
+      {'id': '3', 'startTime': '02:00 PM', 'endTime': '04:30 PM', 'available': true},
+    ];
   }
 
   @override
@@ -170,23 +211,36 @@ class ApiOrdersRemoteDataSource implements OrdersRemoteDataSource {
       MockOrdersRemoteDataSource();
 
   @override
-  Future<List<ProjectModel>> getProjects() => _request(() async {
-    final response = await _client.get<Map<String, dynamic>>(
-      '/projects',
-      queryParameters: const {'page': 1, 'pageSize': 100},
-    );
-    final data = response.data;
-    final items = data?['items'];
-    if (items is! List)
-      throw const ServerException('Projects response is invalid.');
-    return items
-        .whereType<Map>()
-        .map((item) => ProjectModel.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
-  });
+  Future<List<ProjectModel>> getProjects() async {
+    if (AppDemoService.isDemoMode) {
+      return _legacyFlowFallback.getProjects();
+    }
+    try {
+      return await _request(() async {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/projects',
+          queryParameters: const {'page': 1, 'pageSize': 100},
+        );
+        final data = response.data;
+        final items = data?['items'];
+        if (items is! List)
+          throw const ServerException('Projects response is invalid.');
+        return items
+            .whereType<Map>()
+            .map((item) => ProjectModel.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
+      });
+    } catch (_) {
+      if (AppDemoService.isDemoMode) return _legacyFlowFallback.getProjects();
+      rethrow;
+    }
+  }
 
   @override
   Future<List<OrderModel>> getOrders() async {
+    if (AppDemoService.isDemoMode) {
+      return _legacyFlowFallback.getOrders();
+    }
     try {
       return await _request(() async {
         final response = await _client.get<Map<String, dynamic>>(
@@ -202,24 +256,62 @@ class ApiOrdersRemoteDataSource implements OrdersRemoteDataSource {
             .toList();
       });
     } on ServerException catch (error) {
-      // The API uses 404/NO_ORDERS_FOUND for a valid empty collection.
       if (error.message == 'No orders match the selected filters.') return [];
+      if (AppDemoService.isDemoMode) return _legacyFlowFallback.getOrders();
+      rethrow;
+    } catch (_) {
+      if (AppDemoService.isDemoMode) return _legacyFlowFallback.getOrders();
       rethrow;
     }
   }
 
   @override
-  Future<OrderModel> getOrderDetails(String orderId) => _request(() async {
-    final response = await _client.get<Map<String, dynamic>>(
-      '/orders/$orderId',
+  Future<OrderModel> getOrderDetails(String orderId) async {
+    if (AppDemoService.isDemoMode) {
+      return _legacyFlowFallback.getOrderDetails(orderId);
+    }
+    try {
+      return await _request(() async {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/orders/$orderId',
+        );
+        if (response.data == null)
+          throw const ServerException('Order details response is invalid.');
+        return OrderModel.fromJson(response.data!);
+      });
+    } catch (_) {
+      if (AppDemoService.isDemoMode) {
+        return _legacyFlowFallback.getOrderDetails(orderId);
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<MixCodeModel>> getMixCodes(String projectId, String locationId) => _request(() async {
+    final items = await sl<OrderApiService>().mixCodes(
+      projectId: projectId,
+      locationId: locationId,
     );
-    if (response.data == null)
-      throw const ServerException('Order details response is invalid.');
-    return OrderModel.fromJson(response.data!);
+    return items.map((item) => MixCodeModel.fromJson(item)).toList();
   });
 
   @override
-  Future<List<MixCodeModel>> getMixCodes() => _legacyFlowFallback.getMixCodes();
+  Future<List<Map<String, dynamic>>> getTimeWindows({
+    required String projectId,
+    required String locationId,
+    required String mixCode,
+    required double quantityM3,
+    required String date,
+  }) => _request(() async {
+    return sl<OrderApiService>().timeWindows(
+      projectId: projectId,
+      locationId: locationId,
+      mixCode: mixCode,
+      quantityM3: quantityM3,
+      date: date,
+    );
+  });
 
   @override
   Future<ProjectModel> addProject(ProjectModel project) =>

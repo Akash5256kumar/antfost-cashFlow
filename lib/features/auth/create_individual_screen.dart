@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/widgets/app_country_code_picker.dart';
 
 import '../../app/config/app_assets.dart';
 import '../../app/navigation/app_route_args.dart';
@@ -32,9 +33,7 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
   bool _agree = false;
   final _fullNameController = TextEditingController();
   final _mobileController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  String _countryCode = '+971';
   Map<String, String> _serverErrors = const {};
   bool _isSubmitting = false;
 
@@ -42,9 +41,6 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
   void dispose() {
     _fullNameController.dispose();
     _mobileController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -62,8 +58,7 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
       SignUpIndividualEvent(
         fullName: _fullNameController.text.trim(),
         mobile: _mobileController.text.trim(),
-        username: _usernameController.text.trim(),
-        password: _passwordController.text,
+        countryCode: _countryCode,
         termsAccepted: _agree,
       ),
     );
@@ -86,6 +81,7 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
               verificationId: state.challenge.verificationId,
               expiresAt: state.challenge.expiresAt,
               resendAvailableAt: state.challenge.resendAvailableAt,
+              countryCode: _countryCode,
             ),
           );
         } else if (state is AuthError) {
@@ -123,14 +119,14 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: context.scaledV(12)),
+                  SizedBox(height: context.scaledV(14)),
                   AppIllustrationImage(
                     asset: AppAssets.artIndividualHouse,
-                    height: 170,
+                    height: context.scaledV(185),
                     borderRadius: 0,
                     fit: BoxFit.contain,
                   ),
-                  SizedBox(height: context.scaledV(10)),
+                  SizedBox(height: context.scaledV(14)),
                   Text(
                     'Create Individual Account',
                     style: AppTextStyles.authScreenTitle(context),
@@ -140,7 +136,7 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                     'Set up your personal access',
                     style: AppTextStyles.cardSubtitle(context),
                   ),
-                  SizedBox(height: context.scaledV(16)),
+                  SizedBox(height: context.scaledV(20)),
                   AppTextField(
                     label: 'FULL NAME',
                     controller: _fullNameController,
@@ -151,57 +147,32 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                     // Confirm-password validation runs on submit so users can
                     // enter the full value without an error on every key.
                   ),
-                  SizedBox(height: context.scaledV(12)),
+                  SizedBox(height: context.scaledV(14)),
                   AppTextField(
                     label: 'MOBILE NUMBER',
                     controller: _mobileController,
                     errorText: _serverErrors['mobile'],
                     onChanged: (_) => _clearServerError('mobile'),
                     keyboardType: TextInputType.phone,
-                    leadingWidget: const AppSvgPhoneIcon(),
+                    prefixIconWidget: AppCountryCodePicker(
+                      onChanged: (countryCode) {
+                        setState(() {
+                          _countryCode = countryCode.dialCode ?? '+971';
+                        });
+                      },
+                    ),
                     validator: InputValidators.mobile,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
-                  SizedBox(height: context.scaledV(12)),
-                  AppTextField(
-                    label: 'NICKNAME / USERNAME',
-                    controller: _usernameController,
-                    errorText: _serverErrors['username'],
-                    onChanged: (_) => _clearServerError('username'),
-                    leadingWidget: const AppSvgUserIcon(),
-                    validator: InputValidators.username,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                  ),
-                  SizedBox(height: context.scaledV(12)),
-                  AppTextField(
-                    label: 'PASSWORD',
-                    obscureText: true,
-                    controller: _passwordController,
-                    errorText: _serverErrors['password'],
-                    onChanged: (_) => _clearServerError('password'),
-                    leadingWidget: const AppSvgLockIcon(),
-                    validator: InputValidators.password,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                  ),
-                  SizedBox(height: context.scaledV(12)),
-                  AppTextField(
-                    label: 'CONFIRM PASSWORD',
-                    obscureText: true,
-                    controller: _confirmPasswordController,
-                    leadingWidget: const AppSvgLockIcon(),
-                    validator: (value) => InputValidators.confirmPassword(
-                      value,
-                      _passwordController.text,
+                  SizedBox(height: context.scaledV(6)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      'Your mobile number will be verified by OTP.',
+                      style: AppTextStyles.authNote(context),
                     ),
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
-                  SizedBox(height: context.scaledV(16)),
-                  Text(
-                    'Your mobile number will be verified by OTP.',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.authNote(context),
-                  ),
-                  SizedBox(height: context.scaledV(12)),
+                  SizedBox(height: context.scaledV(18)),
                   GestureDetector(
                     onTap: () => setState(() => _agree = !_agree),
                     child: Row(
@@ -240,14 +211,43 @@ class _CreateIndividualScreenState extends State<CreateIndividualScreen> {
                       ],
                     ),
                   ),
-                  SizedBox(height: context.scaledV(16)),
+                  SizedBox(height: context.scaledV(24)),
                   PrimaryButton(
                     onPressed: _isSubmitting ? null : _createAccount,
                     isLoading: _isSubmitting,
                     arrow: true,
                     label: 'Create Account',
                   ),
-                  SizedBox(height: context.scaledV(16)),
+                  SizedBox(height: context.scaledV(24)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Already have an account? ',
+                        style: TextStyle(
+                          fontSize: context.scaled(14),
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            AppRoutes.signIn,
+                            (_) => false,
+                          );
+                        },
+                        child: Text(
+                          'Sign In',
+                          style: TextStyle(
+                            fontSize: context.scaled(14),
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.scaledV(20)),
                 ],
               ),
             ),

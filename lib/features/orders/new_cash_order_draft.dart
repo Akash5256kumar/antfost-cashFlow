@@ -18,6 +18,9 @@ class NewCashOrderDraft {
     this.structureTypeId,
     this.technicianRequired = false,
     this.temperatureControl = false,
+    this.temperatureTypeId,
+    this.temperatureLabel,
+    this.temperatureValue,
     this.pumpRequired = false,
     this.pumpName,
     this.pumpType,
@@ -47,6 +50,9 @@ class NewCashOrderDraft {
   final String? structureTypeId;
   final bool technicianRequired;
   final bool temperatureControl;
+  final String? temperatureTypeId;
+  final String? temperatureLabel;
+  final num? temperatureValue;
   final bool pumpRequired;
   final String? pumpName;
   final String? pumpType;
@@ -76,6 +82,9 @@ class NewCashOrderDraft {
     String? structureTypeId,
     bool? technicianRequired,
     bool? temperatureControl,
+    String? temperatureTypeId,
+    String? temperatureLabel,
+    num? temperatureValue,
     bool? pumpRequired,
     String? pumpName,
     String? pumpType,
@@ -105,6 +114,9 @@ class NewCashOrderDraft {
       structureTypeId: structureTypeId ?? this.structureTypeId,
       technicianRequired: technicianRequired ?? this.technicianRequired,
       temperatureControl: temperatureControl ?? this.temperatureControl,
+      temperatureTypeId: temperatureTypeId ?? this.temperatureTypeId,
+      temperatureLabel: temperatureLabel ?? this.temperatureLabel,
+      temperatureValue: temperatureValue ?? this.temperatureValue,
       pumpRequired: pumpRequired ?? this.pumpRequired,
       pumpName: pumpName ?? this.pumpName,
       pumpType: pumpType ?? this.pumpType,

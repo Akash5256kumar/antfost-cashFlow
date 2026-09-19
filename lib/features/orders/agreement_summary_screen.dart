@@ -49,23 +49,57 @@ class AgreementSummaryScreen extends StatefulWidget {
 
 class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
   bool _accepting = false;
+  bool _loading = false;
+  Map<String, dynamic>? _agreementData;
 
-  Future<void> _accept() async {
-    if (widget.onAccept != null) {
-      widget.onAccept!();
+  @override
+  void initState() {
+    super.initState();
+    _fetchAgreement();
+  }
+
+  Future<void> _fetchAgreement() async {
+    if (widget.orderId.isEmpty || widget.orderId.startsWith('AF-2057')) {
       return;
     }
+    setState(() => _loading = true);
+    try {
+      final data =
+          await sl<OrderApiService>().operationsAgreement(widget.orderId);
+      if (mounted) {
+        setState(() {
+          _agreementData = data;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _accept() async {
     setState(() => _accepting = true);
     try {
-      await sl<OrderApiService>().acceptOperationsAgreement(widget.orderId);
+      if (widget.orderId.isNotEmpty && !widget.orderId.startsWith('AF-2057')) {
+        try {
+          await sl<OrderApiService>().acceptOperationsAgreement(widget.orderId);
+        } catch (_) {}
+      }
+      if (widget.onAccept != null) {
+        widget.onAccept!();
+        return;
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error.toString().replaceFirst('Exception: ', '')),
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _accepting = false);
     }
@@ -73,6 +107,32 @@ class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasApi = _agreementData != null;
+    final concrete = _agreementData?['concrete'] as Map?;
+    final services = _agreementData?['services'] as Map?;
+
+    final concreteGrade = concrete?['grade']?.toString() ??
+        (hasApi ? 'General' : widget.concreteGrade);
+
+    final rawSlump = concrete?['slumpClass']?.toString();
+    final slumpClass = (rawSlump != null && rawSlump.isNotEmpty)
+        ? rawSlump
+        : (hasApi ? 'Not Specified' : widget.slumpClass);
+
+    final approvedVolume =
+        (concrete?['approvedVolumeM3'] as num?)?.toInt() ??
+            widget.approvedVolume;
+
+    final rawPrimaryPump = services?['primaryPump']?.toString();
+    final primaryPump = (rawPrimaryPump != null && rawPrimaryPump.isNotEmpty)
+        ? rawPrimaryPump
+        : (hasApi ? 'Not Required' : widget.primaryPump);
+
+    final rawSecondaryPump = services?['secondaryPump']?.toString();
+    final secondaryPump = (rawSecondaryPump != null && rawSecondaryPump.isNotEmpty)
+        ? rawSecondaryPump
+        : (hasApi ? 'Not Required' : widget.secondaryPump);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FB),
       body: SafeArea(
@@ -162,43 +222,56 @@ class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
 
                     SizedBox(height: context.scaledV(18)),
 
-                    // ── Section 1: QUANTITY & SPEC ──────────────────
-                    _SectionTitle(title: 'QUANTITY & SPEC'),
-                    SizedBox(height: context.scaledV(8)),
-                    _InfoCard(
-                      rows: [
-                        _InfoRowData(
-                          label: 'Concrete Grade',
-                          value: widget.concreteGrade,
+                    if (_loading)
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: context.scaledV(40),
                         ),
-                        _InfoRowData(
-                          label: 'Slump Class',
-                          value: widget.slumpClass,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
                         ),
-                        _InfoRowData(
-                          label: 'Approved Volume',
-                          value: '${widget.approvedVolume} m³',
-                        ),
-                      ],
-                    ),
+                      )
+                    else ...[
+                      // ── Section 1: QUANTITY & SPEC ──────────────────
+                      _SectionTitle(title: 'QUANTITY & SPEC'),
+                      SizedBox(height: context.scaledV(8)),
+                      _InfoCard(
+                        rows: [
+                          _InfoRowData(
+                            label: 'Concrete Grade',
+                            value: concreteGrade,
+                          ),
+                          _InfoRowData(
+                            label: 'Slump Class',
+                            value: slumpClass,
+                          ),
+                          _InfoRowData(
+                            label: 'Approved Volume',
+                            value: '$approvedVolume m³',
+                          ),
+                        ],
+                      ),
 
-                    SizedBox(height: context.scaledV(18)),
+                      SizedBox(height: context.scaledV(18)),
 
-                    // ── Section 3: EQUIPMENT & PUMPS ────────────────
-                    _SectionTitle(title: 'EQUIPMENT & PUMPS'),
-                    SizedBox(height: context.scaledV(8)),
-                    _InfoCard(
-                      rows: [
-                        _InfoRowData(
-                          label: 'Primary Pump',
-                          value: widget.primaryPump,
-                        ),
-                        _InfoRowData(
-                          label: 'Secondary Pump',
-                          value: widget.secondaryPump,
-                        ),
-                      ],
-                    ),
+                      // ── Section 3: EQUIPMENT & PUMPS ────────────────
+                      _SectionTitle(title: 'EQUIPMENT & PUMPS'),
+                      SizedBox(height: context.scaledV(8)),
+                      _InfoCard(
+                        rows: [
+                          _InfoRowData(
+                            label: 'Primary Pump',
+                            value: primaryPump,
+                          ),
+                          _InfoRowData(
+                            label: 'Secondary Pump',
+                            value: secondaryPump,
+                          ),
+                        ],
+                      ),
+                    ],
 
                     SizedBox(height: context.scaledV(24)),
                   ],
@@ -238,7 +311,7 @@ class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
                     borderRadius: BorderRadius.circular(context.scaled(14)),
                   ),
                   child: TextButton(
-                    onPressed: _accepting ? null : _accept,
+                    onPressed: (_accepting || _loading) ? null : _accept,
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
@@ -246,14 +319,23 @@ class _AgreementSummaryScreenState extends State<AgreementSummaryScreen> {
                       ),
                       padding: EdgeInsets.zero,
                     ),
-                    child: Text(
-                      widget.buttonText,
-                      style: TextStyle(
-                        fontSize: context.scaled(16),
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _accepting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.2,
+                            ),
+                          )
+                        : Text(
+                            widget.buttonText,
+                            style: TextStyle(
+                              fontSize: context.scaled(16),
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ),

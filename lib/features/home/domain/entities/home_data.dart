@@ -3,12 +3,14 @@ import 'package:equatable/equatable.dart';
 /// Represents a single active concrete order shown on the home screen.
 class ActiveOrder extends Equatable {
   final String orderId;
+  final String? orderReference;
 
   /// Status value: 'inProgress' or 'scheduled'
   final String status;
 
   final String grade;
   final String location;
+  final String? projectName;
   final String timeSlot;
   final String volume;
   final String date;
@@ -23,9 +25,11 @@ class ActiveOrder extends Equatable {
 
   const ActiveOrder({
     required this.orderId,
+    this.orderReference,
     required this.status,
     required this.grade,
     required this.location,
+    this.projectName,
     required this.timeSlot,
     required this.volume,
     required this.date,
@@ -38,9 +42,11 @@ class ActiveOrder extends Equatable {
   @override
   List<Object?> get props => [
     orderId,
+    orderReference,
     status,
     grade,
     location,
+    projectName,
     timeSlot,
     volume,
     date,

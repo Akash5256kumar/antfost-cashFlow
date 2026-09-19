@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../app/navigation/app_routes.dart';
+import '../../app/navigation/app_route_args.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_spacing.dart';
@@ -34,13 +37,54 @@ class ProjectDetailsScreen extends StatefulWidget {
 
 class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   Map<String, dynamic>? _details;
+  bool _loading = true;
+  String? _error;
+  GoogleMapController? _mapController;
+  Map<String, dynamic>? _selectedLocation;
+
+  LatLngBounds _boundsFromLatLngList(List<LatLng> list) {
+    double? x0, x1, y0, y1;
+    for (final latLng in list) {
+      if (x0 == null) {
+        x0 = x1 = latLng.latitude;
+        y0 = y1 = latLng.longitude;
+      } else {
+        if (latLng.latitude > x1!) x1 = latLng.latitude;
+        if (latLng.latitude < x0) x0 = latLng.latitude;
+        if (latLng.longitude > y1!) y1 = latLng.longitude;
+        if (latLng.longitude < y0!) y0 = latLng.longitude;
+      }
+    }
+    return LatLngBounds(
+      northeast: LatLng(x1!, y1!),
+      southwest: LatLng(x0!, y0!),
+    );
+  }
+
+  void _fitMapToLocations(List<Map<String, dynamic>> locations) {
+    final controller = _mapController;
+    if (controller == null) return;
+    final latLngs = locations.map((loc) {
+      final lat = (loc['latitude'] as num?)?.toDouble();
+      final lng = (loc['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null) return null;
+      return LatLng(lat, lng);
+    }).whereType<LatLng>().toList();
+    if (latLngs.isEmpty) return;
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      if (latLngs.length == 1) {
+        controller.animateCamera(CameraUpdate.newLatLngZoom(latLngs.first, 13));
+      } else {
+        final bounds = _boundsFromLatLngList(latLngs);
+        controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 40));
+      }
+    });
+  }
 
   void _createOrder() {
     final details = _details;
-    final locations = details?['locations'];
-    final location = locations is List && locations.isNotEmpty
-        ? Map<String, dynamic>.from(locations.first as Map)
-        : null;
+    final location = _selectedLocation;
     if (details == null || location == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -81,6 +125,12 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           })
           .catchError((_) {});
     }
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -224,19 +274,58 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
               ),
             ),
             SizedBox(height: context.scaledV(14)),
-            const AppIllustrationImage(
-              asset: AppAssets.mapTwoPins,
+            SizedBox(
               height: 154,
-              borderRadius: 18,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: projectLocations.isNotEmpty 
+                        ? LatLng(
+                            (projectLocations.first['latitude'] as num?)?.toDouble() ?? 25.2048, 
+                            (projectLocations.first['longitude'] as num?)?.toDouble() ?? 55.2708
+                          )
+                        : const LatLng(25.2048, 55.2708),
+                    zoom: projectLocations.isNotEmpty ? 13 : 10,
+                  ),
+                  markers: projectLocations.map((loc) {
+                    final lat = (loc['latitude'] as num?)?.toDouble();
+                    final lng = (loc['longitude'] as num?)?.toDouble();
+                    if (lat == null || lng == null) return null;
+                    return Marker(
+                      markerId: MarkerId(loc['id']?.toString() ?? loc.hashCode.toString()),
+                      position: LatLng(lat, lng),
+                      infoWindow: InfoWindow(
+                        title: loc['name']?.toString() ?? 'Location',
+                        snippet: loc['address']?.toString(),
+                      ),
+                    );
+                  }).whereType<Marker>().toSet(),
+                  zoomControlsEnabled: false,
+                  myLocationButtonEnabled: false,
+                  compassEnabled: false,
+                  mapToolbarEnabled: false,
+                  gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                    Factory<OneSequenceGestureRecognizer>(
+                      () => EagerGestureRecognizer(),
+                    ),
+                  },
+                  onMapCreated: (GoogleMapController controller) {
+                    _mapController = controller;
+                    _fitMapToLocations(projectLocations);
+                  },
+                ),
+              ),
             ),
             SizedBox(height: context.scaledV(16)),
             Text('Project Locations', style: AppTextStyles.cardTitle(context)),
             SizedBox(height: context.scaledV(8)),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.white,
+            Material(
+              color: AppColors.white,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.cardBorder),
+                side: const BorderSide(color: AppColors.cardBorder),
               ),
               child: projectLocations.isEmpty
                   ? const Padding(
@@ -248,10 +337,16 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                         final location = entry.value;
                         return Column(
                           children: [
-                            _LocationRow(
-                              name: location['name'] as String? ?? 'Location',
-                              area: location['address'] as String? ?? '',
-                            ),
+                              _LocationRow(
+                                name: location['name'] as String? ?? 'Location',
+                                area: location['address'] as String? ?? '',
+                                isSelected: _selectedLocation?['id'] == location['id'],
+                                onTap: () {
+                                  setState(() {
+                                    _selectedLocation = Map<String, dynamic>.from(location as Map);
+                                  });
+                                },
+                              ),
                             if (entry.key < projectLocations.length - 1)
                               const Divider(
                                 height: 1,
@@ -306,8 +401,8 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                 size: 18,
                 color: AppColors.white,
               ),
-              label: 'Create Order for This Project',
-              onPressed: _createOrder,
+              label: 'Create Order for Selected Location',
+              onPressed: _selectedLocation == null ? null : _createOrder,
             ),
             SizedBox(height: context.scaledV(12)),
             PrimaryButton(
@@ -318,8 +413,28 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                 color: AppColors.primary,
               ),
               label: 'Add Project Location',
-              onPressed: () =>
-                  Navigator.of(context).pushNamed(AppRoutes.addLocation),
+              onPressed: () async {
+                final result = await Navigator.of(context).pushNamed(
+                  AppRoutes.addLocation,
+                  arguments: AddLocationRouteArgs(projectId: id),
+                );
+                if (result == true) {
+                  // Refresh the details and re-fit the map camera
+                  sl<ProjectLocationApiService>()
+                      .getProjectDetails(id)
+                      .then((value) {
+                    if (mounted) {
+                      setState(() => _details = value);
+                      final locs = value['locations'];
+                      if (locs is List) {
+                        _fitMapToLocations(
+                          locs.whereType<Map>().map(Map<String, dynamic>.from).toList(),
+                        );
+                      }
+                    }
+                  }).catchError((_) {});
+                }
+              },
             ),
             SizedBox(height: context.scaledV(20)),
           ],
@@ -416,59 +531,72 @@ class _VerticalDivider extends StatelessWidget {
 }
 
 class _LocationRow extends StatelessWidget {
-  const _LocationRow({required this.name, required this.area});
+  const _LocationRow({
+    required this.name,
+    required this.area,
+    this.isSelected = false,
+    this.onTap,
+  });
   final String name;
   final String area;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: AppColors.muted,
-              shape: BoxShape.circle,
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: isSelected ? AppColors.primary.withOpacity(0.05) : Colors.transparent,
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: AppColors.muted,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.location_on_outlined,
+                size: 17,
+                color: AppColors.primary,
+              ),
             ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.location_on_outlined,
-              size: 17,
-              color: AppColors.primary,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: AppTextStyles.cardTitle(
+                      context,
+                    ).copyWith(
+                      fontSize: context.scaled(13.5),
+                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(area, style: AppTextStyles.cardSubtitle(context)),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: AppTextStyles.cardTitle(
-                    context,
-                  ).copyWith(fontSize: context.scaled(13.5)),
-                ),
-                Text(area, style: AppTextStyles.cardSubtitle(context)),
-              ],
-            ),
-          ),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: const Icon(
-              Icons.chevron_right_rounded,
-              size: 16,
-              color: AppColors.iconMuted,
-            ),
-          ),
-        ],
+            if (isSelected)
+              const Icon(
+                Icons.radio_button_checked_rounded,
+                size: 24,
+                color: AppColors.primary,
+              )
+            else
+              const Icon(
+                Icons.radio_button_unchecked_rounded,
+                size: 24,
+                color: AppColors.iconMuted,
+              ),
+          ],
+        ),
       ),
     );
   }

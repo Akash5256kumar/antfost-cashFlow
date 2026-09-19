@@ -11,7 +11,6 @@ import 'new_cash_order_review_screen.dart';
 import 'new_cash_order_draft.dart';
 import 'order_step_widgets.dart';
 import '../../core/uploads/document_picker_service.dart';
-import '../../core/utils/route_feedback.dart';
 
 // ── Site condition model (Figma's `CONDITIONS` on SiteAccess.tsx) ────────────
 
@@ -146,14 +145,6 @@ class _NewCashOrderSiteAccessScreenState
   }
 
   void _onContinue() {
-    if (_answers['narrow'] == true && _accessPhoto == null) {
-      showAppSnackBar(context, 'Upload an access photo for Narrow Access.');
-      return;
-    }
-    if (_answers['permit'] == true && _roadPermit == null) {
-      showAppSnackBar(context, 'Upload the road permit document.');
-      return;
-    }
     final selectedReqs = _conditions
         .where((c) => _answers[c.id] == true)
         .map((c) => c.label)

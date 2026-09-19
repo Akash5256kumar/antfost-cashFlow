@@ -42,52 +42,63 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.lg(context),
-            0,
-            AppSpacing.lg(context),
-            AppSpacing.xxl(context),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: context.scaledV(12)),
-              Text(
-                'How will you use ANTFAST?',
-                style: AppTextStyles.authScreenTitle(context),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg(context),
+                0,
+                AppSpacing.lg(context),
+                AppSpacing.xxl(context),
               ),
-              SizedBox(height: context.scaledV(4)),
-              Text(
-                'Choose one account type to continue.',
-                style: AppTextStyles.cardSubtitle(context),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: context.scaledV(12)),
+                      Text(
+                        'How will you use ANTFAST?',
+                        style: AppTextStyles.authScreenTitle(context),
+                      ),
+                      SizedBox(height: context.scaledV(4)),
+                      Text(
+                        'Choose one account type to continue.',
+                        style: AppTextStyles.cardSubtitle(context),
+                      ),
+                      SizedBox(height: context.scaledV(24)),
+                      _OptionCard(
+                        iconWidget: const _BusinessCardIcon(),
+                        title: 'Business',
+                        description: 'For companies with industrial licences.',
+                        selected: _selected == _AccountKind.business,
+                        onTap: () => setState(() => _selected = _AccountKind.business),
+                      ),
+                      SizedBox(height: context.scaledV(16)),
+                      _OptionCard(
+                        iconWidget: const _IndividualCardIcon(),
+                        title: 'Individual',
+                        description: 'For personal use.',
+                        selected: _selected == _AccountKind.individual,
+                        onTap: () =>
+                            setState(() => _selected = _AccountKind.individual),
+                      ),
+                      const Spacer(),
+                      SizedBox(height: context.scaledV(24)),
+                      PrimaryButton(
+                        onPressed: _continue,
+                        arrow: true,
+                        label: 'Continue',
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              SizedBox(height: context.scaledV(24)),
-              _OptionCard(
-                iconWidget: const _BusinessCardIcon(),
-                title: 'Business',
-                description: 'For companies with industrial licences.',
-                selected: _selected == _AccountKind.business,
-                onTap: () => setState(() => _selected = _AccountKind.business),
-              ),
-              SizedBox(height: context.scaledV(16)),
-              _OptionCard(
-                iconWidget: const _IndividualCardIcon(),
-                title: 'Individual',
-                description: 'For personal use.',
-                selected: _selected == _AccountKind.individual,
-                onTap: () =>
-                    setState(() => _selected = _AccountKind.individual),
-              ),
-              const Spacer(),
-              SizedBox(height: context.scaledV(24)),
-              PrimaryButton(
-                onPressed: _continue,
-                arrow: true,
-                label: 'Continue',
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

@@ -4,7 +4,7 @@ import '../../app/config/app_assets.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
-import 'payment_screen.dart';
+import 'terms_conditions_screen.dart';
 import '../../app/di/injection.dart';
 import '../../core/services/order_api_service.dart';
 
@@ -25,6 +25,8 @@ class PriceBreakdownScreen extends StatefulWidget {
     this.totalAmount,
     this.nextRoute,
     this.orderId,
+    this.paymentResult,
+    this.paymentMethod,
   });
 
   final String projectName;
@@ -40,6 +42,8 @@ class PriceBreakdownScreen extends StatefulWidget {
   final double? totalAmount;
   final String? nextRoute;
   final String? orderId;
+  final Map<String, dynamic>? paymentResult;
+  final String? paymentMethod;
 
   double get _concreteCost => quantity * pricePerM3;
   double get _subtotal =>
@@ -58,7 +62,11 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.orderId != null) _loadPrice();
+    if (widget.paymentResult != null) {
+      _serverPrice = widget.paymentResult;
+    } else if (widget.orderId != null) {
+      _loadPrice();
+    }
   }
 
   Future<void> _loadPrice() async {
@@ -94,6 +102,11 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
   Widget build(BuildContext context) {
     final price = _serverPrice?['priceBreakdown'] as Map?;
     final serverTotal = (price?['total'] as num?)?.toDouble();
+    final tempControlFee =
+        (price?['temperatureControl'] as num?)?.toDouble() ?? 0.0;
+    final tempDetail = price?['temperature'] as Map?;
+    final tempLabel = tempDetail?['label'] as String?;
+
     final items = [
       (
         'Concrete',
@@ -108,6 +121,13 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
         (price?['technicianAnd6CubeMoulds'] as num?)?.toDouble() ??
             widget.serviceCharge,
       ),
+      if (tempControlFee > 0)
+        (
+          tempLabel != null && tempLabel.isNotEmpty
+              ? 'Temperature Control ($tempLabel)'
+              : 'Temperature Control',
+          tempControlFee,
+        ),
       (
         'Payment Method Charge',
         (price?['paymentMethodCharge'] as num?)?.toDouble() ??
@@ -442,31 +462,18 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Proceed to Payment Method Button
+                    // Primary Action Button
                     PrimaryButton(
                       arrow: true,
-                      label: 'Proceed to Payment',
-                      onPressed: _reviewed
-                          ? () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => PaymentScreen(
-                                    orderId: widget.orderId,
-                                    totalAmount:
-                                        serverTotal ?? widget._orderTotal,
-                                    quantity: widget.quantity,
-                                  ),
-                                ),
-                              );
-                            }
-                          : null,
+                      label: 'Continue to Terms',
+                      onPressed: _reviewed ? _onConfirmOrder : null,
                     ),
                     const SizedBox(height: 8),
 
-                    // Back to Order Review Button
+                    // Back Button
                     PrimaryButton(
                       variant: PrimaryButtonVariant.outline,
-                      label: 'Back to Order Review',
+                      label: 'Back to Payment Method',
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
                     SizedBox(height: MediaQuery.paddingOf(context).bottom + 12),
@@ -476,6 +483,24 @@ class _PriceBreakdownScreenState extends State<PriceBreakdownScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _onConfirmOrder() {
+    final serverTotal = _serverPrice != null
+        ? (_serverPrice!['pricing']?['total'] as num?)?.toDouble()
+        : null;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TermsConditionsScreen(
+          orderId: widget.orderId,
+          orderRef: widget.orderId ?? 'AF-2057',
+          totalAmount: serverTotal ?? widget._orderTotal,
+          quantity: widget.quantity,
+          paymentMethod: widget.paymentMethod,
+        ),
       ),
     );
   }

@@ -44,33 +44,20 @@ class NewCashOrderBloc extends Bloc<NewCashOrderEvent, NewCashOrderState> {
   ) async {
     emit(const NewCashOrderLoading());
 
-    // Fetch mix codes and projects in parallel.
-    final results = await Future.wait([
-      _getMixCodesUseCase(const NoParams()),
-      _getProjectsUseCase(const NoParams()),
-    ]);
+    // Fetch projects. Mix codes will be fetched later when a project is selected.
+    final projectsResult = await _getProjectsUseCase(const NoParams());
 
-    final mixCodesResult = results[0] as Either<Failure, List<MixCode>>;
-    final projectsResult = results[1] as Either<Failure, List<Project>>;
-
-    // If either call failed, emit error with the first failure message.
-    if (mixCodesResult.isLeft()) {
-      final failure = mixCodesResult.fold((f) => f, (_) => null)!;
-      emit(NewCashOrderError(failure.message));
-      return;
-    }
     if (projectsResult.isLeft()) {
       final failure = projectsResult.fold((f) => f, (_) => null)!;
       emit(NewCashOrderError(failure.message));
       return;
     }
 
-    final mixCodes = mixCodesResult.fold((_) => <MixCode>[], (list) => list);
     final projects = projectsResult.fold((_) => <Project>[], (list) => list);
 
     emit(
       NewCashOrderDataLoaded(
-        mixCodes: mixCodes,
+        mixCodes: const [],
         projects: projects,
       ),
     );

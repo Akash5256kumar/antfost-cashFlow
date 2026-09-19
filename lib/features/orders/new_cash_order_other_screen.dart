@@ -62,6 +62,8 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
 
   bool _temperature = false;
   bool _temperatureExpanded = false;
+  List<Map<String, dynamic>> _temperatureTypes = const [];
+  String? _selectedTemperatureId;
 
   bool _labTesting = false;
   bool _labTestingExpanded = false;
@@ -84,6 +86,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
       // Old drafts can contain 0 from before this rule existed.
       _cubeMoulds = saved.numMoulds < 6 ? 6 : saved.numMoulds;
       _temperature = saved.temperatureControl;
+      _selectedTemperatureId = saved.temperatureTypeId;
       _labTesting = saved.labTesting;
       _otherService = saved.otherService;
     }
@@ -96,6 +99,7 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
     });
     _loadStructureTypes();
     _loadPumpTypes();
+    _loadTemperatureTypes();
   }
 
   @override
@@ -198,6 +202,31 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
     }
   }
 
+  Future<void> _loadTemperatureTypes() async {
+    try {
+      final items = await sl<OrderApiService>().temperatureTypes(
+        locationId: widget.draft?.project?.locationId,
+        quantityM3: widget.quantity.toDouble(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _temperatureTypes = items;
+        if (items.isNotEmpty) {
+          if (_selectedTemperatureId == null ||
+              !items.any(
+                (it) => it['id']?.toString() == _selectedTemperatureId,
+              )) {
+            _selectedTemperatureId = items.first['id']?.toString();
+          }
+        } else {
+          _temperature = false;
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _temperatureTypes = const []);
+    }
+  }
+
   void _onContinue() {
     if (_technician && _cubeMoulds < 6) {
       showAppSnackBar(context, 'Cube mould quantity must be at least 6.');
@@ -214,6 +243,21 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
         ? 'No Pump'
         : '$_pumpType (${_pumpSizeFromM!.toStringAsFixed(0)}–${_pumpSizeUpToM!.toStringAsFixed(0)} m)';
 
+    final tempEnabled = _temperature && _temperatureTypes.isNotEmpty;
+    Map<String, dynamic>? selectedTemp;
+    if (tempEnabled && _temperatureTypes.isNotEmpty) {
+      selectedTemp = _temperatureTypes.firstWhere(
+        (item) => item['id']?.toString() == _selectedTemperatureId,
+        orElse: () => _temperatureTypes.first,
+      );
+    }
+    final tempTypeId =
+        selectedTemp != null ? selectedTemp['id']?.toString() : null;
+    final tempLabel =
+        selectedTemp != null ? selectedTemp['label']?.toString() : null;
+    final tempValue =
+        selectedTemp != null ? (selectedTemp['temp'] as num?) : null;
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => NewCashOrderSiteAccessScreen(
@@ -221,8 +265,8 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
           quantity: widget.quantity,
           structureRef: _structureRef,
           technicianRequired: _technician,
-          temperatureControl: _temperature,
-          temperature: null,
+          temperatureControl: tempEnabled,
+          temperature: tempValue?.toInt(),
           pumpRequired: _pump,
           pumpName: pumpName,
           cubeMould: _technician,
@@ -231,7 +275,10 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
             structureRef: _structureRef,
             structureTypeId: _structureIds[_structureRef],
             technicianRequired: _technician,
-            temperatureControl: _temperature,
+            temperatureControl: tempEnabled,
+            temperatureTypeId: tempTypeId,
+            temperatureLabel: tempLabel,
+            temperatureValue: tempValue,
             pumpRequired: _pump,
             pumpName: pumpName,
             pumpType: _pump ? _pumpType : null,
@@ -555,20 +602,52 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                     SizedBox(height: context.scaledV(14)),
 
                     // Temperature Control
-                    _ServiceCard(
-                      isSelected: _temperature,
-                      onToggleCheck: (v) => setState(() => _temperature = v),
-                      isExpanded: _temperatureExpanded,
-                      onToggleExpand: () => setState(
-                        () => _temperatureExpanded = !_temperatureExpanded,
+                    if (_temperatureTypes.isNotEmpty) ...[
+                      _ServiceCard(
+                        isSelected: _temperature,
+                        onToggleCheck: (v) => setState(() {
+                          _temperature = v;
+                          if (v) _temperatureExpanded = true;
+                        }),
+                        isExpanded: _temperatureExpanded,
+                        onToggleExpand: () => setState(
+                          () => _temperatureExpanded = !_temperatureExpanded,
+                        ),
+                        title: 'Temperature Control',
+                        subtitle: _temperature && _selectedTemperatureId != null
+                            ? (_temperatureTypes.firstWhere(
+                                (item) =>
+                                    item['id']?.toString() ==
+                                    _selectedTemperatureId,
+                                orElse: () => _temperatureTypes.first,
+                              )['label']?.toString() ??
+                              'Special temperature requirement')
+                            : 'Special temperature requirement',
+                        leading: const _ServiceIcon(
+                          icon: Icons.light_mode_outlined,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Select Temperature Option',
+                              style: TextStyle(
+                                fontSize: context.scaled(12.5),
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1F2533),
+                              ),
+                            ),
+                            SizedBox(height: context.scaledV(10)),
+                            for (final item in _temperatureTypes) ...[
+                              _buildTemperatureOptionTile(item),
+                              if (item != _temperatureTypes.last)
+                                SizedBox(height: context.scaledV(8)),
+                            ],
+                          ],
+                        ),
                       ),
-                      title: 'Temperature Control',
-                      subtitle: 'Special temperature requirement',
-                      leading: const _ServiceIcon(
-                        icon: Icons.light_mode_outlined,
-                      ),
-                    ),
-                    SizedBox(height: context.scaledV(10)),
+                      SizedBox(height: context.scaledV(10)),
+                    ],
 
                     // Laboratory Testing
                     _ServiceCard(
@@ -610,6 +689,114 @@ class _NewCashOrderOtherScreenState extends State<NewCashOrderOtherScreen> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTemperatureOptionTile(Map<String, dynamic> item) {
+    final id = item['id']?.toString() ?? '';
+    final isSelected = _selectedTemperatureId == id;
+    final label = item['label']?.toString() ??
+        '${item['temp'] ?? ''} °${item['unit'] ?? 'C'}';
+    final description = item['description']?.toString();
+    final cost = item['estimatedCost'] != null
+        ? '${item['currency'] ?? 'AED'} ${item['estimatedCost']}'
+        : item['chargePerM3'] != null
+            ? '${item['currency'] ?? 'AED'} ${item['chargePerM3']}/m³'
+            : item['chargeFlat'] != null
+                ? '${item['currency'] ?? 'AED'} ${item['chargeFlat']}'
+                : null;
+
+    return InkWell(
+      onTap: () => setState(() => _selectedTemperatureId = id),
+      borderRadius: BorderRadius.circular(context.scaled(12)),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.scaled(14),
+          vertical: context.scaledV(12),
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.04)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(context.scaled(12)),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: context.scaled(18),
+              height: context.scaled(18),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primary
+                      : const Color(0xFFCBD5E1),
+                  width: isSelected ? 5.5 : 1.5,
+                ),
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: context.scaled(12)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: context.scaled(13),
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: const Color(0xFF1F2533),
+                    ),
+                  ),
+                  if (description != null &&
+                      description.isNotEmpty &&
+                      description != label) ...[
+                    SizedBox(height: context.scaledV(2)),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: context.scaled(11),
+                        color: kOrderTextGrey,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (cost != null) ...[
+              SizedBox(width: context.scaled(8)),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.scaled(8),
+                  vertical: context.scaledV(4),
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary.withValues(alpha: 0.1)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(context.scaled(6)),
+                ),
+                child: Text(
+                  cost,
+                  style: TextStyle(
+                    fontSize: context.scaled(11),
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? AppColors.primary
+                        : const Color(0xFF475569),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

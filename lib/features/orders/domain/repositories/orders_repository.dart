@@ -16,7 +16,16 @@ abstract class OrdersRepository {
   Future<Either<Failure, Order>> getOrderDetails(String orderId);
 
   /// Returns the catalogue of available concrete mix codes.
-  Future<Either<Failure, List<MixCode>>> getMixCodes();
+  Future<Either<Failure, List<MixCode>>> getMixCodes(String projectId, String locationId);
+
+  /// Returns the available delivery time slots.
+  Future<Either<Failure, List<Map<String, dynamic>>>> getTimeWindows({
+    required String projectId,
+    required String locationId,
+    required String mixCode,
+    required double quantityM3,
+    required String date,
+  });
 
   /// Returns the list of projects belonging to the authenticated user.
   Future<Either<Failure, List<Project>>> getProjects();

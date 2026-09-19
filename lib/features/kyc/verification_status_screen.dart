@@ -98,16 +98,22 @@ class _VerificationStatusBody extends StatelessWidget {
         status.status == KycVerificationStatus.pending ||
         status.status == KycVerificationStatus.approved ||
         status.status == KycVerificationStatus.notRequired;
+    final canPop = Navigator.of(context).canPop();
+
     void handlePrimaryAction() {
       if (returnsHome) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRoutes.home,
-          (route) => false,
-          arguments: HomeRouteArgs(
-            verificationUnderReview:
-                status.status == KycVerificationStatus.pending,
-          ),
-        );
+        if (canPop) {
+          Navigator.of(context).pop();
+        } else {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRoutes.home,
+            (route) => false,
+            arguments: HomeRouteArgs(
+              verificationUnderReview:
+                  status.status == KycVerificationStatus.pending,
+            ),
+          );
+        }
         return;
       }
       Navigator.of(context).pushNamedAndRemoveUntil(
@@ -180,7 +186,7 @@ class _VerificationStatusBody extends StatelessWidget {
           const Spacer(),
           PrimaryButton(
             label: returnsHome
-                ? 'Back to Home'
+                ? 'Proceed'
                 : status.status == KycVerificationStatus.rejected
                 ? 'Update verification'
                 : 'Continue verification',

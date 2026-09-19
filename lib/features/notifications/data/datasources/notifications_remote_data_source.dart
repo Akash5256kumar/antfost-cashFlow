@@ -220,7 +220,7 @@ class ApiNotificationsRemoteDataSource
   Future<bool> markAsRead(String notificationId) => _request(() async {
     await _client.patch<Map<String, dynamic>>(
       '/notifications/$notificationId',
-      data: const {'read': true},
+      data: const {'isRead': true},
     );
     return true;
   });

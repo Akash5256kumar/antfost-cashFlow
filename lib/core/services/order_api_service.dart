@@ -117,6 +117,27 @@ class OrderApiService {
     return response.data!;
   });
 
+  Future<List<Map<String, dynamic>>> temperatureTypes({
+    String? locationId,
+    double? quantityM3,
+  }) =>
+      _request(() async {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/temperature-types',
+          queryParameters: {
+            if (locationId != null && locationId.isNotEmpty)
+              'locationId': locationId,
+            if (quantityM3 != null && quantityM3 > 0)
+              'quantityM3': quantityM3,
+          },
+        );
+        final items = response.data?['items'];
+        if (items is! List) {
+          throw const ServerException('Temperature types response is invalid.');
+        }
+        return items.whereType<Map>().map(Map<String, dynamic>.from).toList();
+      });
+
   /// Reserves an upload URL, uploads bytes, and returns the one-time file ID
   /// which must be attached to the order payload.
   Future<String> uploadSiteAccessFile({

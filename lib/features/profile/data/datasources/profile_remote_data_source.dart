@@ -1,5 +1,6 @@
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/services/api_client.dart';
+import '../../../../core/services/app_demo_service.dart';
 import 'package:dio/dio.dart';
 import '../../domain/entities/user_profile.dart';
 import '../models/user_profile_model.dart';
@@ -51,12 +52,24 @@ class MockProfileRemoteDataSource implements ProfileRemoteDataSource {
 class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
   ApiProfileRemoteDataSource(this._client);
   final ApiClient _client;
+  final MockProfileRemoteDataSource _mockFallback = MockProfileRemoteDataSource();
+
   @override
   Future<UserProfileModel> getProfile() => _request(() async {
-    final response = await _client.get<Map<String, dynamic>>('/me');
-    if (response.data == null)
-      throw const ServerException('Profile response is invalid.');
-    return UserProfileModel.fromJson(response.data!);
+    if (AppDemoService.isDemoMode) {
+      return _mockFallback.getProfile();
+    }
+    try {
+      final response = await _client.get<Map<String, dynamic>>('/me');
+      if (response.data == null)
+        throw const ServerException('Profile response is invalid.');
+      return UserProfileModel.fromJson(response.data!);
+    } catch (_) {
+      if (AppDemoService.isDemoMode) {
+        return _mockFallback.getProfile();
+      }
+      rethrow;
+    }
   });
   @override
   Future<bool> updateProfile(UserProfileModel profile) => _request(() async {

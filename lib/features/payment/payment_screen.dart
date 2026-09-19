@@ -8,8 +8,7 @@ import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/app_outline_button.dart';
 import '../../core/utils/route_feedback.dart';
-import 'cash_payment_pending_screen.dart';
-import 'split_wallet_payment_screen.dart';
+import 'price_breakdown_screen.dart';
 import '../../app/di/injection.dart';
 import '../../core/services/payment_api_service.dart';
 
@@ -39,12 +38,16 @@ class PaymentScreen extends StatefulWidget {
     this.orderId,
     this.orderRef = 'AF-2057',
     this.quantity = 120,
+    this.mixCode,
+    this.projectName,
   });
 
   final double totalAmount;
   final String? orderId;
   final String orderRef;
   final int quantity;
+  final String? mixCode;
+  final String? projectName;
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -52,7 +55,6 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   _PayMethodId _selected = _PayMethodId.card;
-  bool _submitting = false;
   bool _loadingMethods = true;
   String? _paymentBlockedMessage;
   List<_PayMethodSpec> _methods = const [];
@@ -154,67 +156,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _showBlockedDialog(_paymentBlockedMessage!);
       return;
     }
-    if (widget.orderId == null || widget.orderId!.isEmpty) {
-      _showError('Payment requires a server order ID.');
-      return;
-    }
-    setState(() => _submitting = true);
-    try {
-      final method = switch (_selected) {
-        _PayMethodId.card => 'card',
-        _PayMethodId.wallet => 'wallet',
-        _PayMethodId.bank => 'bankTransfer',
-        _PayMethodId.cash => 'cash',
-      };
-      final selectedTotal = _selectedMethod?.total ?? widget.totalAmount;
-      final result = await sl<PaymentApiService>().initiate(
-        orderId: widget.orderId!,
-        method: method,
-        walletAmount: _selected == _PayMethodId.wallet ? selectedTotal : null,
-        termsAccepted: true,
-      );
-      final payment = Map<String, dynamic>.from(result['payment'] as Map);
-      final action = result['nextAction'] as Map?;
-      if (!mounted) return;
-      if (action?['type'] == 'redirect' || action?['type'] == 'payment_link') {
-        _showError(
-          'Payment provider redirect is required. Provider URL: ${action?['url'] ?? ''}',
-        );
-        return;
-      }
-      if (payment['status'] == 'success') {
-        Navigator.of(context).pushNamed(AppRoutes.paymentSuccess);
-        return;
-      }
-      if (_selected == _PayMethodId.bank) {
-        Navigator.of(context).pushNamed(
-          AppRoutes.uploadPaymentProof,
-          arguments: payment['id'].toString(),
-        );
-        return;
-      }
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const CashPaymentPendingScreen()),
-      );
-    } on InsufficientWalletBalanceException catch (error) {
-      if (!mounted) return;
-      final wallet = error.data['wallet'];
-      final balance = wallet is Map
-          ? (wallet['availableBalance'] as num?)?.toDouble() ?? 0
-          : 0.0;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SplitWalletPaymentScreen(
-            totalAmount: widget.totalAmount,
-            walletBalance: balance,
-          ),
+    final method = switch (_selected) {
+      _PayMethodId.card => 'card',
+      _PayMethodId.wallet => 'wallet',
+      _PayMethodId.bank => 'bankTransfer',
+      _PayMethodId.cash => 'cash',
+    };
+    final selectedTotal = _selectedMethod?.total ?? widget.totalAmount;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PriceBreakdownScreen(
+          orderId: widget.orderId,
+          projectName: widget.projectName ?? 'Palm Jumeirah Villa',
+          mixCode: widget.mixCode ?? 'C30/37',
+          quantity: widget.quantity,
+          totalAmount: selectedTotal,
+          paymentMethod: method,
         ),
-      );
-    } catch (error) {
-      _showError(error.toString().replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+      ),
+    );
   }
 
   void _showError(String message) => showAppSnackBar(context, message);
@@ -522,21 +483,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           PrimaryButton(
-                            label: 'Continue',
+                            label: 'Continue to Price Breakdown',
                             arrow: true,
-                            onPressed:
-                                _loadingMethods ||
-                                    _methods.isEmpty ||
-                                    _submitting
+                            onPressed: _loadingMethods || _methods.isEmpty
                                 ? null
                                 : _continue,
                           ),
                           SizedBox(height: context.scaledV(12)),
                           AppOutlineButton(
-                            label: 'Back to Price Breakdown',
+                            label: 'Back to Order Review',
                             onPressed: () => Navigator.of(
                               context,
-                            ).pop(), // Or whatever logic
+                            ).pop(),
                           ),
                         ],
                       ),

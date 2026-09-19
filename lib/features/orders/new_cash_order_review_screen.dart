@@ -6,7 +6,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../core/widgets/app_headers.dart';
 import '../../core/widgets/primary_button.dart';
-import '../payment/price_breakdown_screen.dart';
+import '../payment/payment_screen.dart';
 import '../payment/payment_success_screen.dart';
 import 'order_saved_screen.dart';
 import 'new_cash_order_mix_code_screen.dart';
@@ -142,16 +142,6 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
       _showError('Choose an available pump type and size range.');
       return;
     }
-    if (draft.siteAccessRequirements.contains('Narrow Access') &&
-        draft.accessPhoto == null) {
-      _showError('Upload an access photo for Narrow Access.');
-      return;
-    }
-    if (draft.siteAccessRequirements.contains('Road Permit Required') &&
-        draft.roadPermit == null) {
-      _showError('Upload the road permit document.');
-      return;
-    }
     setState(() => _submitting = true);
     try {
       final narrowAccessRequired = draft.siteAccessRequirements.contains(
@@ -161,13 +151,13 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
         'Road Permit Required',
       );
       final orderApi = sl<OrderApiService>();
-      final narrowAccessFileId = narrowAccessRequired
+      final narrowAccessFileId = (narrowAccessRequired && draft.accessPhoto != null)
           ? await orderApi.uploadSiteAccessFile(
               document: draft.accessPhoto!,
               purpose: 'narrow_access_image',
             )
           : null;
-      final roadPermitFileId = roadPermitRequired
+      final roadPermitFileId = (roadPermitRequired && draft.roadPermit != null)
           ? await orderApi.uploadSiteAccessFile(
               document: draft.roadPermit!,
               purpose: 'road_permit_document',
@@ -182,7 +172,7 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
           'date': draft.scheduledDate!.toIso8601String().substring(0, 10),
           'timeWindowId': draft.timeWindowId,
           'requestedIntervalMinutes': draft.intervalMinutes,
-          if (draft.scheduleNotes.isNotEmpty) 'notes': draft.scheduleNotes,
+          'notes': draft.scheduleNotes,
         },
         'structureTypeId': draft.structureTypeId,
         'services': {
@@ -197,11 +187,16 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
             'required': draft.technicianRequired,
             'cubeMouldQuantity': draft.numMoulds,
           },
-          'temperatureControl': draft.temperatureControl,
+          'temperatureControl': {
+            'required': draft.temperatureControl,
+            if (draft.temperatureControl && draft.temperatureTypeId != null)
+              'typeId': draft.temperatureTypeId,
+          },
           'laboratoryTesting': draft.labTesting,
           'otherApprovedService': draft.otherService,
         },
         'siteAccess': {
+          'confirmed': true,
           'narrowAccess': {
             'required': narrowAccessRequired,
             'fileId': narrowAccessFileId,
@@ -213,21 +208,27 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
           'nightPour': draft.siteAccessRequirements.contains(
             'Night Delivery Access',
           ),
+          'notes': draft.siteAccessNotes?.trim() ?? '',
           'boomReachRestriction': draft.siteAccessRequirements.contains(
             'Boom Reach Restriction',
           ),
-          if (draft.siteAccessNotes?.trim().isNotEmpty == true)
-            'notes': draft.siteAccessNotes!.trim(),
-          'confirmed': true,
         },
       });
       if (!mounted) return;
+      final subtotal = draft.mixCode!.pricePerM3 * draft.quantity.toDouble();
+      final pumpFee = draft.pumpRequired ? 600.0 : 0.0;
+      final total = (subtotal + pumpFee) * 1.05;
+
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => PriceBreakdownScreen(
+          builder: (_) => PaymentScreen(
             orderId: order['orderId'].toString(),
-            mixCode: draft.mixCode!.code,
+            orderRef: order['orderReference']?.toString() ??
+                'AF-${order['orderId']}',
+            totalAmount: total,
             quantity: draft.quantity,
+            mixCode: draft.mixCode!.code,
+            projectName: project.projectName,
           ),
         ),
       );
@@ -288,7 +289,10 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
       if (technicianRequired) 'Technician',
       if (numMoulds > 0) '$numMoulds cube moulds',
       if (draft?.temperatureControl ?? widget.temperatureControl)
-        'Temperature control',
+        (draft?.temperatureLabel != null &&
+                draft!.temperatureLabel!.isNotEmpty)
+            ? 'Temperature control (${draft.temperatureLabel})'
+            : 'Temperature control',
       if (draft?.labTesting ?? false) 'Laboratory testing',
       if (draft?.otherService ?? false) 'Other service',
     ];
@@ -601,7 +605,7 @@ class _NewCashOrderReviewScreenState extends State<NewCashOrderReviewScreen> {
                                   quantity;
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => PriceBreakdownScreen(
+                                  builder: (_) => PaymentScreen(
                                     mixCode: mixCode.code,
                                     quantity: quantity,
                                     totalAmount: total,

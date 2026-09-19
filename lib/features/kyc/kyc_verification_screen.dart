@@ -40,9 +40,24 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
   final Map<String, SelectedDocument> _documents = {};
   bool _submitting = false;
 
+  bool get _isFormReady {
+    if (_legalNameController.text.trim().isEmpty ||
+        _registrationNumberController.text.trim().isEmpty) {
+      return false;
+    }
+    final requiredDocuments = _docSpecs.where((doc) => !doc.optional);
+    return requiredDocuments.every((doc) => _documents.containsKey(doc.id));
+  }
+
+  void _onFieldChanged() {
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    _legalNameController.addListener(_onFieldChanged);
+    _registrationNumberController.addListener(_onFieldChanged);
     // The login response asked the customer to complete KYC. Load the latest
     // server state immediately, including any document status from an earlier
     // attempt, instead of treating this page as a local-only form.
@@ -52,6 +67,8 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
 
   @override
   void dispose() {
+    _legalNameController.removeListener(_onFieldChanged);
+    _registrationNumberController.removeListener(_onFieldChanged);
     _legalNameController.dispose();
     _registrationNumberController.dispose();
     super.dispose();
@@ -420,7 +437,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                 ),
                 SizedBox(height: context.scaledV(18)),
                 PrimaryButton(
-                  onPressed: _submitting ? null : _submitKyc,
+                  onPressed: (_submitting || !_isFormReady) ? null : _submitKyc,
                   isLoading: _submitting,
                   arrow: true,
                   label: 'Submit for Verification',

@@ -125,6 +125,26 @@ class CreatedProjectLocation extends ProjectLocationPayload {
   final String id;
 }
 
+class ProjectType {
+  ProjectType({
+    required this.id,
+    required this.value,
+    required this.name,
+  });
+
+  final String id;
+  final String value;
+  final String name;
+
+  factory ProjectType.fromJson(Map<String, dynamic> json) {
+    return ProjectType(
+      id: json['id'] as String? ?? '',
+      value: json['value'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+    );
+  }
+}
+
 class ProjectLocationApiService {
   ProjectLocationApiService(this._client);
   final ApiClient _client;
@@ -139,6 +159,25 @@ class ProjectLocationApiService {
           throw const ServerException('Project details response is invalid.');
         return response.data!;
       });
+
+  List<ProjectType>? _cachedProjectTypes;
+
+  List<ProjectType>? get cachedProjectTypes => _cachedProjectTypes;
+
+  Future<List<ProjectType>> getProjectTypes({bool forceRefresh = false}) async {
+    if (_cachedProjectTypes != null && !forceRefresh) {
+      return _cachedProjectTypes!;
+    }
+    return _request(() async {
+      final response = await _client.get<Map<String, dynamic>>('/project-types');
+      final items = response.data?['items'];
+      if (items is! List) {
+        throw const ServerException('Project types response is invalid.');
+      }
+      _cachedProjectTypes = items.whereType<Map>().map((item) => ProjectType.fromJson(Map<String, dynamic>.from(item))).toList();
+      return _cachedProjectTypes!;
+    });
+  }
 
   Future<CreatedProject> createProject({
     required String name,
@@ -193,6 +232,25 @@ class ProjectLocationApiService {
     if (data == null)
       throw const ServerException('Location creation response is invalid.');
     return SavedLocation.fromJson(data);
+  });
+
+  Future<SavedLocation> updateLocation({
+    required String locationId,
+    required ProjectLocationPayload location,
+  }) => _request(() async {
+    final response = await _client.put<Map<String, dynamic>>(
+      '/locations/$locationId',
+      data: location.toJson(),
+    );
+    final data = response.data;
+    if (data == null) {
+      throw const ServerException('Location update response is invalid.');
+    }
+    return SavedLocation.fromJson(data);
+  });
+
+  Future<void> deleteLocation(String locationId) => _request(() async {
+    await _client.delete('/locations/$locationId');
   });
 
   Future<T> _request<T>(Future<T> Function() request) async {

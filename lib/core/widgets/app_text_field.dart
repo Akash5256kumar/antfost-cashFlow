@@ -30,6 +30,7 @@ class AppTextField extends StatefulWidget {
   /// whole input row for the phone-number layout.
   final IconData? leadingIcon;
   final Widget? leadingWidget;
+  final Widget? prefixIconWidget;
 
   final Widget? trailingIcon;
   final bool labelOutside;
@@ -52,6 +53,7 @@ class AppTextField extends StatefulWidget {
     this.textInputAction,
     this.leadingIcon,
     this.leadingWidget,
+    this.prefixIconWidget,
     this.trailingIcon,
     this.labelOutside = true,
   });
@@ -178,26 +180,30 @@ class _AppTextFieldState extends State<AppTextField> {
                       contentPadding: EdgeInsets.symmetric(
                         vertical: context.scaled(10),
                       ),
-                      prefixIcon: widget.leadingWidget == null
-                          ? (widget.leadingIcon == null
-                                ? null
-                                : Icon(
-                                    widget.leadingIcon,
-                                    size: context.scaled(20),
-                                    color: _active
-                                        ? AppColors.primary
-                                        : AppColors.iconMuted,
-                                  ))
-                          : UnconstrainedBox(
-                              child: SizedBox(
-                                width: context.scaled(28),
-                                height: context.scaled(24),
-                                child: Center(child: widget.leadingWidget),
-                              ),
+                      prefixIcon: widget.prefixIconWidget != null
+                          ? widget.prefixIconWidget
+                          : (widget.leadingWidget == null
+                              ? (widget.leadingIcon == null
+                                    ? null
+                                    : Icon(
+                                        widget.leadingIcon,
+                                        size: context.scaled(20),
+                                        color: _active
+                                            ? AppColors.primary
+                                            : AppColors.iconMuted,
+                                      ))
+                              : UnconstrainedBox(
+                                  child: SizedBox(
+                                    width: context.scaled(28),
+                                    height: context.scaled(24),
+                                    child: Center(child: widget.leadingWidget),
+                                  ),
+                                )),
+                      prefixIconConstraints: widget.prefixIconWidget != null
+                          ? const BoxConstraints()
+                          : BoxConstraints(
+                              minWidth: context.scaled(32),
                             ),
-                      prefixIconConstraints: BoxConstraints(
-                        minWidth: context.scaled(32),
-                      ),
                       suffixIcon: widget.obscureText
                           ? GestureDetector(
                               onTap: () => setState(() => _hidden = !_hidden),

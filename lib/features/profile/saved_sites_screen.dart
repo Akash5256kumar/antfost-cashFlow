@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 
 import '../../app/navigation/app_routes.dart';
+import '../../app/navigation/app_route_args.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_scale.dart';
 import '../../app/theme/app_text_styles.dart';
@@ -240,13 +241,77 @@ class _SavedSitesScreenState extends State<SavedSitesScreen> {
     );
   }
 
-  void _deleteSite(String id) {
-    setState(() {
-      _sites.removeWhere((s) => s.id == id);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Site removed from saved sites')),
+  Future<void> _deleteSite(String id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Location'),
+        content: const Text(
+          'Are you sure you want to delete this location? '
+          'Active orders will keep showing where they were delivered.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
+
+    if (confirm != true) return;
+
+    try {
+      await sl<ProjectLocationApiService>().deleteLocation(id);
+      if (mounted) {
+        setState(() => _sitesFuture = _loadSites());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Site removed from saved sites')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _editSite(String id) async {
+    final site = _sites.firstWhere((s) => s.id == id);
+    
+    // We need to reconstruct a SavedLocation object from _SiteItem
+    final savedLocation = SavedLocation(
+      id: site.id,
+      projectId: site.projectId,
+      name: site.name,
+      address: site.location,
+      latitude: site.latitude,
+      longitude: site.longitude,
+      contactName: site.contactPerson,
+      contactPhone: site.contactPhone,
+      isDefault: site.isDefault,
+      activeOrdersCount: site.activeOrdersCount,
+      projectName: site.subtitle,
+      imageUrl: site.imageUrl,
+    );
+
+    final result = await Navigator.of(context).pushNamed(
+      AppRoutes.addLocation,
+      arguments: AddLocationRouteArgs(
+        projectId: site.projectId,
+        initialLocation: savedLocation,
+      ),
+    );
+
+    if (result == true && mounted) {
+      setState(() => _sitesFuture = _loadSites());
+    }
   }
 
   @override
@@ -286,6 +351,19 @@ class _SavedSitesScreenState extends State<SavedSitesScreen> {
           ..clear()
           ..addAll(snapshot.data ?? const []);
         final filtered = _filteredSites;
+
+        if (!widget.pickForOrder && !widget.pickForProject) {
+          return _ManagementView(
+            sites: filtered,
+            searchController: _searchController,
+            onSearchChanged: (_) => setState(() {}),
+            onAddNewProject: _handleAddNewProject,
+            onSetDefault: _setDefaultSite,
+            onDelete: _deleteSite,
+            onEdit: _editSite,
+          );
+        }
+
         return _PickerView(
           sites: filtered,
           selectedIndex: _selectedIndex,
@@ -342,6 +420,7 @@ class _ManagementView extends StatelessWidget {
     required this.onAddNewProject,
     required this.onSetDefault,
     required this.onDelete,
+    required this.onEdit,
   });
 
   final List<_SiteItem> sites;
@@ -350,6 +429,7 @@ class _ManagementView extends StatelessWidget {
   final VoidCallback onAddNewProject;
   final ValueChanged<String> onSetDefault;
   final ValueChanged<String> onDelete;
+  final ValueChanged<String> onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -474,27 +554,6 @@ class _ManagementView extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                  if (site.isDefault)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primaryContainer,
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        'Default',
-                                        style: TextStyle(
-                                          fontSize: context.scaled(10.5),
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               ),
                               Text(
@@ -512,18 +571,17 @@ class _ManagementView extends StatelessWidget {
                             color: AppColors.iconMuted,
                           ),
                           onSelected: (v) {
-                            if (v == 'default') onSetDefault(site.id);
+                            if (v == 'edit') onEdit(site.id);
                             if (v == 'delete') onDelete(site.id);
                           },
                           itemBuilder: (_) => [
-                            if (!site.isDefault)
-                              const PopupMenuItem(
-                                value: 'default',
-                                child: Text('Set as Default'),
-                              ),
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit'),
+                            ),
                             const PopupMenuItem(
                               value: 'delete',
-                              child: Text('Delete'),
+                              child: Text('Delete', style: TextStyle(color: Colors.red)),
                             ),
                           ],
                         ),
